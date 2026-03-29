@@ -679,6 +679,8 @@ class ChatViewModel: ObservableObject {
     func sendMessage(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
+        print("DEBUG: sendMessage called - trainingPlan: \(trainingPlan != nil), healthKit: \(healthKit != nil)")
+
         await MainActor.run {
             inputText = ""
             messages.append(ChatMessage(isUser: true, text: text))
@@ -740,8 +742,11 @@ class ChatViewModel: ObservableObject {
 
     private func getWorkoutHistoryForClaude() -> String {
         guard let healthKit = healthKit else {
+            print("DEBUG: healthKit is nil in getWorkoutHistoryForClaude")
             return "No workout history available"
         }
+
+        print("DEBUG: healthKit has \(healthKit.workouts.count) total workouts")
 
         let calendar = Calendar.current
         let fourWeeksAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
@@ -780,6 +785,7 @@ class ChatViewModel: ObservableObject {
         history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n\n"
         history += "COMPLIANCE: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts in last 4 weeks"
 
+        print("DEBUG: Workout history:\n\(history)")
         return history
     }
 }
@@ -790,7 +796,11 @@ struct ContentView: View {
     @StateObject private var chatViewModel = ChatViewModel()
 
     var body: some View {
-        TabView {
+        // Set managers on chatViewModel immediately so they're available when messages are sent
+        chatViewModel.trainingPlan = trainingPlan
+        chatViewModel.healthKit = healthKit
+
+        return TabView {
             HomeView()
                 .environmentObject(trainingPlan)
                 .tabItem {
@@ -1848,10 +1858,6 @@ struct ChatView: View {
                 .padding()
             }
             .navigationTitle("Training Coach")
-            .onAppear {
-                viewModel.trainingPlan = trainingPlan
-                viewModel.healthKit = healthKit
-            }
         }
     }
 }
