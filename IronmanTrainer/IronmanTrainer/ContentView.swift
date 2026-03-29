@@ -734,6 +734,7 @@ class ChatViewModel: ObservableObject {
             }
         }
 
+        print("DEBUG: ChatViewModel context being sent to Claude:\n\(context)")
         return context
     }
 
@@ -786,12 +787,10 @@ class ChatViewModel: ObservableObject {
 struct ContentView: View {
     @StateObject private var trainingPlan = TrainingPlanManager()
     @EnvironmentObject var healthKit: HealthKitManager
-    @StateObject private var chatViewModel: ChatViewModel
+    @StateObject private var chatViewModel = ChatViewModel()
 
-    init() {
-        let vm = ChatViewModel()
-        _chatViewModel = StateObject(wrappedValue: vm)
-    }
+    var body: some View {
+        TabView {
 
     var body: some View {
         TabView {
@@ -810,10 +809,6 @@ struct ContentView: View {
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
-                .onAppear {
-                    chatViewModel.trainingPlan = trainingPlan
-                    chatViewModel.healthKit = healthKit
-                }
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
