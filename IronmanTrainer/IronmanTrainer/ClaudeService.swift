@@ -26,8 +26,6 @@ class ClaudeService: NSObject, ObservableObject {
     func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String) async throws -> String {
         let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory)
 
-        logger.debug("System prompt:\n\(systemPrompt)")
-
         let requestBody: [String: Any] = [
             "model": model,
             "max_tokens": 1024,

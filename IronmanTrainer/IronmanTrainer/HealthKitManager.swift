@@ -60,8 +60,6 @@ class HealthKitManager: NSObject, ObservableObject {
     }
 
     func syncWorkouts() async {
-        print("DEBUG: syncWorkouts called - isAuthorized: \(isAuthorized)")
-
         await MainActor.run {
             isSyncing = true
             syncError = nil
@@ -75,10 +73,8 @@ class HealthKitManager: NSObject, ObservableObject {
 
         // Request authorization if not already authorized
         if !isAuthorized {
-            print("DEBUG: Not authorized, requesting authorization")
             await requestAuthorization()
             if !isAuthorized {
-                print("DEBUG: Authorization request failed")
                 await MainActor.run {
                     syncError = "HealthKit permission denied"
                 }
@@ -96,22 +92,13 @@ class HealthKitManager: NSObject, ObservableObject {
         ) { _, results, error in
             DispatchQueue.main.async {
                 if let error = error {
-                    print("DEBUG: HealthKit query error: \(error.localizedDescription)")
                     self.syncError = "Failed to fetch workouts: \(error.localizedDescription)"
                     return
                 }
 
                 if let workouts = results as? [HKWorkout] {
-                    print("DEBUG: HealthKit returned \(workouts.count) workouts")
-                    for workout in workouts {
-                        let formatter = DateFormatter()
-                        formatter.dateFormat = "MMM d, yyyy HH:mm"
-                        print("DEBUG:   - \(workout.workoutActivityType.name) on \(formatter.string(from: workout.startDate)) (\(Int(workout.duration)) sec)")
-                    }
                     self.workouts = workouts
                     self.syncError = nil
-                } else {
-                    print("DEBUG: No workouts found in results")
                 }
             }
         }

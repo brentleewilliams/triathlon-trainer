@@ -10,7 +10,6 @@ struct IronmanTrainerApp: App {
             ContentView()
                 .environmentObject(healthKitManager)
                 .onAppear {
-                    print("DEBUG: IronmanTrainerApp onAppear - syncing HealthKit workouts")
                     Task {
                         await healthKitManager.syncWorkouts()
                     }
@@ -18,7 +17,6 @@ struct IronmanTrainerApp: App {
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
             if newPhase == .active {
-                print("DEBUG: App became active, syncing HealthKit workouts")
                 Task {
                     await healthKitManager.syncWorkouts()
                 }

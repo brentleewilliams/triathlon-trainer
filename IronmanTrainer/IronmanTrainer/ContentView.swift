@@ -679,8 +679,6 @@ class ChatViewModel: ObservableObject {
     func sendMessage(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
-        print("DEBUG: sendMessage called - trainingPlan: \(trainingPlan != nil), healthKit: \(healthKit != nil)")
-
         await MainActor.run {
             inputText = ""
             messages.append(ChatMessage(isUser: true, text: text))
@@ -736,24 +734,19 @@ class ChatViewModel: ObservableObject {
             }
         }
 
-        print("DEBUG: ChatViewModel context being sent to Claude:\n\(context)")
         return context
     }
 
     private func getWorkoutHistoryForClaude() -> String {
         guard let healthKit = healthKit else {
-            print("DEBUG: healthKit is nil in getWorkoutHistoryForClaude")
             return "No workout history available"
         }
-
-        print("DEBUG: healthKit has \(healthKit.workouts.count) total workouts")
 
         let calendar = Calendar.current
         let fourWeeksAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
 
         let formatter = DateFormatter()
         formatter.dateFormat = "MMM d, yyyy"
-        print("DEBUG: Filtering workouts from \(formatter.string(from: fourWeeksAgo)) to now")
 
         var swimCount = 0
         var bikeCount = 0
@@ -763,26 +756,7 @@ class ChatViewModel: ObservableObject {
         var totalRunMinutes = 0.0
 
         for workout in healthKit.workouts {
-            let workoutTypeStr: String
-            switch workout.workoutActivityType {
-            case .swimming:
-                workoutTypeStr = "Swimming"
-            case .cycling:
-                workoutTypeStr = "Cycling"
-            case .running:
-                workoutTypeStr = "Running"
-            default:
-                workoutTypeStr = "Other"
-            }
-            let workoutDate = formatter.string(from: workout.startDate)
-            let durationMins = Int(workout.duration / 60)
-
-            print("DEBUG: Workout - \(workoutTypeStr) on \(workoutDate) (\(durationMins) min)")
-
-            guard workout.startDate >= fourWeeksAgo else {
-                print("DEBUG:   -> FILTERED OUT (older than 4 weeks)")
-                continue
-            }
+            guard workout.startDate >= fourWeeksAgo else { continue }
 
             let durationHours = workout.duration / 3600
             let durationMinutes = workout.duration / 60
@@ -791,17 +765,13 @@ class ChatViewModel: ObservableObject {
             case .swimming:
                 swimCount += 1
                 totalSwimYards += durationHours * 1800
-                print("DEBUG:   -> Added to swimming (\(swimCount) total)")
             case .cycling:
                 bikeCount += 1
                 totalBikeHours += durationHours
-                print("DEBUG:   -> Added to cycling (\(bikeCount) total)")
             case .running:
                 runCount += 1
                 totalRunMinutes += durationMinutes
-                print("DEBUG:   -> Added to running (\(runCount) total)")
             default:
-                print("DEBUG:   -> UNKNOWN TYPE, skipped")
                 break
             }
         }
@@ -854,7 +824,6 @@ class ChatViewModel: ObservableObject {
         history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n"
         history += "- TOTAL: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts"
 
-        print("DEBUG: Final workout history:\n\(history)")
         return history
     }
 }
