@@ -791,9 +791,6 @@ struct ContentView: View {
 
     var body: some View {
         TabView {
-
-    var body: some View {
-        TabView {
             HomeView()
                 .environmentObject(trainingPlan)
                 .tabItem {
