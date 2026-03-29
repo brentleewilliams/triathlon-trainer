@@ -806,11 +806,53 @@ class ChatViewModel: ObservableObject {
             }
         }
 
-        var history = "LAST 4 WEEKS COMPLETED WORKOUTS:\n"
+        // Build day-by-day breakdown for the past 4 weeks
+        var history = "LAST 4 WEEKS - DAY BY DAY BREAKDOWN:\n\n"
+
+        let recentWorkouts = healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }
+        let sortedWorkouts = recentWorkouts.sorted { $0.startDate > $1.startDate } // Most recent first
+
+        var currentDay: Date? = nil
+        for workout in sortedWorkouts {
+            let workoutDay = calendar.startOfDay(for: workout.startDate)
+
+            // Add day header if it's a new day
+            if currentDay == nil || currentDay != workoutDay {
+                currentDay = workoutDay
+                let dayFormatter = DateFormatter()
+                dayFormatter.dateFormat = "EEE, MMM d"
+                dayFormatter.timeZone = TimeZone.current
+                let dayStr = dayFormatter.string(from: workoutDay)
+                history += "\(dayStr):\n"
+            }
+
+            // Add workout details
+            let workoutTypeStr: String
+            switch workout.workoutActivityType {
+            case .swimming:
+                workoutTypeStr = "Swimming"
+            case .cycling:
+                workoutTypeStr = "Cycling"
+            case .running:
+                workoutTypeStr = "Running"
+            default:
+                workoutTypeStr = "Other"
+            }
+
+            let durationMins = Int(workout.duration / 60)
+            let timeFormatter = DateFormatter()
+            timeFormatter.dateFormat = "h:mm a"
+            timeFormatter.timeZone = TimeZone.current
+            let timeStr = timeFormatter.string(from: workout.startDate)
+
+            history += "  • \(workoutTypeStr) - \(durationMins) min at \(timeStr)\n"
+        }
+
+        history += "\nSUMMARY (LAST 4 WEEKS):\n"
         history += "- Swimming: \(swimCount) sessions (\(Int(totalSwimYards)) total yards)\n"
         history += "- Cycling: \(bikeCount) sessions (\(String(format: "%.1f", totalBikeHours)) total hours)\n"
-        history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n\n"
-        history += "COMPLIANCE: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts in last 4 weeks"
+        history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n"
+        history += "- TOTAL: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts"
 
         print("DEBUG: Final workout history:\n\(history)")
         return history
