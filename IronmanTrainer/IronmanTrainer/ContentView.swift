@@ -1101,6 +1101,12 @@ struct DayDetailView: View {
         return dayMap[day.day] ?? day.day
     }
 
+    var navTitle: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d"
+        return "\(dayName), \(formatter.string(from: getDateForDay()))"
+    }
+
     var matchingHealthKitWorkouts: [HKWorkout] {
         let workoutType = extractWorkoutType(from: day.type)
         let targetDate = getDateForDay()
@@ -1275,7 +1281,7 @@ struct DayDetailView: View {
                 }
                 .padding()
             }
-            .navigationTitle("\(dayName), \(day.day)")
+            .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
         }
     }
@@ -1334,6 +1340,7 @@ struct DayGroupsView: View {
                     )) {
                         DayRowView(
                             dayGroup: dayGroup,
+                            weekStartDate: week.startDate,
                             parent: parent
                         )
                     }
@@ -1353,6 +1360,7 @@ struct DayGroupsView: View {
 // MARK: - Day Row View
 struct DayRowView: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
+    let weekStartDate: Date
     let parent: HomeView
 
     var isRestDay: Bool {
@@ -1361,9 +1369,9 @@ struct DayRowView: View {
 
     var body: some View {
         if isRestDay {
-            RestDayRow(dayGroup: dayGroup, parent: parent)
+            RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
         } else {
-            WorkoutDayRows(dayGroup: dayGroup, parent: parent)
+            WorkoutDayRows(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
         }
     }
 }
@@ -1371,13 +1379,32 @@ struct DayRowView: View {
 // MARK: - Rest Day Row
 struct RestDayRow: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
+    let weekStartDate: Date
     let parent: HomeView
+
+    private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/d"
+        return f
+    }()
+
+    var dayDate: String {
+        let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        return Self.dateFormatter.string(from: date)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(dayGroup.day)
-                .fontWeight(.bold)
-                .frame(width: 40)
+            VStack(spacing: 0) {
+                Text(dayGroup.day)
+                    .fontWeight(.bold)
+                Text(dayDate)
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+            }
+            .frame(width: 40)
 
             HStack(spacing: 6) {
                 Text("🛌")
@@ -1408,15 +1435,39 @@ struct RestDayRow: View {
 // MARK: - Workout Day Rows
 struct WorkoutDayRows: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
+    let weekStartDate: Date
     let parent: HomeView
+
+    private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/d"
+        return f
+    }()
+
+    var dayDate: String {
+        let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        return Self.dateFormatter.string(from: date)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(dayGroup.workouts, id: \.duration) { workout in
                 HStack(spacing: 12) {
-                    Text(dayGroup.workouts.first == workout ? dayGroup.day : "")
-                        .fontWeight(.bold)
+                    if dayGroup.workouts.first == workout {
+                        VStack(spacing: 0) {
+                            Text(dayGroup.day)
+                                .fontWeight(.bold)
+                            Text(dayDate)
+                                .font(.caption2)
+                                .foregroundColor(.gray)
+                        }
                         .frame(width: 40)
+                    } else {
+                        Spacer()
+                            .frame(width: 40)
+                    }
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(workout.type)
