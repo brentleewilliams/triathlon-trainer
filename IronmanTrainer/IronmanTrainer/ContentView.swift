@@ -859,6 +859,7 @@ struct ContentView: View {
                 }
 
             PlanView()
+                .environmentObject(trainingPlan)
                 .tabItem {
                     Label("Plan", systemImage: "calendar")
                 }
@@ -1930,6 +1931,8 @@ struct ChatBubble: View {
 
 // MARK: - Plan View
 struct PlanView: View {
+    @EnvironmentObject var trainingPlan: TrainingPlanManager
+
     var body: some View {
         NavigationStack {
             VStack {
@@ -1940,7 +1943,7 @@ struct PlanView: View {
                 ScrollView {
                     VStack(spacing: 8) {
                         ForEach(1...17, id: \.self) { week in
-                            WeekCard(weekNumber: week)
+                            WeekCard(weekNumber: week, isCurrentWeek: week == trainingPlan.currentWeekNumber)
                         }
                     }
                     .padding()
@@ -1953,6 +1956,7 @@ struct PlanView: View {
 
 struct WeekCard: View {
     let weekNumber: Int
+    let isCurrentWeek: Bool
 
     var phase: String {
         switch weekNumber {
@@ -1990,7 +1994,7 @@ struct WeekCard: View {
 
             Spacer()
 
-            if weekNumber == 5 {
+            if isCurrentWeek {
                 Text("NOW")
                     .font(.caption)
                     .fontWeight(.bold)
@@ -2002,8 +2006,8 @@ struct WeekCard: View {
             }
         }
         .padding(12)
-        .background(weekNumber == 5 ? Color(.systemGray5) : Color(.systemBackground))
-        .border(weekNumber == 5 ? Color.green : Color.clear, width: weekNumber == 5 ? 2 : 0)
+        .background(isCurrentWeek ? Color(.systemGray5) : Color(.systemBackground))
+        .border(isCurrentWeek ? Color.green : Color.clear, width: isCurrentWeek ? 2 : 0)
         .cornerRadius(8)
     }
 }
