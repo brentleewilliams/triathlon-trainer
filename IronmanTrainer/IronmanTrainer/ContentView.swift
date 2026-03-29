@@ -763,11 +763,21 @@ class ChatViewModel: ObservableObject {
         var totalRunMinutes = 0.0
 
         for workout in healthKit.workouts {
-            let workoutType = workout.workoutActivityType.name
+            let workoutTypeStr: String
+            switch workout.workoutActivityType {
+            case .swimming:
+                workoutTypeStr = "Swimming"
+            case .cycling:
+                workoutTypeStr = "Cycling"
+            case .running:
+                workoutTypeStr = "Running"
+            default:
+                workoutTypeStr = "Other"
+            }
             let workoutDate = formatter.string(from: workout.startDate)
             let durationMins = Int(workout.duration / 60)
 
-            print("DEBUG: Workout - \(workoutType) on \(workoutDate) (\(durationMins) min)")
+            print("DEBUG: Workout - \(workoutTypeStr) on \(workoutDate) (\(durationMins) min)")
 
             guard workout.startDate >= fourWeeksAgo else {
                 print("DEBUG:   -> FILTERED OUT (older than 4 weeks)")
