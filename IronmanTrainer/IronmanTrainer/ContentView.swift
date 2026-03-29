@@ -713,7 +713,12 @@ class ChatViewModel: ObservableObject {
         formatter.dateFormat = "MMM d, yyyy"
         formatter.timeZone = TimeZone.current
 
-        var context = "TODAY'S DATE: \(formatter.string(from: Date()))\n\n"
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEEE"
+        dayFormatter.timeZone = TimeZone.current
+
+        let today = Date()
+        var context = "TODAY'S DATE: \(formatter.string(from: today)) (\(dayFormatter.string(from: today)))\n\n"
         context += "CURRENT WEEK PLAN:\n"
 
         if let week = currentWeek {
@@ -779,9 +784,14 @@ class ChatViewModel: ObservableObject {
 }
 
 struct ContentView: View {
-    @StateObject private var chatViewModel = ChatViewModel()
     @StateObject private var trainingPlan = TrainingPlanManager()
     @EnvironmentObject var healthKit: HealthKitManager
+    @StateObject private var chatViewModel: ChatViewModel
+
+    init() {
+        let vm = ChatViewModel()
+        _chatViewModel = StateObject(wrappedValue: vm)
+    }
 
     var body: some View {
         TabView {
@@ -800,6 +810,10 @@ struct ContentView: View {
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+                .onAppear {
+                    chatViewModel.trainingPlan = trainingPlan
+                    chatViewModel.healthKit = healthKit
+                }
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }

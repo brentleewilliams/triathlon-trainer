@@ -14,6 +14,8 @@ class ChatViewModel: ObservableObject {
     @Published var error: String?
 
     private let claudeService = ClaudeService.shared
+    var trainingPlan: TrainingPlanManager?
+    var healthKit: HealthKitManager?
 
     func sendMessage(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
@@ -43,31 +45,80 @@ class ChatViewModel: ObservableObject {
     }
 
     private func getContextForClaude() -> String {
-        """
-        CURRENT WEEK PLAN:
-        Week 5 (Apr 20): Build 1 Phase
-        - Monday: Rest
-        - Tuesday: Bike 1:15 Z4 intervals + Swim 2,200yd
-        - Wednesday: Run 50min Z2 + Strength 40min
-        - Thursday: Bike 1:00 Z2 + mini-brick 10min
-        - Friday: Swim 2,400yd
-        - Saturday: Bike 2:30 Z2 + Brick 25min (Gut: 50-60g carbs/hr)
-        - Sunday: Long Run 70min Z2
+        guard let plan = trainingPlan else {
+            return "No training plan available"
+        }
 
-        KEY FOCUS: Introducing Z4 bike intervals, extending weekend bricks, gut training starts.
-        """
+        let currentWeek = plan.getWeek(plan.currentWeekNumber) ?? plan.getWeek(1)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        formatter.timeZone = TimeZone.current
+
+        let dayFormatter = DateFormatter()
+        dayFormatter.dateFormat = "EEEE"
+        dayFormatter.timeZone = TimeZone.current
+
+        var context = "TODAY'S DATE: \(formatter.string(from: Date())) (\(dayFormatter.string(from: Date())))\n\n"
+        context += "CURRENT WEEK PLAN:\n"
+
+        if let week = currentWeek {
+            context += "Week \(week.weekNumber) (\(formatter.string(from: week.startDate)) - \(formatter.string(from: week.endDate))): \(week.phase)\n\n"
+
+            let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+            for day in dayOrder {
+                let dayWorkouts = week.workouts.filter { $0.day == day }
+                if !dayWorkouts.isEmpty {
+                    let workoutTexts = dayWorkouts.map { "\($0.type) (\($0.duration) • \($0.zone))" }.joined(separator: " + ")
+                    context += "- \(day): \(workoutTexts)\n"
+                }
+            }
+        }
+
+        return context
     }
 
     private func getWorkoutHistoryForClaude() -> String {
-        """
-        RECENT WORKOUTS (Last 4 Weeks):
-        - Consistent Z2 base building
-        - Swimming 2,000-2,400yd per session
-        - Bike 1:00-2:30 per session
-        - Running 40-60min per session
-        - Completing brick sessions (bike + run back-to-back)
+        guard let healthKit = healthKit else {
+            return "No workout history available"
+        }
 
-        No major injuries, shoulder tightness manageable with prehab.
-        """
+        let calendar = Calendar.current
+        let fourWeeksAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
+
+        var swimCount = 0
+        var bikeCount = 0
+        var runCount = 0
+        var totalSwimYards = 0.0
+        var totalBikeHours = 0.0
+        var totalRunMinutes = 0.0
+
+        for workout in healthKit.workouts {
+            guard workout.startDate >= fourWeeksAgo else { continue }
+
+            let durationHours = workout.duration / 3600
+            let durationMinutes = workout.duration / 60
+
+            switch workout.workoutActivityType {
+            case .swimming:
+                swimCount += 1
+                totalSwimYards += durationHours * 1800
+            case .cycling:
+                bikeCount += 1
+                totalBikeHours += durationHours
+            case .running:
+                runCount += 1
+                totalRunMinutes += durationMinutes
+            default:
+                break
+            }
+        }
+
+        var history = "LAST 4 WEEKS COMPLETED WORKOUTS:\n"
+        history += "- Swimming: \(swimCount) sessions (\(Int(totalSwimYards)) total yards)\n"
+        history += "- Cycling: \(bikeCount) sessions (\(String(format: "%.1f", totalBikeHours)) total hours)\n"
+        history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n\n"
+        history += "COMPLIANCE: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts in last 4 weeks"
+
+        return history
     }
 }
