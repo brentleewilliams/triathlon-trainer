@@ -5,3 +5,5 @@ __pycache__/
 *.pyc
 .env
 .env.local
+IronmanTrainer/IronmanTrainer/Config.plist
+IronmanTrainer/IronmanTrainer/Config.xcconfig

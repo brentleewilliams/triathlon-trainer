@@ -11,12 +11,14 @@ class ClaudeService: NSObject, ObservableObject {
     private let logger = Logger(subsystem: "com.ironmantrainer", category: "ClaudeService")
 
     override init() {
-        // Load API key from environment variables (set via Config.xcconfig)
-        if let key = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"], !key.isEmpty {
+        // Load API key from Config.plist
+        if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
+           let config = NSDictionary(contentsOfFile: configPath),
+           let key = config["ANTHROPIC_API_KEY"] as? String, !key.isEmpty {
             self.apiKey = key
         } else {
             self.apiKey = ""
-            logger.error("ANTHROPIC_API_KEY not found in environment. Set it in Config.xcconfig")
+            logger.error("ANTHROPIC_API_KEY not found in Config.plist. Copy Config.example.plist to Config.plist and add your API key.")
         }
         super.init()
     }

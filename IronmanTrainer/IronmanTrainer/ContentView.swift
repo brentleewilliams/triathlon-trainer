@@ -5,16 +5,20 @@ import HealthKit
 // MARK: - Secrets & Configuration
 struct Secrets {
     static let anthropicAPIKey: String = {
-        // Load from Config.xcconfig environment
-        if let key = ProcessInfo.processInfo.environment["ANTHROPIC_API_KEY"], !key.isEmpty {
+        // Load from Config.plist
+        if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
+           let config = NSDictionary(contentsOfFile: configPath),
+           let key = config["ANTHROPIC_API_KEY"] as? String, !key.isEmpty {
             return key
         }
         return ""
     }()
 
     static let langsmithAPIKey: String = {
-        // Load from Config.xcconfig environment
-        if let key = ProcessInfo.processInfo.environment["LANGSMITH_API_KEY"], !key.isEmpty {
+        // Load from Config.plist
+        if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
+           let config = NSDictionary(contentsOfFile: configPath),
+           let key = config["LANGSMITH_API_KEY"] as? String, !key.isEmpty {
             return key
         }
         return ""
