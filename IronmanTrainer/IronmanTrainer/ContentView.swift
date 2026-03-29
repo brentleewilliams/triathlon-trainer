@@ -751,6 +751,10 @@ class ChatViewModel: ObservableObject {
         let calendar = Calendar.current
         let fourWeeksAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
 
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        print("DEBUG: Filtering workouts from \(formatter.string(from: fourWeeksAgo)) to now")
+
         var swimCount = 0
         var bikeCount = 0
         var runCount = 0
@@ -759,7 +763,16 @@ class ChatViewModel: ObservableObject {
         var totalRunMinutes = 0.0
 
         for workout in healthKit.workouts {
-            guard workout.startDate >= fourWeeksAgo else { continue }
+            let workoutType = workout.workoutActivityType.name
+            let workoutDate = formatter.string(from: workout.startDate)
+            let durationMins = Int(workout.duration / 60)
+
+            print("DEBUG: Workout - \(workoutType) on \(workoutDate) (\(durationMins) min)")
+
+            guard workout.startDate >= fourWeeksAgo else {
+                print("DEBUG:   -> FILTERED OUT (older than 4 weeks)")
+                continue
+            }
 
             let durationHours = workout.duration / 3600
             let durationMinutes = workout.duration / 60
@@ -768,13 +781,17 @@ class ChatViewModel: ObservableObject {
             case .swimming:
                 swimCount += 1
                 totalSwimYards += durationHours * 1800
+                print("DEBUG:   -> Added to swimming (\(swimCount) total)")
             case .cycling:
                 bikeCount += 1
                 totalBikeHours += durationHours
+                print("DEBUG:   -> Added to cycling (\(bikeCount) total)")
             case .running:
                 runCount += 1
                 totalRunMinutes += durationMinutes
+                print("DEBUG:   -> Added to running (\(runCount) total)")
             default:
+                print("DEBUG:   -> UNKNOWN TYPE, skipped")
                 break
             }
         }
@@ -785,7 +802,7 @@ class ChatViewModel: ObservableObject {
         history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n\n"
         history += "COMPLIANCE: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts in last 4 weeks"
 
-        print("DEBUG: Workout history:\n\(history)")
+        print("DEBUG: Final workout history:\n\(history)")
         return history
     }
 }
