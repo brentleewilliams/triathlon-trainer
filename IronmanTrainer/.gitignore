@@ -1,0 +1,20 @@
+# Xcode
+.DS_Store
+.xcworkspace
+xcuserdata/
+*.xcworkspace/
+DerivedData/
+build/
+.build/
+
+# Config files with secrets
+Config.xcconfig
+IronmanTrainer/Config.plist
+
+# CocoaPods
+Pods/
+Podfile.lock
+
+# Environment
+.env
+.env.local
