@@ -26,19 +26,20 @@ An iOS app for tracking Ironman 70.3 Oregon training with HealthKit sync and Cla
 ### Installation
 
 1. Clone the repository
-2. Open `IronmanTrainer.xcodeproj` in Xcode
-3. **Configure API Keys:**
-   - Copy `Config.example.xcconfig` to `Config.xcconfig`
-   - Add your Anthropic API key to `ANTHROPIC_API_KEY`
-   - Add your LangSmith API key to `LANGSMITH_API_KEY`
-   - **Do NOT commit `Config.xcconfig` to version control** (it's in `.gitignore`)
+2. **Configure API Keys:**
+   - Copy `IronmanTrainer/Config.example.plist` to `IronmanTrainer/Config.plist`
+   - Open `Config.plist` and add your API keys:
+     - `ANTHROPIC_API_KEY` — Your Anthropic Claude API key
+     - `LANGSMITH_API_KEY` — (Optional) Your LangSmith API key for evaluation
+   - **Do NOT commit `Config.plist` to version control** (it's in `.gitignore`)
+3. Open `IronmanTrainer.xcodeproj` in Xcode
 4. Build and run on simulator or device
 
 ### Getting an Anthropic API Key
 1. Visit [api.anthropic.com](https://api.anthropic.com)
 2. Sign up and add credits to your account
 3. Copy your API key from the dashboard
-4. Paste into `Config.plist`
+4. Paste the key into `IronmanTrainer/Config.plist` under `ANTHROPIC_API_KEY`
 
 ## Architecture
 
