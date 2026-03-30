@@ -1355,6 +1355,7 @@ struct HomeView: View {
     @State private var showDayDetail = false
     @State private var draggedFromDay: String?
     @State private var draggedWorkout: DayWorkout?
+    @State private var navigationPath = NavigationPath()
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1578,7 +1579,7 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             VStack(spacing: 20) {
                 // Week Navigation Header with Undo Button
                 HStack {
@@ -1645,6 +1646,12 @@ struct HomeView: View {
             .navigationTitle("Training Plan")
             .onAppear {
                 selectedWeek = trainingPlan.currentWeekNumber
+            }
+            .onChange(of: navigationPath.count) { newCount in
+                // When returning from detail view (navigationPath becomes 0), reset to current week
+                if newCount == 0 {
+                    selectedWeek = trainingPlan.currentWeekNumber
+                }
             }
         }
     }
@@ -1781,42 +1788,49 @@ struct DayDetailView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
 
-                    // Weather Forecast
-                    let weather = WeatherForecast.forecast(for: getDateForDay())
-                    VStack(alignment: .leading, spacing: 12) {
-                        Text("Expected Weather")
-                            .font(.headline)
+                    // Weather Forecast - Only show if within 7 days
+                    let dayDate = getDateForDay()
+                    let calendar = Calendar.current
+                    let today = Date()
+                    let daysUntil = calendar.dateComponents([.day], from: today, to: dayDate).day ?? 0
 
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Text("Conditions:")
-                                Spacer()
-                                Text(weather.condition)
-                                    .fontWeight(.semibold)
-                            }
-                            HStack {
-                                Text("Temperature:")
-                                Spacer()
-                                Text("\(weather.lowTemp)°F - \(weather.highTemp)°F")
-                                    .fontWeight(.semibold)
-                            }
-                            HStack {
-                                Text("Wind:")
-                                Spacer()
-                                Text("\(weather.windMph) mph")
-                                    .fontWeight(.semibold)
-                            }
-                            HStack {
-                                Text("Humidity:")
-                                Spacer()
-                                Text("\(weather.humidity)%")
-                                    .fontWeight(.semibold)
+                    if daysUntil >= -1 && daysUntil <= 7 {
+                        let weather = WeatherForecast.forecast(for: dayDate)
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Expected Weather")
+                                .font(.headline)
+
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Text("Conditions:")
+                                    Spacer()
+                                    Text(weather.condition)
+                                        .fontWeight(.semibold)
+                                }
+                                HStack {
+                                    Text("Temperature:")
+                                    Spacer()
+                                    Text("\(weather.lowTemp)°F - \(weather.highTemp)°F")
+                                        .fontWeight(.semibold)
+                                }
+                                HStack {
+                                    Text("Wind:")
+                                    Spacer()
+                                    Text("\(weather.windMph) mph")
+                                        .fontWeight(.semibold)
+                                }
+                                HStack {
+                                    Text("Humidity:")
+                                    Spacer()
+                                    Text("\(weather.humidity)%")
+                                        .fontWeight(.semibold)
+                                }
                             }
                         }
+                        .padding()
+                        .background(Color(.systemBlue).opacity(0.1))
+                        .cornerRadius(12)
                     }
-                    .padding()
-                    .background(Color(.systemBlue).opacity(0.1))
-                    .cornerRadius(12)
 
                     // HealthKit Workouts
                     if !matchingHealthKitWorkouts.isEmpty {
