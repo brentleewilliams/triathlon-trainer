@@ -10,4 +10,12 @@
         <attribute name="plannedType" optional="YES" attributeType="String"/>
         <attribute name="weekNumber" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
     </entity>
+    <entity name="WorkoutPlanVersion" representedClassName="WorkoutPlanVersion" syncable="YES" codeGenerationType="class">
+        <attribute name="changeDescription" optional="YES" attributeType="String"/>
+        <attribute name="createdAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="isCurrent" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="source" optional="YES" attributeType="String"/>
+        <attribute name="weeklyPlanData" optional="YES" attributeType="Binary"/>
+    </entity>
 </model>
