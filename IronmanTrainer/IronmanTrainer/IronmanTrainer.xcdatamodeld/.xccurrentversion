@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder.CoreData.model">
+    <userData>
+        <data key="com.apple.InterfaceBuilder.CoreData.model.lastSavedToolsVersion" value="23505.1"/>
+        <data key="IDECoreDataModelerMinimumToolsVersion" value="Xcode 14.0"/>
+    </userData>
+    <versionIdentifiers>
+        <identifier>IronmanTrainer</identifier>
+    </versionIdentifiers>
+</document>

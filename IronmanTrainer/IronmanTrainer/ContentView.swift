@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import HealthKit
+import CoreData
 
 // MARK: - Secrets & Configuration
 struct Secrets {
@@ -413,6 +414,128 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             } else {
                 syncError = nil
             }
+        }
+    }
+}
+
+// MARK: - Completed Workout Entity (Core Data managed object)
+@objc(CompletedWorkoutEntity)
+public class CompletedWorkoutEntity: NSManagedObject {
+    @NSManaged public var weekNumber: Int32
+    @NSManaged public var day: String?
+    @NSManaged public var plannedType: String?
+    @NSManaged public var completionDate: Date?
+    @NSManaged public var hkWorkoutID: String?
+    @NSManaged public var actualDuration: Double
+    @NSManaged public var isManualOverride: Bool
+    @NSManaged public var notes: String?
+
+    @nonobjc public class func fetchRequest() -> NSFetchRequest<CompletedWorkoutEntity> {
+        return NSFetchRequest<CompletedWorkoutEntity>(entityName: "CompletedWorkoutEntity")
+    }
+}
+
+// MARK: - Completion Manager
+class CompletionManager: NSObject, ObservableObject {
+    static let shared = CompletionManager()
+
+    @Published var completions: [CompletedWorkoutEntity] = []
+
+    private let container: NSPersistentContainer
+
+    override init() {
+        container = NSPersistentContainer(name: "IronmanTrainer")
+        container.loadPersistentStores { description, error in
+            if let error = error {
+                print("❌ Core Data error: \(error.localizedDescription)")
+            }
+        }
+        super.init()
+        loadCompletions()
+    }
+
+    func markWorkoutComplete(weekNumber: Int, day: String, plannedType: String, hkWorkoutID: String? = nil, actualDuration: Double? = nil, isManualOverride: Bool = false, notes: String? = nil) {
+        let context = container.viewContext
+        let entity = CompletedWorkoutEntity(context: context)
+        entity.weekNumber = Int32(weekNumber)
+        entity.day = day
+        entity.plannedType = plannedType
+        entity.completionDate = Date()
+        entity.hkWorkoutID = hkWorkoutID
+        entity.actualDuration = actualDuration ?? 0
+        entity.isManualOverride = isManualOverride
+        entity.notes = notes
+
+        do {
+            try context.save()
+            loadCompletions()
+        } catch {
+            print("❌ Failed to save completion: \(error.localizedDescription)")
+        }
+    }
+
+    func isWorkoutComplete(weekNumber: Int, day: String, plannedType: String) -> Bool {
+        let context = container.viewContext
+        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
+            Int32(weekNumber), day, plannedType
+        )
+
+        do {
+            let results = try context.fetch(fetchRequest)
+            return !results.isEmpty
+        } catch {
+            print("❌ Fetch error: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    func getCompletion(weekNumber: Int, day: String, plannedType: String) -> CompletedWorkoutEntity? {
+        let context = container.viewContext
+        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
+            Int32(weekNumber), day, plannedType
+        )
+
+        do {
+            let results = try context.fetch(fetchRequest)
+            return results.first
+        } catch {
+            print("❌ Fetch error: \(error.localizedDescription)")
+            return nil
+        }
+    }
+
+    func deleteCompletion(weekNumber: Int, day: String, plannedType: String) {
+        let context = container.viewContext
+        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
+        fetchRequest.predicate = NSPredicate(
+            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
+            Int32(weekNumber), day, plannedType
+        )
+
+        do {
+            let results = try context.fetch(fetchRequest)
+            for completion in results {
+                context.delete(completion)
+            }
+            try context.save()
+            loadCompletions()
+        } catch {
+            print("❌ Delete error: \(error.localizedDescription)")
+        }
+    }
+
+    func loadCompletions() {
+        let context = container.viewContext
+        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
+
+        do {
+            completions = try context.fetch(fetchRequest)
+        } catch {
+            print("❌ Load completions error: \(error.localizedDescription)")
         }
     }
 }
@@ -832,6 +955,7 @@ struct ContentView: View {
     @StateObject private var trainingPlan = TrainingPlanManager()
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
+    @StateObject private var completionManager = CompletionManager.shared
 
     var body: some View {
         // Set managers on chatViewModel immediately so they're available when messages are sent
@@ -841,6 +965,7 @@ struct ContentView: View {
         return TabView {
             HomeView()
                 .environmentObject(trainingPlan)
+                .environmentObject(completionManager)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
@@ -854,6 +979,7 @@ struct ContentView: View {
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+                .environmentObject(completionManager)
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
@@ -1022,8 +1148,10 @@ struct HomeView: View {
     }
 
     func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
-        // Check if there's a matching HealthKit workout
+        // Check if there's a matching HealthKit workout with duration tolerance
         let workoutType = extractWorkoutType(from: workout.type)
+        let plannedDurationMinutes = parseDuration(workout.duration)
+        let toleranceMinutes = 15
         let targetDate = getDateForDay(workout)
 
         return healthKit.workouts.contains { hkWorkout in
@@ -1031,8 +1159,22 @@ struct HomeView: View {
             let workoutDate = calendar.startOfDay(for: hkWorkout.startDate)
             let targetStartOfDay = calendar.startOfDay(for: targetDate)
 
-            return workoutDate == targetStartOfDay &&
-                   workoutTypeMatches(plannedType: workoutType, healthKitType: hkWorkout.workoutActivityType)
+            // Date and type match (required)
+            guard workoutDate == targetStartOfDay &&
+                   workoutTypeMatches(plannedType: workoutType, healthKitType: hkWorkout.workoutActivityType) else {
+                return false
+            }
+
+            // Duration match (±15 min tolerance) — skip if planned duration is distance-based
+            if let plannedMin = plannedDurationMinutes {
+                let hkDurationMinutes = Int(hkWorkout.duration / 60)
+                let durationDiff = abs(hkDurationMinutes - plannedMin)
+
+                return durationDiff <= toleranceMinutes
+            }
+
+            // If planned duration is distance-based (yd), skip duration check and just match type
+            return true
         }
     }
 
@@ -1087,6 +1229,46 @@ struct HomeView: View {
         if typeString.contains("🏃") { return "Run" }
         if typeString.contains("🏁") { return "Run" }
         return typeString
+    }
+
+    func parseDuration(_ durationStr: String) -> Int? {
+        // Parse "60 min" → 60, "1.5 hrs" → 90, "1:00" → 60, "1,800yd" → nil, "Rest" → nil
+        let lowercased = durationStr.lowercased()
+
+        // Skip distance-based or rest days
+        if lowercased.contains("yd") || lowercased.contains("rest") {
+            return nil
+        }
+
+        // Handle H:MM format first (e.g., "1:00" → 60 minutes, "1:45" → 105 minutes)
+        if let regex = try? NSRegularExpression(pattern: "^(\\d+):(\\d{2})", options: []) {
+            if let match = regex.firstMatch(in: lowercased, options: [], range: NSRange(lowercased.startIndex..., in: lowercased)) {
+                if let hoursRange = Range(match.range(at: 1), in: lowercased),
+                   let minutesRange = Range(match.range(at: 2), in: lowercased),
+                   let hours = Int(lowercased[hoursRange]),
+                   let minutes = Int(lowercased[minutesRange]) {
+                    return hours * 60 + minutes
+                }
+            }
+        }
+
+        // Handle "number min/hr" format (with or without space)
+        if let regex = try? NSRegularExpression(pattern: "([\\d.]+)\\s*(min|hr)", options: []) {
+            if let match = regex.firstMatch(in: lowercased, options: [], range: NSRange(lowercased.startIndex..., in: lowercased)) {
+                if let numberRange = Range(match.range(at: 1), in: lowercased),
+                   let unitRange = Range(match.range(at: 2), in: lowercased),
+                   let value = Double(lowercased[numberRange]) {
+                    let unit = String(lowercased[unitRange])
+                    if unit == "hr" {
+                        return Int(value * 60)
+                    } else if unit == "min" {
+                        return Int(value)
+                    }
+                }
+            }
+        }
+
+        return nil
     }
 
     var body: some View {

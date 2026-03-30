@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="23505.1" systemVersion="24.6.0" minimumToolsVersion="Xcode 14.0" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="CompletedWorkoutEntity" representedClassName="CompletedWorkoutEntity" syncable="YES" codeGenerationType="class">
+        <attribute name="actualDuration" optional="YES" attributeType="Double"/>
+        <attribute name="completionDate" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="day" optional="YES" attributeType="String"/>
+        <attribute name="hkWorkoutID" optional="YES" attributeType="String"/>
+        <attribute name="isManualOverride" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
+        <attribute name="notes" optional="YES" attributeType="String"/>
+        <attribute name="plannedType" optional="YES" attributeType="String"/>
+        <attribute name="weekNumber" optional="YES" attributeType="Integer 32" usesScalarValueType="YES"/>
+    </entity>
+</model>
