@@ -48,6 +48,35 @@ struct RescheduleProposal: Codable {
     let proposedWeeks: [TrainingWeek]
 }
 
+struct WeatherForecast {
+    let highTemp: Int // °F
+    let lowTemp: Int
+    let condition: String
+    let windMph: Int
+    let humidity: Int
+
+    static func forecast(for date: Date) -> WeatherForecast {
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: date)
+
+        // Oregon weather patterns for training period (March-July)
+        switch month {
+        case 3: // March - Cool and wet
+            return WeatherForecast(highTemp: 56, lowTemp: 44, condition: "Partly Cloudy", windMph: 12, humidity: 65)
+        case 4: // April - Warming up
+            return WeatherForecast(highTemp: 64, lowTemp: 48, condition: "Mostly Sunny", windMph: 10, humidity: 55)
+        case 5: // May - Spring conditions
+            return WeatherForecast(highTemp: 72, lowTemp: 54, condition: "Sunny", windMph: 8, humidity: 50)
+        case 6: // June - Warm
+            return WeatherForecast(highTemp: 80, lowTemp: 62, condition: "Sunny", windMph: 7, humidity: 45)
+        case 7: // July - Hot (race is July 19)
+            return WeatherForecast(highTemp: 87, lowTemp: 68, condition: "Sunny & Hot", windMph: 6, humidity: 40)
+        default:
+            return WeatherForecast(highTemp: 70, lowTemp: 55, condition: "Partly Cloudy", windMph: 10, humidity: 55)
+        }
+    }
+}
+
 class TrainingPlanManager: ObservableObject {
     @Published var weeks: [TrainingWeek] = []
     @Published var currentWeekNumber: Int = 1
@@ -1725,6 +1754,43 @@ struct DayDetailView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
 
+                    // Weather Forecast
+                    let weather = WeatherForecast.forecast(for: getDateForDay())
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Expected Weather")
+                            .font(.headline)
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Conditions:")
+                                Spacer()
+                                Text(weather.condition)
+                                    .fontWeight(.semibold)
+                            }
+                            HStack {
+                                Text("Temperature:")
+                                Spacer()
+                                Text("\(weather.lowTemp)°F - \(weather.highTemp)°F")
+                                    .fontWeight(.semibold)
+                            }
+                            HStack {
+                                Text("Wind:")
+                                Spacer()
+                                Text("\(weather.windMph) mph")
+                                    .fontWeight(.semibold)
+                            }
+                            HStack {
+                                Text("Humidity:")
+                                Spacer()
+                                Text("\(weather.humidity)%")
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color(.systemBlue).opacity(0.1))
+                    .cornerRadius(12)
+
                     // HealthKit Workouts
                     if !matchingHealthKitWorkouts.isEmpty {
                         VStack(alignment: .leading, spacing: 12) {
@@ -2017,26 +2083,29 @@ struct WorkoutDayRows: View {
             // Workout cards - draggable as a group
             VStack(spacing: 8) {
                 ForEach(dayGroup.workouts, id: \.duration) { workout in
-                    HStack(spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(workout.type)
-                                .fontWeight(.semibold)
-                            Text("\(workout.duration) • \(workout.zone)")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
+                    NavigationLink(destination: DayDetailView(day: workout, week: trainingPlan.getWeek(selectedWeek) ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(workout.type)
+                                    .fontWeight(.semibold)
+                                Text("\(workout.duration) • \(workout.zone)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+                            }
 
-                        Spacer()
+                            Spacer()
 
-                        if parent.isWorkoutCompleted(workout) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                                .font(.title3)
-                        } else {
-                            Image(systemName: "circle")
-                                .foregroundColor(.gray)
-                                .font(.title3)
+                            if parent.isWorkoutCompleted(workout) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                    .font(.title3)
+                            } else {
+                                Image(systemName: "circle")
+                                    .foregroundColor(.gray)
+                                    .font(.title3)
+                            }
                         }
+                        .foregroundColor(.primary)
                     }
                     .padding(12)
                     .background(Color(.systemGray6))
