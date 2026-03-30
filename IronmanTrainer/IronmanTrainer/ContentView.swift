@@ -315,37 +315,40 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func savePlanVersion(source: String, description: String?) {
-        let context = container.viewContext
+        // Move to background thread to avoid blocking UI
+        DispatchQueue.global(qos: .userInitiated).async {
+            let context = self.container.newBackgroundContext()
 
-        // Serialize current weeks to JSON
-        let encoder = JSONEncoder()
-        guard let weekData = try? encoder.encode(weeks) else { return }
+            // Serialize current weeks to JSON
+            let encoder = JSONEncoder()
+            guard let weekData = try? encoder.encode(self.weeks) else { return }
 
-        // Mark current as previous
-        if let current = currentPlanVersion {
-            // Update the entity in Core Data
-            if let entity = current as? NSManagedObject {
-                entity.setValue(false, forKey: "isCurrent")
+            // Mark current as previous
+            if let current = self.currentPlanVersion {
+                // Update the entity in Core Data
+                if let entity = current as? NSManagedObject {
+                    entity.setValue(false, forKey: "isCurrent")
+                }
             }
-        }
 
-        // Create new version
-        guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else { return }
-        entity.setValue(UUID(), forKey: "id")
-        entity.setValue(Date(), forKey: "createdAt")
-        entity.setValue(source, forKey: "source")
-        entity.setValue(description, forKey: "changeDescription")
-        entity.setValue(weekData, forKey: "weeklyPlanData")
-        entity.setValue(true, forKey: "isCurrent")
+            // Create new version
+            guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else { return }
+            entity.setValue(UUID(), forKey: "id")
+            entity.setValue(Date(), forKey: "createdAt")
+            entity.setValue(source, forKey: "source")
+            entity.setValue(description, forKey: "changeDescription")
+            entity.setValue(weekData, forKey: "weeklyPlanData")
+            entity.setValue(true, forKey: "isCurrent")
 
-        do {
-            try context.save()
-            DispatchQueue.main.async {
-                self.previousPlanVersion = self.currentPlanVersion
-                self.currentPlanVersion = entity
+            do {
+                try context.save()
+                DispatchQueue.main.async {
+                    self.previousPlanVersion = self.currentPlanVersion
+                    self.currentPlanVersion = entity
+                }
+            } catch {
+                print("Failed to save plan version: \(error)")
             }
-        } catch {
-            print("Failed to save plan version: \(error)")
         }
     }
 
@@ -2012,6 +2015,7 @@ struct WorkoutDayRows: View {
                 .onDrag {
                     draggedWorkout = workout
                     draggedFromDay = dayGroup.day
+                    print("[DRAG] Started dragging \(workout.type) from \(dayGroup.day)")
                     return NSItemProvider(object: workout.type as NSString)
                 }
                 .opacity(draggedWorkout?.type == workout.type && draggedFromDay == dayGroup.day ? 0.5 : 1.0)
@@ -2026,6 +2030,11 @@ struct WorkoutDayRows: View {
                 guard let week = parent.trainingPlan.getWeek(selectedWeek) else { return false }
                 let workoutsForDay = week.workouts.filter { $0.day == dayToCheck }
                 return workoutsForDay.allSatisfy { parent.isWorkoutCompleted($0) }
+            },
+            onComplete: {
+                draggedFromDay = nil
+                draggedWorkout = nil
+                print("[DROP] Drag state cleared")
             }
         ))
     }
@@ -2480,20 +2489,31 @@ struct WorkoutDropDelegate: DropDelegate {
     let selectedWeek: Int
     let trainingPlan: TrainingPlanManager
     let isCompleted: (String) -> Bool
+    var onComplete: () -> Void = {}
 
     func dropEntered(info: DropInfo) {
-        // Visual feedback could be added here
+        print("[DROP] Entered target day: \(targetDay)")
     }
 
     func performDrop(info: DropInfo) -> Bool {
-        guard draggedFromDay != targetDay else { return false }
-        guard !isCompleted(draggedFromDay) else { return false }
+        print("[DROP] performDrop: from=\(draggedFromDay) to=\(targetDay) week=\(selectedWeek)")
+
+        guard draggedFromDay != targetDay else {
+            print("[DROP] Same day, returning false")
+            return false
+        }
+        guard !isCompleted(draggedFromDay) else {
+            print("[DROP] From day is completed, returning false")
+            return false
+        }
 
         // Swap workouts in the plan
         var updatedWeeks = trainingPlan.weeks
         if let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == selectedWeek }),
            let fromDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == draggedFromDay }),
            let toDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == targetDay }) {
+
+            print("[DROP] Found both days, swapping workouts")
 
             // Create new workouts array with swapped items
             var newWorkouts = updatedWeeks[weekIdx].workouts
@@ -2510,11 +2530,26 @@ struct WorkoutDropDelegate: DropDelegate {
 
             let fromDayWorkout = updatedWeeks[weekIdx].workouts[fromDayIdx]
 
-            trainingPlan.applyRescheduledPlan(
-                updatedWeeks,
-                source: "drag",
-                description: "Moved \(fromDayWorkout.type) from \(draggedFromDay) to \(targetDay)"
-            )
+            print("[DROP] Applying rescheduled plan: \(fromDayWorkout.type)")
+
+            // Dispatch asynchronously to avoid blocking drop gesture
+            let trainingPlan = self.trainingPlan
+            let onComplete = self.onComplete
+            let description = "Moved \(fromDayWorkout.type) from \(draggedFromDay) to \(targetDay)"
+
+            DispatchQueue.main.async {
+                trainingPlan.applyRescheduledPlan(
+                    updatedWeeks,
+                    source: "drag",
+                    description: description
+                )
+
+                // Clear drag state after plan update
+                onComplete()
+                print("[DROP] Drop completed")
+            }
+        } else {
+            print("[DROP] Could not find both day indices")
         }
 
         return true
