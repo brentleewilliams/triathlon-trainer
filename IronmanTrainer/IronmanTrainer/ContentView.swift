@@ -2520,15 +2520,32 @@ struct WorkoutDropDelegate: DropDelegate {
 
         // Swap workouts in the plan
         var updatedWeeks = trainingPlan.weeks
-        if let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == selectedWeek }),
-           let fromDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == draggedFromDay }),
-           let toDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == targetDay }) {
-
-            print("[DROP] Found both days at indices \(fromDayIdx) and \(toDayIdx), swapping workouts")
-
-            // Create new workouts array with swapped items
+        if let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == selectedWeek }) {
             var newWorkouts = updatedWeeks[weekIdx].workouts
-            newWorkouts.swapAt(fromDayIdx, toDayIdx)
+
+            // Count workouts for each day (some days have multiple)
+            let fromDayWorkouts = newWorkouts.filter { $0.day == draggedFromDay }
+            let toDayWorkouts = newWorkouts.filter { $0.day == targetDay }
+
+            guard !fromDayWorkouts.isEmpty && !toDayWorkouts.isEmpty else {
+                print("[DROP] One of the days has no workouts")
+                return false
+            }
+
+            print("[DROP] Swapping \(fromDayWorkouts.count) workout(s) from \(draggedFromDay) with \(toDayWorkouts.count) workout(s) from \(targetDay)")
+
+            // Swap days: change all draggedFromDay to targetDay and vice versa
+            newWorkouts = newWorkouts.map { workout in
+                if workout.day == draggedFromDay {
+                    // Change draggedFromDay workouts to targetDay
+                    return DayWorkout(day: targetDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status)
+                } else if workout.day == targetDay {
+                    // Change targetDay workouts to draggedFromDay
+                    return DayWorkout(day: draggedFromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status)
+                } else {
+                    return workout
+                }
+            }
 
             // Create new TrainingWeek with updated workouts
             updatedWeeks[weekIdx] = TrainingWeek(
@@ -2539,15 +2556,15 @@ struct WorkoutDropDelegate: DropDelegate {
                 workouts: newWorkouts
             )
 
-            let fromDayWorkout = updatedWeeks[weekIdx].workouts[fromDayIdx]
+            let workoutTypes = fromDayWorkouts.map { $0.type }.joined(separator: ", ")
 
-            print("[DROP] Applying rescheduled plan: \(fromDayWorkout.type)")
+            print("[DROP] Applying rescheduled plan: [\(workoutTypes)]")
 
             // Update plan
             trainingPlan.applyRescheduledPlan(
                 updatedWeeks,
                 source: "drag",
-                description: "Moved \(fromDayWorkout.type) from \(draggedFromDay) to \(targetDay)"
+                description: "Swapped \(draggedFromDay) and \(targetDay)"
             )
 
             // Clear drag state immediately
@@ -2555,7 +2572,7 @@ struct WorkoutDropDelegate: DropDelegate {
             print("[DROP] Drop completed successfully")
             return true
         } else {
-            print("[DROP] Could not find day indices: fromIdx or toIdx not found")
+            print("[DROP] Could not find week with number \(selectedWeek)")
             return false
         }
     }
