@@ -1856,38 +1856,24 @@ struct DayRowView: View {
     @Binding var draggedFromDay: String?
     let week: TrainingWeek?
     @ObservedObject var healthKit: HealthKitManager
-    @State private var navigateToDetail = false
 
     var isRestDay: Bool {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
     }
 
     var body: some View {
-        NavigationLink(destination: DayDetailView(
-            day: dayGroup.workouts[0],
-            week: week ?? TrainingWeek(
-                weekNumber: 1, phase: "", startDate: Date(),
-                endDate: Date(), workouts: []
-            ),
-            healthKit: healthKit
-        ), isActive: $navigateToDetail) {
-            EmptyView()
-        }
-        .hidden()
-
         if isRestDay {
             RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
         } else {
+            // Workouts without any NavigationLink wrapping - test if drag works
             WorkoutDayRows(
                 dayGroup: dayGroup,
                 weekStartDate: weekStartDate,
                 parent: parent,
                 draggedWorkout: $draggedWorkout,
-                draggedFromDay: $draggedFromDay
+                draggedFromDay: $draggedFromDay,
+                hideHeader: false
             )
-            .onTapGesture {
-                navigateToDetail = true
-            }
         }
     }
 }
@@ -1955,6 +1941,7 @@ struct WorkoutDayRows: View {
     let parent: HomeView
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
+    var hideHeader: Bool = false
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private static let dateFormatter: DateFormatter = {
@@ -1985,7 +1972,7 @@ struct WorkoutDayRows: View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(dayGroup.workouts, id: \.duration) { workout in
                 HStack(spacing: 12) {
-                    if dayGroup.workouts.first == workout {
+                    if dayGroup.workouts.first == workout && !hideHeader {
                         VStack(spacing: 0) {
                             Text(dayGroup.day)
                                 .fontWeight(.bold)
