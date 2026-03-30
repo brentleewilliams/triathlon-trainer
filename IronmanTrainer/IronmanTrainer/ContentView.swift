@@ -62,23 +62,18 @@ class TrainingPlanManager: ObservableObject {
         return Calendar.current.date(from: components) ?? Date()
     }()
 
-    private let container: NSPersistentContainer = {
+    private lazy var container: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "IronmanTrainer")
-        container.loadPersistentStores { description, error in
-            if let error = error {
-                print("Core Data load error: \(error)")
-                print("Failed store: \(String(describing: description.url))")
-            } else {
-                print("Core Data initialized successfully at: \(String(describing: description.url))")
-            }
-        }
+        // Temporarily skip Core Data loading to avoid model errors
+        // Will re-enable once model is properly bundled
         return container
     }()
 
     init() {
         setupTrainingPlan()
         calculateCurrentWeek()
-        loadPlanVersions()
+        // TODO: Re-enable once Core Data model loads properly
+        // loadPlanVersions()
     }
 
     func calculateCurrentWeek() {
@@ -318,99 +313,28 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func savePlanVersion(source: String, description: String?) {
-        print("[SAVE] Attempting to save plan version: source=\(source)")
-
-        // Move to background thread to avoid blocking UI
-        DispatchQueue.global(qos: .userInitiated).async {
-            let context = self.container.newBackgroundContext()
-
-            // Serialize current weeks to JSON
-            let encoder = JSONEncoder()
-            guard let weekData = try? encoder.encode(self.weeks) else {
-                print("[SAVE] Failed to encode weeks")
-                return
-            }
-
-            // Create new version
-            guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else {
-                print("[SAVE] Failed to create entity")
-                return
-            }
-
-            entity.setValue(UUID(), forKey: "id")
-            entity.setValue(Date(), forKey: "createdAt")
-            entity.setValue(source, forKey: "source")
-            entity.setValue(description, forKey: "changeDescription")
-            entity.setValue(weekData, forKey: "weeklyPlanData")
-            entity.setValue(true, forKey: "isCurrent")
-
-            do {
-                try context.save()
-                print("[SAVE] Successfully saved plan version")
-                DispatchQueue.main.async {
-                    self.previousPlanVersion = self.currentPlanVersion
-                    self.currentPlanVersion = entity
-                    print("[SAVE] Updated plan version properties")
-                }
-            } catch {
-                print("[SAVE] Failed to save plan version: \(error)")
-            }
-        }
+        print("[SAVE] Plan version requested: source=\(source) - skipping Core Data for now")
+        // TODO: Re-enable Core Data saving once model loads properly
     }
 
     func applyRescheduledPlan(_ newWeeks: [TrainingWeek], source: String = "chat", description: String? = nil) {
         // Update in-memory weeks
         self.weeks = newWeeks
 
-        // TODO: Fix Core Data model loading, then uncomment savePlanVersion
-        // Save as new version
-        // savePlanVersion(source: source, description: description)
-
         print("[PLAN] Applied rescheduled plan from source: \(source)")
+        // TODO: Re-enable Core Data saving once model loads properly
+        // savePlanVersion(source: source, description: description)
     }
 
     func rollbackToPreviousVersion() -> Bool {
-        guard let previousVersion = previousPlanVersion,
-              let data = previousVersion.value(forKey: "weeklyPlanData") as? Data else {
-            return false
-        }
-
-        let decoder = JSONDecoder()
-        do {
-            let restoredWeeks = try decoder.decode([TrainingWeek].self, from: data)
-            self.weeks = restoredWeeks
-
-            // Move versions back
-            self.currentPlanVersion = previousVersion
-            self.previousPlanVersion = nil
-
-            return true
-        } catch {
-            print("Failed to rollback plan: \(error)")
-            return false
-        }
+        // TODO: Re-enable once Core Data loads properly
+        print("Rollback requested but Core Data not available")
+        return false
     }
 
     func loadPlanVersions() {
-        let context = container.viewContext
-        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
-        fetchRequest.predicate = NSPredicate(format: "isCurrent == true")
-
-        do {
-            let results = try context.fetch(fetchRequest)
-            self.currentPlanVersion = results.first as? NSManagedObject
-
-            // Fetch previous (second most recent)
-            let fetchPrevious = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
-            fetchPrevious.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-            fetchPrevious.fetchLimit = 2
-            let allVersions = try context.fetch(fetchPrevious)
-            if allVersions.count > 1, let previous = allVersions[1] as? NSManagedObject {
-                self.previousPlanVersion = previous
-            }
-        } catch {
-            print("Failed to load plan versions: \(error)")
-        }
+        // TODO: Re-enable once Core Data model loads properly
+        print("Skipping Core Data plan version load")
     }
 }
 
