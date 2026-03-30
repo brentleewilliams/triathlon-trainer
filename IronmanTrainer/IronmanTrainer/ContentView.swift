@@ -1280,6 +1280,8 @@ struct HomeView: View {
     @State private var selectedWeek: Int = 1
     @State private var selectedDay: DayWorkout?
     @State private var showDayDetail = false
+    @State private var draggedFromDay: String?
+    @State private var draggedWorkout: DayWorkout?
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1559,7 +1561,9 @@ struct HomeView: View {
                         dayGroups: workoutsByDay,
                         week: currentWeek,
                         healthKit: healthKit,
-                        parent: self
+                        parent: self,
+                        draggedWorkout: $draggedWorkout,
+                        draggedFromDay: $draggedFromDay
                     )
                 }
 
@@ -1814,22 +1818,22 @@ struct DayGroupsView: View {
     let week: TrainingWeek?
     @ObservedObject var healthKit: HealthKitManager
     let parent: HomeView
+    @Binding var draggedWorkout: DayWorkout?
+    @Binding var draggedFromDay: String?
 
     var body: some View {
         if let week = week, !dayGroups.isEmpty {
             VStack(spacing: 12) {
                 ForEach(dayGroups, id: \.day) { dayGroup in
-                    NavigationLink(destination: DayDetailView(
-                        day: dayGroup.workouts[0],
+                    DayRowView(
+                        dayGroup: dayGroup,
+                        weekStartDate: week.startDate,
+                        parent: parent,
+                        draggedWorkout: $draggedWorkout,
+                        draggedFromDay: $draggedFromDay,
                         week: week,
                         healthKit: healthKit
-                    )) {
-                        DayRowView(
-                            dayGroup: dayGroup,
-                            weekStartDate: week.startDate,
-                            parent: parent
-                        )
-                    }
+                    )
                 }
             }
             .padding()
@@ -1848,16 +1852,42 @@ struct DayRowView: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
     let weekStartDate: Date
     let parent: HomeView
+    @Binding var draggedWorkout: DayWorkout?
+    @Binding var draggedFromDay: String?
+    let week: TrainingWeek?
+    @ObservedObject var healthKit: HealthKitManager
+    @State private var navigateToDetail = false
 
     var isRestDay: Bool {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
     }
 
     var body: some View {
+        NavigationLink(destination: DayDetailView(
+            day: dayGroup.workouts[0],
+            week: week ?? TrainingWeek(
+                weekNumber: 1, phase: "", startDate: Date(),
+                endDate: Date(), workouts: []
+            ),
+            healthKit: healthKit
+        ), isActive: $navigateToDetail) {
+            EmptyView()
+        }
+        .hidden()
+
         if isRestDay {
             RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
         } else {
-            WorkoutDayRows(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
+            WorkoutDayRows(
+                dayGroup: dayGroup,
+                weekStartDate: weekStartDate,
+                parent: parent,
+                draggedWorkout: $draggedWorkout,
+                draggedFromDay: $draggedFromDay
+            )
+            .onTapGesture {
+                navigateToDetail = true
+            }
         }
     }
 }
@@ -1923,8 +1953,8 @@ struct WorkoutDayRows: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
     let weekStartDate: Date
     let parent: HomeView
-    @State private var draggedWorkout: DayWorkout?
-    @State private var draggedFromDay: String?
+    @Binding var draggedWorkout: DayWorkout?
+    @Binding var draggedFromDay: String?
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private static let dateFormatter: DateFormatter = {
@@ -1993,8 +2023,8 @@ struct WorkoutDayRows: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
                 .onDrag {
-                    self.draggedWorkout = workout
-                    self.draggedFromDay = dayGroup.day
+                    draggedWorkout = workout
+                    draggedFromDay = dayGroup.day
                     return NSItemProvider(object: workout.type as NSString)
                 }
                 .opacity(draggedWorkout?.type == workout.type && draggedFromDay == dayGroup.day ? 0.5 : 1.0)
@@ -2492,7 +2522,6 @@ struct WorkoutDropDelegate: DropDelegate {
             )
 
             let fromDayWorkout = updatedWeeks[weekIdx].workouts[fromDayIdx]
-            let toDayWorkout = updatedWeeks[weekIdx].workouts[toDayIdx]
 
             trainingPlan.applyRescheduledPlan(
                 updatedWeeks,
