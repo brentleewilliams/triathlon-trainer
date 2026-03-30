@@ -2005,8 +2005,10 @@ struct WorkoutDayRows: View {
             targetDay: dayGroup.day,
             selectedWeek: selectedWeek,
             trainingPlan: trainingPlan,
-            isCompleted: { day in
-                dayGroup.workouts.allSatisfy { parent.isWorkoutCompleted($0) }
+            isCompleted: { dayToCheck in
+                guard let week = parent.trainingPlan.getWeek(selectedWeek) else { return false }
+                let workoutsForDay = week.workouts.filter { $0.day == dayToCheck }
+                return workoutsForDay.allSatisfy { parent.isWorkoutCompleted($0) }
             }
         ))
     }
