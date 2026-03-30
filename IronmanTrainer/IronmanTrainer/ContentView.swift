@@ -416,6 +416,85 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             }
         }
     }
+
+    // MARK: - HR Zone Analysis
+
+    private var cachedAge: Int?
+
+    func getUserAge() -> Int {
+        if let cached = cachedAge {
+            return cached
+        }
+
+        do {
+            let dateOfBirth = try healthStore.dateOfBirth()
+            let age = Calendar.current.dateComponents([.year], from: dateOfBirth, to: Date()).year ?? 38
+            cachedAge = age
+            return age
+        } catch {
+            print("Could not read date of birth from HealthKit: \(error)")
+            return 38  // Fallback to default age
+        }
+    }
+
+    var maxHeartRate: Int {
+        220 - getUserAge()
+    }
+
+    func calculateZoneBreakdown(startDate: Date, endDate: Date, onComplete: @escaping ([String: Double]) -> Void) {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            onComplete(["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0])
+            return
+        }
+
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        var zones: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [sortDescriptor]
+        ) { _, results, error in
+            if error != nil {
+                onComplete(zones)
+                return
+            }
+
+            guard let samples = results as? [HKQuantitySample] else {
+                onComplete(zones)
+                return
+            }
+
+            let maxHR = Double(self.maxHeartRate)
+
+            for sample in samples {
+                let bpm = sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))
+                let percent = (bpm / maxHR) * 100
+
+                let zone: String
+                if percent < 60 {
+                    zone = "Z1"
+                } else if percent < 70 {
+                    zone = "Z2"
+                } else if percent < 80 {
+                    zone = "Z3"
+                } else if percent < 90 {
+                    zone = "Z4"
+                } else {
+                    zone = "Z5"
+                }
+
+                zones[zone] = zones[zone]! + 1
+            }
+
+            onComplete(zones)
+        }
+
+        healthStore.execute(query)
+    }
 }
 
 // MARK: - Completed Workout Entity (Core Data managed object)
@@ -1743,6 +1822,9 @@ struct AnalyticsView: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var selectedWeek: Int = 1
+    @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+    @State private var actualZonePercentages: [String: Double] = [:]
+    @State private var isLoadingZones = false
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1909,6 +1991,28 @@ struct AnalyticsView: View {
         return [trimmed]
     }
 
+    func fetchActualZoneData() {
+        guard let week = currentWeek else { return }
+        isLoadingZones = true
+
+        HealthKitManager.shared.calculateZoneBreakdown(
+            startDate: week.startDate,
+            endDate: week.endDate
+        ) { zoneData in
+            DispatchQueue.main.async {
+                self.actualZoneData = zoneData
+                // Convert zone counts to percentages
+                let totalSamples = zoneData.values.reduce(0, +)
+                if totalSamples > 0 {
+                    self.actualZonePercentages = zoneData.mapValues { ($0 / totalSamples) * 100 }
+                } else {
+                    self.actualZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+                }
+                self.isLoadingZones = false
+            }
+        }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
@@ -1935,12 +2039,45 @@ struct AnalyticsView: View {
                     Text("Zone Distribution (Week \(selectedWeek))")
                         .font(.headline)
 
-                    HStack(spacing: 20) {
-                        ZoneBar(zone: "Z1", percent: zonePercentages["Z1"] ?? 0, color: .gray)
-                        ZoneBar(zone: "Z2", percent: zonePercentages["Z2"] ?? 0, color: .green)
-                        ZoneBar(zone: "Z3", percent: zonePercentages["Z3"] ?? 0, color: .yellow)
-                        ZoneBar(zone: "Z4", percent: zonePercentages["Z4"] ?? 0, color: .orange)
-                        ZoneBar(zone: "Z5", percent: zonePercentages["Z5"] ?? 0, color: .red)
+                    if isLoadingZones {
+                        HStack {
+                            ProgressView()
+                            Text("Loading zone data...")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding()
+                    } else {
+                        // Legend
+                        HStack(spacing: 16) {
+                            HStack(spacing: 4) {
+                                Rectangle()
+                                    .fill(.black)
+                                    .frame(width: 8, height: 8)
+                                Text("Planned")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            HStack(spacing: 4) {
+                                Rectangle()
+                                    .fill(.black.opacity(0.5))
+                                    .frame(width: 8, height: 8)
+                                Text("Actual")
+                                    .font(.caption2)
+                                    .foregroundColor(.gray)
+                            }
+                            Spacer()
+                        }
+                        .padding(.bottom, 4)
+
+                        HStack(spacing: 20) {
+                            ZoneBar(zone: "Z1", plannedPercent: zonePercentages["Z1"] ?? 0, actualPercent: actualZonePercentages["Z1"] ?? 0, color: .gray)
+                            ZoneBar(zone: "Z2", plannedPercent: zonePercentages["Z2"] ?? 0, actualPercent: actualZonePercentages["Z2"] ?? 0, color: .green)
+                            ZoneBar(zone: "Z3", plannedPercent: zonePercentages["Z3"] ?? 0, actualPercent: actualZonePercentages["Z3"] ?? 0, color: .yellow)
+                            ZoneBar(zone: "Z4", plannedPercent: zonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
+                            ZoneBar(zone: "Z5", plannedPercent: zonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
+                        }
                     }
                 }
                 .padding()
@@ -1953,6 +2090,10 @@ struct AnalyticsView: View {
             .navigationTitle("Analytics")
             .onAppear {
                 selectedWeek = trainingPlan.currentWeekNumber
+                fetchActualZoneData()
+            }
+            .onChange(of: selectedWeek) { _, _ in
+                fetchActualZoneData()
             }
         }
     }
@@ -1984,7 +2125,8 @@ struct VolumeCard: View {
 
 struct ZoneBar: View {
     let zone: String
-    let percent: Double
+    let plannedPercent: Double
+    let actualPercent: Double
     let color: Color
 
     var body: some View {
@@ -1994,17 +2136,37 @@ struct ZoneBar: View {
                 .fontWeight(.semibold)
 
             GeometryReader { geometry in
-                VStack {
-                    Spacer()
-                    Rectangle()
-                        .fill(color)
-                        .frame(height: geometry.size.height * (percent / 100))
+                ZStack(alignment: .bottom) {
+                    // Planned zone bar (solid color)
+                    VStack {
+                        Spacer()
+                        Rectangle()
+                            .fill(color)
+                            .frame(height: geometry.size.height * (plannedPercent / 100))
+                    }
+
+                    // Actual zone bar overlay (semi-transparent, darker)
+                    if actualPercent > 0 {
+                        VStack {
+                            Spacer()
+                            Rectangle()
+                                .fill(color.opacity(0.5))
+                                .frame(height: geometry.size.height * (actualPercent / 100))
+                        }
+                    }
                 }
             }
             .frame(height: 80)
 
-            Text("\(Int(percent))%")
-                .font(.caption2)
+            VStack(spacing: 2) {
+                Text("\(Int(plannedPercent))%")
+                    .font(.caption2)
+                if actualPercent > 0 {
+                    Text("\(Int(actualPercent))%")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+            }
         }
     }
 }
