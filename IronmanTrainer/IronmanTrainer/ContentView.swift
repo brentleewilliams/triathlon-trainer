@@ -317,40 +317,9 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func savePlanVersion(source: String, description: String?) {
-        print("[SAVE] Saving plan version: source=\(source)")
-
-        DispatchQueue.global(qos: .userInitiated).async {
-            let context = self.container.newBackgroundContext()
-
-            let encoder = JSONEncoder()
-            guard let weekData = try? encoder.encode(self.weeks) else {
-                print("[SAVE] Failed to encode weeks")
-                return
-            }
-
-            guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else {
-                print("[SAVE] Failed to create entity")
-                return
-            }
-
-            entity.setValue(UUID(), forKey: "id")
-            entity.setValue(Date(), forKey: "createdAt")
-            entity.setValue(source, forKey: "source")
-            entity.setValue(description, forKey: "changeDescription")
-            entity.setValue(weekData, forKey: "weeklyPlanData")
-            entity.setValue(true, forKey: "isCurrent")
-
-            do {
-                try context.save()
-                print("[SAVE] Successfully saved plan version")
-                DispatchQueue.main.async {
-                    self.previousPlanVersion = self.currentPlanVersion
-                    self.currentPlanVersion = entity
-                }
-            } catch {
-                print("[SAVE] Failed: \(error)")
-            }
-        }
+        print("[SAVE] Plan version requested (Core Data disabled for now): source=\(source)")
+        // TODO: Fix Core Data model bundling in Xcode project
+        // For now, plan changes persist in memory during the session only
     }
 
     func applyRescheduledPlan(_ newWeeks: [TrainingWeek], source: String = "chat", description: String? = nil) {
