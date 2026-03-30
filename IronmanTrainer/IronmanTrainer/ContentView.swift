@@ -1953,6 +1953,7 @@ struct DayRowView: View {
                 dayGroup: dayGroup,
                 weekStartDate: weekStartDate,
                 parent: parent,
+                week: week,
                 draggedWorkout: $draggedWorkout,
                 draggedFromDay: $draggedFromDay,
                 hideHeader: false
@@ -1981,7 +1982,11 @@ struct RestDayRow: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        let weather = WeatherForecast.forecast(for: date)
+
+        return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from card
             HStack(spacing: 12) {
                 VStack(spacing: 0) {
@@ -1992,6 +1997,15 @@ struct RestDayRow: View {
                         .foregroundColor(.gray)
                 }
                 .frame(width: 50)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(weather.condition)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text("\(weather.highTemp)°F")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
 
                 Spacer()
             }
@@ -2033,6 +2047,7 @@ struct WorkoutDayRows: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
     let weekStartDate: Date
     let parent: HomeView
+    let week: TrainingWeek?
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
     var hideHeader: Bool = false
@@ -2063,7 +2078,9 @@ struct WorkoutDayRows: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let weather = WeatherForecast.forecast(for: Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate)
+
+        return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from cards
             HStack(spacing: 12) {
                 VStack(spacing: 0) {
@@ -2075,6 +2092,15 @@ struct WorkoutDayRows: View {
                 }
                 .frame(width: 50)
 
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(weather.condition)
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                    Text("\(weather.highTemp)°F")
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+
                 Spacer()
             }
             .padding(.horizontal, 12)
@@ -2083,7 +2109,7 @@ struct WorkoutDayRows: View {
             // Workout cards - draggable as a group
             VStack(spacing: 8) {
                 ForEach(dayGroup.workouts, id: \.duration) { workout in
-                    NavigationLink(destination: DayDetailView(day: workout, week: trainingPlan.getWeek(selectedWeek) ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
+                    NavigationLink(destination: DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(workout.type)
