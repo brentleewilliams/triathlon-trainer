@@ -64,16 +64,20 @@ class TrainingPlanManager: ObservableObject {
 
     private lazy var container: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "IronmanTrainer")
-        // Temporarily skip Core Data loading to avoid model errors
-        // Will re-enable once model is properly bundled
+        container.loadPersistentStores { _, error in
+            if let error = error {
+                print("[COREDATA] Load error: \(error)")
+            } else {
+                print("[COREDATA] Successfully loaded")
+            }
+        }
         return container
     }()
 
     init() {
         setupTrainingPlan()
         calculateCurrentWeek()
-        // TODO: Re-enable once Core Data model loads properly
-        // loadPlanVersions()
+        loadPlanVersions()
     }
 
     func calculateCurrentWeek() {
@@ -313,8 +317,40 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func savePlanVersion(source: String, description: String?) {
-        print("[SAVE] Plan version requested: source=\(source) - skipping Core Data for now")
-        // TODO: Re-enable Core Data saving once model loads properly
+        print("[SAVE] Saving plan version: source=\(source)")
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let context = self.container.newBackgroundContext()
+
+            let encoder = JSONEncoder()
+            guard let weekData = try? encoder.encode(self.weeks) else {
+                print("[SAVE] Failed to encode weeks")
+                return
+            }
+
+            guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else {
+                print("[SAVE] Failed to create entity")
+                return
+            }
+
+            entity.setValue(UUID(), forKey: "id")
+            entity.setValue(Date(), forKey: "createdAt")
+            entity.setValue(source, forKey: "source")
+            entity.setValue(description, forKey: "changeDescription")
+            entity.setValue(weekData, forKey: "weeklyPlanData")
+            entity.setValue(true, forKey: "isCurrent")
+
+            do {
+                try context.save()
+                print("[SAVE] Successfully saved plan version")
+                DispatchQueue.main.async {
+                    self.previousPlanVersion = self.currentPlanVersion
+                    self.currentPlanVersion = entity
+                }
+            } catch {
+                print("[SAVE] Failed: \(error)")
+            }
+        }
     }
 
     func applyRescheduledPlan(_ newWeeks: [TrainingWeek], source: String = "chat", description: String? = nil) {
@@ -322,19 +358,52 @@ class TrainingPlanManager: ObservableObject {
         self.weeks = newWeeks
 
         print("[PLAN] Applied rescheduled plan from source: \(source)")
-        // TODO: Re-enable Core Data saving once model loads properly
-        // savePlanVersion(source: source, description: description)
+        savePlanVersion(source: source, description: description)
     }
 
     func rollbackToPreviousVersion() -> Bool {
-        // TODO: Re-enable once Core Data loads properly
-        print("Rollback requested but Core Data not available")
-        return false
+        guard let previousVersion = previousPlanVersion,
+              let data = previousVersion.value(forKey: "weeklyPlanData") as? Data else {
+            print("[ROLLBACK] No previous version available")
+            return false
+        }
+
+        let decoder = JSONDecoder()
+        do {
+            let restoredWeeks = try decoder.decode([TrainingWeek].self, from: data)
+            self.weeks = restoredWeeks
+
+            self.currentPlanVersion = previousVersion
+            self.previousPlanVersion = nil
+
+            print("[ROLLBACK] Successfully restored previous version")
+            return true
+        } catch {
+            print("[ROLLBACK] Failed: \(error)")
+            return false
+        }
     }
 
     func loadPlanVersions() {
-        // TODO: Re-enable once Core Data model loads properly
-        print("Skipping Core Data plan version load")
+        let context = container.viewContext
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+        fetchRequest.predicate = NSPredicate(format: "isCurrent == true")
+
+        do {
+            let results = try context.fetch(fetchRequest)
+            self.currentPlanVersion = results.first as? NSManagedObject
+
+            let fetchPrevious = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+            fetchPrevious.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+            fetchPrevious.fetchLimit = 2
+            let allVersions = try context.fetch(fetchPrevious)
+            if allVersions.count > 1, let previous = allVersions[1] as? NSManagedObject {
+                self.previousPlanVersion = previous
+            }
+            print("[COREDATA] Loaded plan versions")
+        } catch {
+            print("[COREDATA] Failed to load versions: \(error)")
+        }
     }
 }
 
@@ -1945,14 +2014,16 @@ struct WorkoutDayRows: View {
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
-                .onDrag {
-                    draggedWorkout = workout
-                    draggedFromDay = dayGroup.day
-                    print("[DRAG] Started dragging \(workout.type) from \(dayGroup.day)")
-                    return NSItemProvider(object: workout.type as NSString)
-                }
-                .opacity(draggedWorkout?.type == workout.type && draggedFromDay == dayGroup.day ? 0.5 : 1.0)
+                // Opacity feedback when dragging this entire day
+                .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
             }
+        }
+        // Drag the entire day as one unit
+        .onDrag {
+            draggedFromDay = dayGroup.day
+            draggedWorkout = nil
+            print("[DRAG] Started dragging entire day \(dayGroup.day)")
+            return NSItemProvider(object: dayGroup.day as NSString)
         }
         .onDrop(of: [.plainText], delegate: WorkoutDropDelegate(
             targetDay: dayGroup.day,
