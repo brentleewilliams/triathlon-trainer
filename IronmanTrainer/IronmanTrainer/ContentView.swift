@@ -362,8 +362,11 @@ class TrainingPlanManager: ObservableObject {
         // Update in-memory weeks
         self.weeks = newWeeks
 
+        // TODO: Fix Core Data model loading, then uncomment savePlanVersion
         // Save as new version
-        savePlanVersion(source: source, description: description)
+        // savePlanVersion(source: source, description: description)
+
+        print("[PLAN] Applied rescheduled plan from source: \(source)")
     }
 
     func rollbackToPreviousVersion() -> Bool {
