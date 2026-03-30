@@ -86,6 +86,39 @@ iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with
 
 ## In Progress / TODO
 
+### Test Coverage (MEDIUM PRIORITY)
+Once feature set stabilizes, add unit tests for these high-value areas:
+
+**Core Logic Tests (3-4 hours):**
+- **TrainingPlanManager**
+  - Week number calculation from start date
+  - Day-of-week to date mapping
+  - Plan version saving/restoring from Core Data
+  - Rollback to previous version
+  - Multi-workout day swapping (regression test)
+
+- **Workout Matching**
+  - Date boundary handling (cross-day bleeding)
+  - Type matching (emoji extraction, case sensitivity)
+  - Duration tolerance (±15 min)
+  - HealthKit workout filtering (last 30 days)
+
+- **WeatherForecast**
+  - Seasonal progression (March cool → July hot)
+  - Daily variation (same date = same forecast, different dates vary)
+  - Temperature bounds per month
+  - Deterministic generation (no randomness)
+
+**Skip for Now:**
+- UI tests (slow, fragile with SwiftUI changes)
+- Drag-and-drop animations (hard to test, less critical)
+- Claude API integration (mock/stub externals)
+
+**Setup:**
+- Create `IronmanTrainerTests.xctest` target
+- Use XCTest framework
+- Start with happy path, then edge cases (rest days, multi-workout days, date boundaries)
+
 ### LangSmith Integration (HIGH PRIORITY)
 - Create **LangSmithTracer** class that:
   - Logs each Claude API call to LangSmith REST API
