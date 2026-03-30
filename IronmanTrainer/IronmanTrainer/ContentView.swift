@@ -317,9 +317,41 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func savePlanVersion(source: String, description: String?) {
-        print("[SAVE] Plan version requested (Core Data disabled for now): source=\(source)")
-        // TODO: Fix Core Data model bundling in Xcode project
-        // For now, plan changes persist in memory during the session only
+        let context = container.viewContext
+
+        // Serialize current weeks to JSON
+        let encoder = JSONEncoder()
+        do {
+            let weeksData = try encoder.encode(weeks)
+
+            // Create new WorkoutPlanVersion
+            let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+            fetchRequest.predicate = NSPredicate(format: "isCurrent == true")
+
+            // Mark old current version as previous
+            if let oldVersion = try context.fetch(fetchRequest).first as? NSManagedObject {
+                oldVersion.setValue(false, forKey: "isCurrent")
+            }
+
+            // Create new version
+            let newVersion = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context)
+            newVersion.setValue(UUID(), forKey: "id")
+            newVersion.setValue(Date(), forKey: "createdAt")
+            newVersion.setValue(source, forKey: "source")
+            newVersion.setValue(weeksData, forKey: "weeklyPlanData")
+            newVersion.setValue(description ?? "Rescheduled workouts", forKey: "changeDescription")
+            newVersion.setValue(true, forKey: "isCurrent")
+
+            try context.save()
+
+            // Update in-memory references
+            self.previousPlanVersion = self.currentPlanVersion
+            self.currentPlanVersion = newVersion
+
+            print("[SAVE] Plan version saved: source=\(source)")
+        } catch {
+            print("[SAVE] Failed to save plan version: \(error)")
+        }
     }
 
     func applyRescheduledPlan(_ newWeeks: [TrainingWeek], source: String = "chat", description: String? = nil) {
@@ -1872,39 +1904,50 @@ struct RestDayRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(spacing: 0) {
-                Text(dayGroup.day)
-                    .fontWeight(.bold)
-                Text(dayDate)
-                    .font(.caption2)
-                    .foregroundColor(.gray)
-            }
-            .frame(width: 40)
+        VStack(alignment: .leading, spacing: 8) {
+            // Day header - separate from card
+            HStack(spacing: 12) {
+                VStack(spacing: 0) {
+                    Text(dayGroup.day)
+                        .fontWeight(.bold)
+                    Text(dayDate)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 50)
 
-            HStack(spacing: 6) {
-                Text("🛌")
-                    .font(.title3)
-                Text("Rest")
-                    .fontWeight(.semibold)
-                    .foregroundColor(.blue)
+                Spacer()
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
 
-            Spacer()
+            // Rest card
+            HStack(spacing: 12) {
+                HStack(spacing: 6) {
+                    Text("🛌")
+                        .font(.title3)
+                    Text("Rest")
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
 
-            if parent.isRestDayCompleted(for: dayGroup.workouts[0]) {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundColor(.green)
-                    .font(.title3)
-            } else {
-                Image(systemName: "circle")
-                    .foregroundColor(.gray)
-                    .font(.title3)
+                Spacer()
+
+                if parent.isRestDayCompleted(for: dayGroup.workouts[0]) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                        .font(.title3)
+                } else {
+                    Image(systemName: "circle")
+                        .foregroundColor(.gray)
+                        .font(.title3)
+                }
             }
+            .padding(12)
+            .background(Color(.systemGray6))
+            .cornerRadius(8)
+            .padding(.horizontal, 12)
         }
-        .padding(12)
-        .background(Color(.systemGray6))
-        .cornerRadius(8)
     }
 }
 

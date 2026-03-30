@@ -11,6 +11,7 @@
 		1A0001031F1A0001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001021F1A0001 /* ContentView.swift */; };
 		1A0001051F1A0001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0001041F1A0001 /* Assets.xcassets */; };
 		1A00010A1F1A0001 /* Config.plist in Resources */ = {isa = PBXBuildFile; fileRef = 1A0001091F1A0001 /* Config.plist */; };
+		1A00010B1F1A0001 /* IronmanTrainer.xcdatamodeld in Resources */ = {isa = PBXBuildFile; fileRef = 1A00010C1F1A0001 /* IronmanTrainer.xcdatamodeld */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +22,7 @@
 		1A0001071F1A0001 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		1A0001081F1A0001 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = SOURCE_ROOT; };
 		1A0001091F1A0001 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
+		1A00010C1F1A0001 /* IronmanTrainer.xcdatamodeld */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodeld; path = IronmanTrainer.xcdatamodeld; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +60,7 @@
 				1A0001041F1A0001 /* Assets.xcassets */,
 				1A0001061F1A0001 /* Preview Content */,
 				1A0001091F1A0001 /* Config.plist */,
+				1A00010C1F1A0001 /* IronmanTrainer.xcdatamodeld */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -130,6 +133,7 @@
 			files = (
 				1A0001051F1A0001 /* Assets.xcassets in Resources */,
 				1A00010A1F1A0001 /* Config.plist in Resources */,
+				1A00010B1F1A0001 /* IronmanTrainer.xcdatamodeld in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
