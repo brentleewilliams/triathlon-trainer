@@ -392,7 +392,18 @@ class TrainingPlanManager: ObservableObject {
 
         do {
             let results = try context.fetch(fetchRequest)
-            self.currentPlanVersion = results.first as? NSManagedObject
+            if let currentVersion = results.first as? NSManagedObject {
+                self.currentPlanVersion = currentVersion
+
+                // Restore weeks from the saved version
+                if let data = currentVersion.value(forKey: "weeklyPlanData") as? Data {
+                    let decoder = JSONDecoder()
+                    if let restoredWeeks = try? decoder.decode([TrainingWeek].self, from: data) {
+                        self.weeks = restoredWeeks
+                        print("[COREDATA] Restored current plan version from Core Data")
+                    }
+                }
+            }
 
             let fetchPrevious = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
             fetchPrevious.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
