@@ -58,22 +58,49 @@ struct WeatherForecast {
     static func forecast(for date: Date) -> WeatherForecast {
         let calendar = Calendar.current
         let month = calendar.component(.month, from: date)
+        let day = calendar.component(.day, from: date)
 
-        // Oregon weather patterns for training period (March-July)
-        switch month {
-        case 3: // March - Cool and wet
-            return WeatherForecast(highTemp: 56, lowTemp: 44, condition: "Partly Cloudy", windMph: 12, humidity: 65)
-        case 4: // April - Warming up
-            return WeatherForecast(highTemp: 64, lowTemp: 48, condition: "Mostly Sunny", windMph: 10, humidity: 55)
-        case 5: // May - Spring conditions
-            return WeatherForecast(highTemp: 72, lowTemp: 54, condition: "Sunny", windMph: 8, humidity: 50)
-        case 6: // June - Warm
-            return WeatherForecast(highTemp: 80, lowTemp: 62, condition: "Sunny", windMph: 7, humidity: 45)
-        case 7: // July - Hot (race is July 19)
-            return WeatherForecast(highTemp: 87, lowTemp: 68, condition: "Sunny & Hot", windMph: 6, humidity: 40)
-        default:
-            return WeatherForecast(highTemp: 70, lowTemp: 55, condition: "Partly Cloudy", windMph: 10, humidity: 55)
-        }
+        // Use day-of-month to generate deterministic variation
+        // Same date always gives same forecast, different dates vary
+        let seed = UInt32(day)
+
+        // Base conditions for the month
+        let (baseTempHigh, baseTempLow, baseTempVariance, baseConditions, baseHumidity): (Int, Int, Int, [String], Int) = {
+            switch month {
+            case 3: // March - Cool and wet (56°F avg)
+                return (56, 44, 8, ["Rainy", "Cloudy", "Drizzle", "Partly Cloudy"], 70)
+            case 4: // April - Warming up (64°F avg)
+                return (64, 48, 10, ["Partly Cloudy", "Sunny", "Cloudy", "Showers"], 60)
+            case 5: // May - Spring conditions (72°F avg)
+                return (72, 54, 8, ["Sunny", "Mostly Sunny", "Partly Cloudy", "Fair"], 55)
+            case 6: // June - Warm (80°F avg)
+                return (80, 62, 7, ["Sunny", "Mostly Sunny", "Fair", "Sunny & Warm"], 48)
+            case 7: // July - Hot (87°F avg, race is July 19)
+                return (87, 68, 6, ["Sunny & Hot", "Hot & Sunny", "Clear", "Sunny"], 42)
+            default:
+                return (70, 55, 10, ["Partly Cloudy", "Sunny", "Cloudy"], 60)
+            }
+        }()
+
+        // Generate variation based on day of month (deterministic)
+        let tempVariation = Int(seed % UInt32(baseTempVariance + 1)) - baseTempVariance / 2
+        let high = baseTempHigh + tempVariation
+        let low = baseTempLow + tempVariation
+
+        let conditionIndex = Int(seed % UInt32(baseConditions.count))
+        let condition = baseConditions[conditionIndex]
+
+        let windVariation = Int(seed % 8) + 4 // 4-11 mph
+        let humidityVariation = Int((seed * 7) % 15) - 7 // ±7% variation
+        let humidity = max(30, min(85, baseHumidity + humidityVariation))
+
+        return WeatherForecast(
+            highTemp: high,
+            lowTemp: low,
+            condition: condition,
+            windMph: windVariation,
+            humidity: humidity
+        )
     }
 }
 
