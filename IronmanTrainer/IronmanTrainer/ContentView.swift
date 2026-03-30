@@ -35,12 +35,16 @@ struct TrainingWeek: Codable {
     let workouts: [DayWorkout]
 }
 
-struct DayWorkout: Equatable, Codable {
+struct DayWorkout: Equatable, Codable, Identifiable, Hashable {
     let day: String
     let type: String
     let duration: String
     let zone: String
     let status: String?
+
+    var id: String {
+        "\(day)-\(type)-\(duration)-\(zone)"
+    }
 }
 
 struct RescheduleProposal: Codable {
@@ -1355,7 +1359,7 @@ struct HomeView: View {
     @State private var showDayDetail = false
     @State private var draggedFromDay: String?
     @State private var draggedWorkout: DayWorkout?
-    @State private var navigationPath = NavigationPath()
+    @State private var selectedWorkout: DayWorkout?
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1579,7 +1583,7 @@ struct HomeView: View {
     }
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack {
             VStack(spacing: 20) {
                 // Week Navigation Header with Undo Button
                 HStack {
@@ -1637,7 +1641,8 @@ struct HomeView: View {
                         healthKit: healthKit,
                         parent: self,
                         draggedWorkout: $draggedWorkout,
-                        draggedFromDay: $draggedFromDay
+                        draggedFromDay: $draggedFromDay,
+                        selectedWorkout: $selectedWorkout
                     )
                 }
 
@@ -1647,9 +1652,9 @@ struct HomeView: View {
             .onAppear {
                 selectedWeek = trainingPlan.currentWeekNumber
             }
-            .onChange(of: navigationPath.count) { newCount in
-                // When returning from detail view (navigationPath becomes 0), reset to current week
-                if newCount == 0 {
+            .onChange(of: selectedWorkout) { newValue in
+                // When returning from detail view (selectedWorkout becomes nil), reset to current week
+                if newValue == nil && selectedWeek != trainingPlan.currentWeekNumber {
                     selectedWeek = trainingPlan.currentWeekNumber
                 }
             }
@@ -1944,6 +1949,7 @@ struct DayGroupsView: View {
     let parent: HomeView
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
+    @Binding var selectedWorkout: DayWorkout?
 
     var body: some View {
         if let week = week, !dayGroups.isEmpty {
@@ -1956,7 +1962,8 @@ struct DayGroupsView: View {
                         draggedWorkout: $draggedWorkout,
                         draggedFromDay: $draggedFromDay,
                         week: week,
-                        healthKit: healthKit
+                        healthKit: healthKit,
+                        selectedWorkout: $selectedWorkout
                     )
                 }
             }
@@ -1980,6 +1987,7 @@ struct DayRowView: View {
     @Binding var draggedFromDay: String?
     let week: TrainingWeek?
     @ObservedObject var healthKit: HealthKitManager
+    @Binding var selectedWorkout: DayWorkout?
 
     var isRestDay: Bool {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
@@ -1997,7 +2005,8 @@ struct DayRowView: View {
                 week: week,
                 draggedWorkout: $draggedWorkout,
                 draggedFromDay: $draggedFromDay,
-                hideHeader: false
+                hideHeader: false,
+                selectedWorkout: $selectedWorkout
             )
         }
     }
@@ -2025,7 +2034,12 @@ struct RestDayRow: View {
     var body: some View {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
-        let weather = WeatherForecast.forecast(for: date)
+
+        // Only show weather if within 7 days
+        let calendar = Calendar.current
+        let today = Date()
+        let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
+        let showWeather = daysUntil >= -1 && daysUntil <= 7
 
         return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from card
@@ -2039,13 +2053,16 @@ struct RestDayRow: View {
                 }
                 .frame(width: 50)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(weather.condition)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                    Text("\(weather.highTemp)°F")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                if showWeather {
+                    let weather = WeatherForecast.forecast(for: date)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(weather.condition)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        Text("\(weather.highTemp)°F")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
                 }
 
                 Spacer()
@@ -2092,6 +2109,7 @@ struct WorkoutDayRows: View {
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
     var hideHeader: Bool = false
+    @Binding var selectedWorkout: DayWorkout?
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private static let dateFormatter: DateFormatter = {
@@ -2119,7 +2137,13 @@ struct WorkoutDayRows: View {
     }
 
     var body: some View {
-        let weather = WeatherForecast.forecast(for: Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate)
+        let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate
+
+        // Only show weather if within 7 days
+        let calendar = Calendar.current
+        let today = Date()
+        let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
+        let showWeather = daysUntil >= -1 && daysUntil <= 7
 
         return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from cards
@@ -2133,13 +2157,16 @@ struct WorkoutDayRows: View {
                 }
                 .frame(width: 50)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(weather.condition)
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                    Text("\(weather.highTemp)°F")
-                        .font(.caption2)
-                        .foregroundColor(.gray)
+                if showWeather {
+                    let weather = WeatherForecast.forecast(for: date)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(weather.condition)
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                        Text("\(weather.highTemp)°F")
+                            .font(.caption2)
+                            .foregroundColor(.gray)
+                    }
                 }
 
                 Spacer()
@@ -2150,7 +2177,7 @@ struct WorkoutDayRows: View {
             // Workout cards - draggable as a group
             VStack(spacing: 8) {
                 ForEach(dayGroup.workouts, id: \.duration) { workout in
-                    NavigationLink(destination: DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
+                    Button(action: { selectedWorkout = workout }) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(workout.type)
@@ -2180,6 +2207,9 @@ struct WorkoutDayRows: View {
                 }
             }
             .padding(.horizontal, 12)
+            .navigationDestination(item: $selectedWorkout) { workout in
+                DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)
+            }
         }
         // Opacity feedback when dragging this entire day
         .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
