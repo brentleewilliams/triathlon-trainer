@@ -1944,49 +1944,56 @@ struct WorkoutDayRows: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            ForEach(dayGroup.workouts, id: \.duration) { workout in
-                HStack(spacing: 12) {
-                    if dayGroup.workouts.first == workout && !hideHeader {
-                        VStack(spacing: 0) {
-                            Text(dayGroup.day)
-                                .fontWeight(.bold)
-                            Text(dayDate)
-                                .font(.caption2)
+            // Day header - separate from cards
+            HStack(spacing: 12) {
+                VStack(spacing: 0) {
+                    Text(dayGroup.day)
+                        .fontWeight(.bold)
+                    Text(dayDate)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 50)
+
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            // Workout cards - draggable as a group
+            VStack(spacing: 8) {
+                ForEach(dayGroup.workouts, id: \.duration) { workout in
+                    HStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(workout.type)
+                                .fontWeight(.semibold)
+                            Text("\(workout.duration) • \(workout.zone)")
+                                .font(.caption)
                                 .foregroundColor(.gray)
                         }
-                        .frame(width: 40)
-                    } else {
+
                         Spacer()
-                            .frame(width: 40)
-                    }
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(workout.type)
-                            .fontWeight(.semibold)
-                        Text("\(workout.duration) • \(workout.zone)")
-                            .font(.caption)
-                            .foregroundColor(.gray)
+                        if parent.isWorkoutCompleted(workout) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.title3)
+                        } else {
+                            Image(systemName: "circle")
+                                .foregroundColor(.gray)
+                                .font(.title3)
+                        }
                     }
-
-                    Spacer()
-
-                    if parent.isWorkoutCompleted(workout) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                            .font(.title3)
-                    } else {
-                        Image(systemName: "circle")
-                            .foregroundColor(.gray)
-                            .font(.title3)
-                    }
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
                 }
-                .padding(12)
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-                // Opacity feedback when dragging this entire day
-                .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
             }
+            .padding(.horizontal, 12)
         }
+        // Opacity feedback when dragging this entire day
+        .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
+        .id(draggedFromDay) // Force re-render when drag state changes
         // Drag the entire day as one unit
         .onDrag {
             draggedFromDay = dayGroup.day
