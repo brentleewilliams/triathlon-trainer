@@ -27,7 +27,7 @@ struct Secrets {
 }
 
 // MARK: - Training Plan Data
-struct TrainingWeek {
+struct TrainingWeek: Codable {
     let weekNumber: Int
     let phase: String
     let startDate: Date
@@ -35,7 +35,7 @@ struct TrainingWeek {
     let workouts: [DayWorkout]
 }
 
-struct DayWorkout: Equatable {
+struct DayWorkout: Equatable, Codable {
     let day: String
     let type: String
     let duration: String
@@ -43,9 +43,16 @@ struct DayWorkout: Equatable {
     let status: String?
 }
 
+struct RescheduleProposal: Codable {
+    let description: String
+    let proposedWeeks: [TrainingWeek]
+}
+
 class TrainingPlanManager: ObservableObject {
     @Published var weeks: [TrainingWeek] = []
     @Published var currentWeekNumber: Int = 1
+    @Published var currentPlanVersion: NSManagedObject?
+    @Published var previousPlanVersion: NSManagedObject?
 
     private let planStartDate: Date = {
         var components = DateComponents()
@@ -55,9 +62,20 @@ class TrainingPlanManager: ObservableObject {
         return Calendar.current.date(from: components) ?? Date()
     }()
 
+    private let container: NSPersistentContainer = {
+        let container = NSPersistentContainer(name: "IronmanTrainer")
+        container.loadPersistentStores { _, error in
+            if let error = error {
+                print("Core Data load error: \(error)")
+            }
+        }
+        return container
+    }()
+
     init() {
         setupTrainingPlan()
         calculateCurrentWeek()
+        loadPlanVersions()
     }
 
     func calculateCurrentWeek() {
@@ -294,6 +312,93 @@ class TrainingPlanManager: ObservableObject {
         }
 
         return baseWorkouts[weekNumber - 1]
+    }
+
+    func savePlanVersion(source: String, description: String?) {
+        let context = container.viewContext
+
+        // Serialize current weeks to JSON
+        let encoder = JSONEncoder()
+        guard let weekData = try? encoder.encode(weeks) else { return }
+
+        // Mark current as previous
+        if let current = currentPlanVersion {
+            // Update the entity in Core Data
+            if let entity = current as? NSManagedObject {
+                entity.setValue(false, forKey: "isCurrent")
+            }
+        }
+
+        // Create new version
+        guard let entity = NSEntityDescription.insertNewObject(forEntityName: "WorkoutPlanVersion", into: context) as? NSManagedObject else { return }
+        entity.setValue(UUID(), forKey: "id")
+        entity.setValue(Date(), forKey: "createdAt")
+        entity.setValue(source, forKey: "source")
+        entity.setValue(description, forKey: "changeDescription")
+        entity.setValue(weekData, forKey: "weeklyPlanData")
+        entity.setValue(true, forKey: "isCurrent")
+
+        do {
+            try context.save()
+            DispatchQueue.main.async {
+                self.previousPlanVersion = self.currentPlanVersion
+                self.currentPlanVersion = entity
+            }
+        } catch {
+            print("Failed to save plan version: \(error)")
+        }
+    }
+
+    func applyRescheduledPlan(_ newWeeks: [TrainingWeek], source: String = "chat", description: String? = nil) {
+        // Update in-memory weeks
+        self.weeks = newWeeks
+
+        // Save as new version
+        savePlanVersion(source: source, description: description)
+    }
+
+    func rollbackToPreviousVersion() -> Bool {
+        guard let previousVersion = previousPlanVersion,
+              let data = previousVersion.value(forKey: "weeklyPlanData") as? Data else {
+            return false
+        }
+
+        let decoder = JSONDecoder()
+        do {
+            let restoredWeeks = try decoder.decode([TrainingWeek].self, from: data)
+            self.weeks = restoredWeeks
+
+            // Move versions back
+            self.currentPlanVersion = previousVersion
+            self.previousPlanVersion = nil
+
+            return true
+        } catch {
+            print("Failed to rollback plan: \(error)")
+            return false
+        }
+    }
+
+    func loadPlanVersions() {
+        let context = container.viewContext
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+        fetchRequest.predicate = NSPredicate(format: "isCurrent == true")
+
+        do {
+            let results = try context.fetch(fetchRequest)
+            self.currentPlanVersion = results.first as? NSManagedObject
+
+            // Fetch previous (second most recent)
+            let fetchPrevious = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+            fetchPrevious.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+            fetchPrevious.fetchLimit = 2
+            let allVersions = try context.fetch(fetchPrevious)
+            if allVersions.count > 1, let previous = allVersions[1] as? NSManagedObject {
+                self.previousPlanVersion = previous
+            }
+        } catch {
+            print("Failed to load plan versions: \(error)")
+        }
     }
 }
 
@@ -891,7 +996,11 @@ class ChatViewModel: ObservableObject {
         do {
             let context = getContextForClaude()
             let history = getWorkoutHistoryForClaude()
-            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: context, workoutHistory: history)
+
+            // Include reschedule context for plan adaptation
+            let updatedContext = context + "\n\n" + buildRescheduleContext()
+
+            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history)
 
             await MainActor.run {
                 messages.append(ChatMessage(isUser: false, text: response))
@@ -903,6 +1012,49 @@ class ChatViewModel: ObservableObject {
                 isLoading = false
             }
         }
+    }
+
+    func buildRescheduleContext() -> String {
+        guard let trainingPlan = trainingPlan else { return "" }
+
+        let allWeeks = trainingPlan.weeks.map { week in
+            let workouts = week.workouts.map { "\($0.day): \($0.type) \($0.duration) \($0.zone)" }.joined(separator: ", ")
+            return "Week \(week.weekNumber) (\(week.phase)): \(workouts)"
+        }.joined(separator: "\n")
+
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        formatter.timeZone = TimeZone.current
+
+        return """
+        FULL 17-WEEK TRAINING PLAN FOR RESCHEDULING:
+        \(allWeeks)
+
+        Current date: \(formatter.string(from: Date()))
+
+        RESCHEDULE GUIDELINES:
+        - BUILD PHASE (weeks 5-9): Prioritize long/key workouts, drop short secondary runs
+        - TAPER (weeks 10-12): Reduce volume but keep pace work
+        - RACE PREP (weeks 13-15): Keep race-pace sessions, drop easy work
+        - Only reschedule FUTURE workouts, not past ones
+        - Ask user WHY they need to reschedule before proposing changes
+        - Format reschedule proposal as JSON array of updated weeks
+        """
+    }
+
+    func parseRescheduleFromResponse(_ response: String) -> RescheduleProposal? {
+        // Extract JSON from Claude response
+        if let jsonStart = response.range(of: "{"),
+           let jsonEnd = response.range(of: "}", options: .backwards) {
+            let jsonString = String(response[jsonStart.lowerBound...jsonEnd.upperBound])
+
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            if let proposal = try? decoder.decode(RescheduleProposal.self, from: jsonString.data(using: .utf8) ?? Data()) {
+                return proposal
+            }
+        }
+        return nil
     }
 
     private func getContextForClaude() -> String {
@@ -1353,8 +1505,22 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                // Week Navigation Header
-                WeekNavigationHeader(selectedWeek: $selectedWeek)
+                // Week Navigation Header with Undo Button
+                HStack {
+                    WeekNavigationHeader(selectedWeek: $selectedWeek)
+
+                    Spacer()
+
+                    if trainingPlan.previousPlanVersion != nil {
+                        Button(action: {
+                            _ = trainingPlan.rollbackToPreviousVersion()
+                        }) {
+                            Image(systemName: "arrow.uturn.backward")
+                                .font(.headline)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
 
                 // Completion Counter
                 HStack {
@@ -1757,6 +1923,8 @@ struct WorkoutDayRows: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
     let weekStartDate: Date
     let parent: HomeView
+    @State private var draggedWorkout: DayWorkout?
+    @State private var draggedFromDay: String?
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private static let dateFormatter: DateFormatter = {
@@ -1769,6 +1937,18 @@ struct WorkoutDayRows: View {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
         return Self.dateFormatter.string(from: date)
+    }
+
+    var trainingPlan: TrainingPlanManager {
+        parent.trainingPlan
+    }
+
+    var selectedWeek: Int {
+        parent.trainingPlan.currentWeekNumber
+    }
+
+    func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
+        parent.isWorkoutCompleted(workout)
     }
 
     var body: some View {
@@ -1812,8 +1992,23 @@ struct WorkoutDayRows: View {
                 .padding(12)
                 .background(Color(.systemGray6))
                 .cornerRadius(8)
+                .onDrag {
+                    self.draggedWorkout = workout
+                    self.draggedFromDay = dayGroup.day
+                    return NSItemProvider(object: workout.type as NSString)
+                }
+                .opacity(draggedWorkout?.type == workout.type && draggedFromDay == dayGroup.day ? 0.5 : 1.0)
             }
         }
+        .onDrop(of: [.plainText], delegate: WorkoutDropDelegate(
+            draggedFromDay: draggedFromDay ?? "",
+            targetDay: dayGroup.day,
+            selectedWeek: selectedWeek,
+            trainingPlan: trainingPlan,
+            isCompleted: { day in
+                dayGroup.workouts.allSatisfy { parent.isWorkoutCompleted($0) }
+            }
+        ))
     }
 }
 
@@ -2171,12 +2366,151 @@ struct ZoneBar: View {
     }
 }
 
+// MARK: - Reschedule Modal
+struct RescheduleModal: View {
+    @Binding var isPresented: Bool
+    @EnvironmentObject var trainingPlan: TrainingPlanManager
+
+    let proposedWeeks: [TrainingWeek]
+    let changeDescription: String
+    let onAccept: () -> Void
+    let onDecline: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Header
+            HStack {
+                Text("Proposed Reschedule")
+                    .font(.headline)
+                Spacer()
+                Button(action: onDecline) {
+                    Image(systemName: "xmark.circle")
+                        .foregroundColor(.gray)
+                }
+            }
+            .padding(.bottom, 8)
+
+            // Claude's description
+            VStack(alignment: .leading, spacing: 8) {
+                Text(changeDescription)
+                    .font(.caption)
+                    .foregroundColor(.gray)
+                    .padding(8)
+                    .background(Color(.systemGray6))
+                    .cornerRadius(8)
+            }
+
+            // Week preview (show current week with changes)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Updated Week Plan")
+                    .font(.caption)
+                    .fontWeight(.bold)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(proposedWeeks.filter { $0.weekNumber == trainingPlan.currentWeekNumber }, id: \.weekNumber) { week in
+                            ForEach(week.workouts, id: \.day) { workout in
+                                HStack {
+                                    Text(workout.day)
+                                        .font(.caption)
+                                        .frame(width: 50, alignment: .leading)
+                                    Text(workout.type)
+                                        .font(.caption)
+                                    Text(workout.duration)
+                                        .font(.caption2)
+                                        .foregroundColor(.gray)
+                                    Spacer()
+                                }
+                                .padding(4)
+                                .background(Color(.systemGray6))
+                                .cornerRadius(4)
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: 200)
+            }
+
+            // Action buttons
+            HStack(spacing: 12) {
+                Button(action: onDecline) {
+                    Text("Decline")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+
+                Button(action: onAccept) {
+                    Text("Accept & Update")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+            }
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 10)
+    }
+}
+
+// MARK: - Workout Drop Delegate
+struct WorkoutDropDelegate: DropDelegate {
+    let draggedFromDay: String
+    let targetDay: String
+    let selectedWeek: Int
+    let trainingPlan: TrainingPlanManager
+    let isCompleted: (String) -> Bool
+
+    func dropEntered(info: DropInfo) {
+        // Visual feedback could be added here
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        guard draggedFromDay != targetDay else { return false }
+        guard !isCompleted(draggedFromDay) else { return false }
+
+        // Swap workouts in the plan
+        var updatedWeeks = trainingPlan.weeks
+        if let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == selectedWeek }),
+           let fromDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == draggedFromDay }),
+           let toDayIdx = updatedWeeks[weekIdx].workouts.firstIndex(where: { $0.day == targetDay }) {
+
+            // Create new workouts array with swapped items
+            var newWorkouts = updatedWeeks[weekIdx].workouts
+            newWorkouts.swapAt(fromDayIdx, toDayIdx)
+
+            // Create new TrainingWeek with updated workouts
+            updatedWeeks[weekIdx] = TrainingWeek(
+                weekNumber: updatedWeeks[weekIdx].weekNumber,
+                phase: updatedWeeks[weekIdx].phase,
+                startDate: updatedWeeks[weekIdx].startDate,
+                endDate: updatedWeeks[weekIdx].endDate,
+                workouts: newWorkouts
+            )
+
+            let fromDayWorkout = updatedWeeks[weekIdx].workouts[fromDayIdx]
+            let toDayWorkout = updatedWeeks[weekIdx].workouts[toDayIdx]
+
+            trainingPlan.applyRescheduledPlan(
+                updatedWeeks,
+                source: "drag",
+                description: "Moved \(fromDayWorkout.type) from \(draggedFromDay) to \(targetDay)"
+            )
+        }
+
+        return true
+    }
+}
+
 // MARK: - Chat View
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @FocusState private var isInputFocused: Bool
+    @State private var showRescheduleModal = false
+    @State private var currentRescheduleProposal: (weeks: [TrainingWeek], description: String)?
 
     var body: some View {
         NavigationStack {
@@ -2241,6 +2575,38 @@ struct ChatView: View {
                 .padding()
             }
             .navigationTitle("Training Coach")
+            .onChange(of: viewModel.messages.count) {
+                // Check latest message for reschedule proposal
+                if let lastMessage = viewModel.messages.last, !lastMessage.isUser {
+                    if let proposal = viewModel.parseRescheduleFromResponse(lastMessage.text) {
+                        currentRescheduleProposal = (proposal.proposedWeeks, proposal.description)
+                        showRescheduleModal = true
+                    }
+                }
+            }
+            .sheet(isPresented: $showRescheduleModal) {
+                if let proposal = currentRescheduleProposal {
+                    RescheduleModal(
+                        isPresented: $showRescheduleModal,
+                        proposedWeeks: proposal.weeks,
+                        changeDescription: proposal.description,
+                        onAccept: {
+                            trainingPlan.applyRescheduledPlan(
+                                proposal.weeks,
+                                source: "chat",
+                                description: proposal.description
+                            )
+                            showRescheduleModal = false
+                            currentRescheduleProposal = nil
+                        },
+                        onDecline: {
+                            showRescheduleModal = false
+                            currentRescheduleProposal = nil
+                        }
+                    )
+                    .environmentObject(trainingPlan)
+                }
+            }
         }
     }
 }
