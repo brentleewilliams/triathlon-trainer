@@ -465,14 +465,10 @@ class TrainingPlanManager: ObservableObject {
                 }
             }
 
-            let fetchPrevious = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
-            fetchPrevious.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
-            fetchPrevious.fetchLimit = 2
-            let allVersions = try context.fetch(fetchPrevious)
-            if allVersions.count > 1, let previous = allVersions[1] as? NSManagedObject {
-                self.previousPlanVersion = previous
-            }
-            print("[COREDATA] Loaded plan versions")
+            // Don't load previous version on app startup - only set it during plan modifications
+            // This prevents the undo button from showing when there's no actual recent change
+            self.previousPlanVersion = nil
+            print("[COREDATA] Loaded current plan version")
         } catch {
             print("[COREDATA] Failed to load versions: \(error)")
         }
@@ -1355,11 +1351,8 @@ struct HomeView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @State private var selectedWeek: Int = 1
-    @State private var selectedDay: DayWorkout?
-    @State private var showDayDetail = false
     @State private var draggedFromDay: String?
     @State private var draggedWorkout: DayWorkout?
-    @State private var selectedWorkout: DayWorkout?
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1641,8 +1634,7 @@ struct HomeView: View {
                         healthKit: healthKit,
                         parent: self,
                         draggedWorkout: $draggedWorkout,
-                        draggedFromDay: $draggedFromDay,
-                        selectedWorkout: $selectedWorkout
+                        draggedFromDay: $draggedFromDay
                     )
                 }
 
@@ -1651,12 +1643,6 @@ struct HomeView: View {
             .navigationTitle("Training Plan")
             .onAppear {
                 selectedWeek = trainingPlan.currentWeekNumber
-            }
-            .onChange(of: selectedWorkout) { newValue in
-                // When returning from detail view (selectedWorkout becomes nil), reset to current week
-                if newValue == nil && selectedWeek != trainingPlan.currentWeekNumber {
-                    selectedWeek = trainingPlan.currentWeekNumber
-                }
             }
         }
     }
@@ -1949,7 +1935,6 @@ struct DayGroupsView: View {
     let parent: HomeView
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
-    @Binding var selectedWorkout: DayWorkout?
 
     var body: some View {
         if let week = week, !dayGroups.isEmpty {
@@ -1962,8 +1947,7 @@ struct DayGroupsView: View {
                         draggedWorkout: $draggedWorkout,
                         draggedFromDay: $draggedFromDay,
                         week: week,
-                        healthKit: healthKit,
-                        selectedWorkout: $selectedWorkout
+                        healthKit: healthKit
                     )
                 }
             }
@@ -1987,7 +1971,6 @@ struct DayRowView: View {
     @Binding var draggedFromDay: String?
     let week: TrainingWeek?
     @ObservedObject var healthKit: HealthKitManager
-    @Binding var selectedWorkout: DayWorkout?
 
     var isRestDay: Bool {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
@@ -2005,8 +1988,7 @@ struct DayRowView: View {
                 week: week,
                 draggedWorkout: $draggedWorkout,
                 draggedFromDay: $draggedFromDay,
-                hideHeader: false,
-                selectedWorkout: $selectedWorkout
+                hideHeader: false
             )
         }
     }
@@ -2109,7 +2091,6 @@ struct WorkoutDayRows: View {
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
     var hideHeader: Bool = false
-    @Binding var selectedWorkout: DayWorkout?
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     private static let dateFormatter: DateFormatter = {
@@ -2177,7 +2158,7 @@ struct WorkoutDayRows: View {
             // Workout cards - draggable as a group
             VStack(spacing: 8) {
                 ForEach(dayGroup.workouts, id: \.duration) { workout in
-                    Button(action: { selectedWorkout = workout }) {
+                    NavigationLink(destination: DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
                         HStack(spacing: 12) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(workout.type)
@@ -2207,9 +2188,6 @@ struct WorkoutDayRows: View {
                 }
             }
             .padding(.horizontal, 12)
-            .navigationDestination(item: $selectedWorkout) { workout in
-                DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)
-            }
         }
         // Opacity feedback when dragging this entire day
         .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
