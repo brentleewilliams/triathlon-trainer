@@ -20,7 +20,51 @@
 		1AA000030A0A0001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000040A0A0001 /* WidgetKit.framework */; };
 		1AA000050A0A0001 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000060A0A0001 /* SwiftUI.framework */; };
 		1AA000070A0A0001 /* IronmanTrainerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1AA000080A0A0001 /* IronmanTrainerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */; };
+		84D0F0C62F7C343F007D9BC7 /* TrainingPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */; };
+		84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */; };
+		84D0F0CA2F7C3441007D9BC7 /* LangSmithTracer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */; };
+		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */; };
+		84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */; };
+		84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */; };
+		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
+		84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D32F7C3624007D9BC7 /* HomeView.swift */; };
+		84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */; };
+		84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D72F7C3672007D9BC7 /* ChatView.swift */; };
+		84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D92F7C367C007D9BC7 /* PlanView.swift */; };
+		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1A0001591F1A0001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A0000021F1A0001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1A0000091F1A0001;
+			remoteInfo = IronmanTrainer;
+		};
+		1AA000120A0A0001 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 1A0000021F1A0001 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1AA0000C0A0A0001;
+			remoteInfo = IronmanTrainerWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1AA000100A0A0001 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				1AA000070A0A0001 /* IronmanTrainerWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		1A00000A1F1A0001 /* IronmanTrainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IronmanTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -40,6 +84,20 @@
 		1AA000040A0A0001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		1AA000060A0A0001 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		1AA000080A0A0001 /* IronmanTrainerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = IronmanTrainerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		1AA000150A0A0001 /* IronmanTrainerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IronmanTrainerWidget.entitlements; sourceTree = "<group>"; };
+		84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
+		84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManager.swift; sourceTree = "<group>"; };
+		84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
+		84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LangSmithTracer.swift; sourceTree = "<group>"; };
+		84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingHelpers.swift; sourceTree = "<group>"; };
+		84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
+		84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
+		84D0F0D32F7C3624007D9BC7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
+		84D0F0D72F7C3672007D9BC7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		84D0F0D92F7C367C007D9BC7 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
+		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -77,6 +135,7 @@
 				1AA0000A0A0A0001 /* IronmanTrainerWidget */,
 				1AA0000B0A0A0001 /* Frameworks */,
 				1A00000B1F1A0001 /* Products */,
+				84D0F0C22F7C30F7007D9BC7 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -90,23 +149,6 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		1AA0000A0A0A0001 /* IronmanTrainerWidget */ = {
-			isa = PBXGroup;
-			children = (
-				1AA000020A0A0001 /* IronmanTrainerWidget.swift */,
-			);
-			path = IronmanTrainerWidget;
-			sourceTree = "<group>";
-		};
-		1AA0000B0A0A0001 /* Frameworks */ = {
-			isa = PBXGroup;
-			children = (
-				1AA000040A0A0001 /* WidgetKit.framework */,
-				1AA000060A0A0001 /* SwiftUI.framework */,
-			);
-			name = Frameworks;
-			sourceTree = "<group>";
-		};
 		1A0000EC1F1A0001 /* IronmanTrainer */ = {
 			isa = PBXGroup;
 			children = (
@@ -116,6 +158,19 @@
 				1A0001061F1A0001 /* Preview Content */,
 				1A0001091F1A0001 /* Config.plist */,
 				1A00010C1F1A0001 /* IronmanTrainer.xcdatamodeld */,
+				84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */,
+				84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */,
+				84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */,
+				84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */,
+				84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */,
+				84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */,
+				84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */,
+				84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */,
+				84D0F0D32F7C3624007D9BC7 /* HomeView.swift */,
+				84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */,
+				84D0F0D72F7C3672007D9BC7 /* ChatView.swift */,
+				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
+				84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -137,6 +192,32 @@
 				1A0001651F1A0002 /* ChatSwapTests.swift */,
 			);
 			path = IronmanTrainerTests;
+			sourceTree = "<group>";
+		};
+		1AA0000A0A0A0001 /* IronmanTrainerWidget */ = {
+			isa = PBXGroup;
+			children = (
+				1AA000150A0A0001 /* IronmanTrainerWidget.entitlements */,
+				1AA000020A0A0001 /* IronmanTrainerWidget.swift */,
+			);
+			path = IronmanTrainerWidget;
+			sourceTree = "<group>";
+		};
+		1AA0000B0A0A0001 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				1AA000040A0A0001 /* WidgetKit.framework */,
+				1AA000060A0A0001 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		84D0F0C22F7C30F7007D9BC7 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				1A0001081F1A0001 /* Config.xcconfig */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -233,36 +314,6 @@
 		};
 /* End PBXProject section */
 
-/* Begin PBXTargetDependency section */
-		1A0001581F1A0001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1A0000091F1A0001 /* IronmanTrainer */;
-			targetProxy = 1A0001591F1A0001 /* PBXContainerItemProxy */;
-		};
-		1AA000110A0A0001 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 1AA0000C0A0A0001 /* IronmanTrainerWidgetExtension */;
-			targetProxy = 1AA000120A0A0001 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
-/* Begin PBXContainerItemProxy section */
-		1A0001591F1A0001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1A0000021F1A0001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1A0000091F1A0001;
-			remoteInfo = IronmanTrainer;
-		};
-		1AA000120A0A0001 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 1A0000021F1A0001 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 1AA0000C0A0A0001;
-			remoteInfo = IronmanTrainerWidgetExtension;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXResourcesBuildPhase section */
 		1A0000081F1A0001 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
@@ -283,26 +334,25 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXCopyFilesBuildPhase section */
-		1AA000100A0A0001 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				1AA000070A0A0001 /* IronmanTrainerWidgetExtension.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
 		1A0000061F1A0001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */,
 				1A0001031F1A0001 /* ContentView.swift in Sources */,
+				84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */,
+				84D0F0CA2F7C3441007D9BC7 /* LangSmithTracer.swift in Sources */,
+				84D0F0C62F7C343F007D9BC7 /* TrainingPlanManager.swift in Sources */,
+				84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */,
+				84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */,
+				84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */,
+				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
+				84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
+				84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */,
+				84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */,
+				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,
+				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -328,6 +378,19 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		1A0001581F1A0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1A0000091F1A0001 /* IronmanTrainer */;
+			targetProxy = 1A0001591F1A0001 /* PBXContainerItemProxy */;
+		};
+		1AA000110A0A0001 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1AA0000C0A0A0001 /* IronmanTrainerWidgetExtension */;
+			targetProxy = 1AA000120A0A0001 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		1A0001341F1A0001 /* Debug */ = {
 			isa = XCBuildConfiguration;
@@ -343,28 +406,31 @@
 				DEVELOPMENT_TEAM = F85CVKP4V9;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTABILITY = YES;
-				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifestSchema_UIApplicationSupportsMultipleScenes = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLandscapeRight";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = "-framework HealthKit";
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					HealthKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -385,20 +451,23 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
+				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifestSchema_UIApplicationSupportsMultipleScenes = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLandscapeRight";
-				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
-				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = "-framework HealthKit";
 				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = (
+					"-framework",
+					HealthKit,
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -450,6 +519,7 @@
 		1AA000130A0A0001 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = IronmanTrainerWidget/IronmanTrainerWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F85CVKP4V9;
@@ -477,6 +547,7 @@
 		1AA000140A0A0001 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = IronmanTrainerWidget/IronmanTrainerWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F85CVKP4V9;

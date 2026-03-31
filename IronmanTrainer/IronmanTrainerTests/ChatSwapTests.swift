@@ -8,7 +8,7 @@ final class ChatSwapTests: XCTestCase {
     override func setUp() {
         super.setUp()
         viewModel = ChatViewModel()
-        viewModel.trainingPlan = TrainingPlanManager()
+        viewModel.trainingPlan = TrainingPlanManager(useInMemoryStore: true)
         // Clear any persisted state from previous test runs
         UserDefaults.standard.removeObject(forKey: "coaching_chat_history")
         UserDefaults.standard.removeObject(forKey: "last_swap_command")

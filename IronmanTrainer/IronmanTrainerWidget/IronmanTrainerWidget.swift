@@ -1,6 +1,24 @@
 import WidgetKit
 import SwiftUI
 
+// MARK: - Shared Data (must match main app's Codable structs)
+struct SharedDayWorkout: Codable {
+    let day: String
+    let type: String
+    let duration: String
+    let zone: String
+    let status: String?
+    let nutritionTarget: String?
+}
+
+struct SharedTrainingWeek: Codable {
+    let weekNumber: Int
+    let phase: String
+    let startDate: Date
+    let endDate: Date
+    let workouts: [SharedDayWorkout]
+}
+
 // MARK: - Widget Data Model
 struct WidgetWorkout {
     let type: String
@@ -10,6 +28,8 @@ struct WidgetWorkout {
 
 // MARK: - Training Plan Data
 struct WidgetTrainingPlan {
+    static let appGroupSuite = "group.com.brent.ironmantrainer"
+
     static let planStartDate: Date = {
         var components = DateComponents()
         components.year = 2026
@@ -29,9 +49,29 @@ struct WidgetTrainingPlan {
         return ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekday]
     }
 
+    /// Try to load swapped weeks from App Group shared UserDefaults
+    static func sharedWeeks() -> [SharedTrainingWeek]? {
+        guard let defaults = UserDefaults(suiteName: appGroupSuite),
+              let data = defaults.data(forKey: "swapped_weeks"),
+              let weeks = try? JSONDecoder().decode([SharedTrainingWeek].self, from: data) else {
+            return nil
+        }
+        return weeks
+    }
+
     static func workoutsForToday() -> [WidgetWorkout] {
         let week = currentWeekNumber()
         let day = todayDayName()
+
+        // Prefer shared (swapped) data from the main app
+        if let sharedWeeks = sharedWeeks(),
+           let weekData = sharedWeeks.first(where: { $0.weekNumber == week }) {
+            return weekData.workouts
+                .filter { $0.day == day && $0.type != "Rest" }
+                .map { WidgetWorkout(type: $0.type, duration: $0.duration, zone: $0.zone) }
+        }
+
+        // Fallback to hardcoded plan
         let weekData = allWeeks[week - 1]
         return weekData.filter { $0.0 == day && $0.1 != "Rest" }.map {
             WidgetWorkout(type: $0.1, duration: $0.2, zone: $0.3)
