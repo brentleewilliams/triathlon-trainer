@@ -2,6 +2,50 @@ import SwiftUI
 import Foundation
 import HealthKit
 import CoreData
+import UserNotifications
+
+extension Notification.Name {
+    static let navigateToWeek = Notification.Name("navigateToWeek")
+}
+
+// MARK: - Shared Formatters
+private enum Formatters {
+    static let shortDate: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d"
+        return f
+    }()
+    static let fullDate: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, yyyy"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+    static let dayOfWeek: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEEE"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+    static let shortDayMonth: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "EEE, MMM d"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+    static let time: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "h:mm a"
+        f.timeZone = TimeZone.current
+        return f
+    }()
+    static let monthDay: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "M/d"
+        return f
+    }()
+    static let iso8601 = ISO8601DateFormatter()
+}
 
 // MARK: - Secrets & Configuration
 struct Secrets {
@@ -27,7 +71,7 @@ struct Secrets {
 }
 
 // MARK: - Training Plan Data
-struct TrainingWeek: Codable {
+struct TrainingWeek: Codable, Equatable {
     let weekNumber: Int
     let phase: String
     let startDate: Date
@@ -41,15 +85,17 @@ struct DayWorkout: Equatable, Codable, Identifiable, Hashable {
     let duration: String
     let zone: String
     let status: String?
+    let nutritionTarget: String?
 
     var id: String {
         "\(day)-\(type)-\(duration)-\(zone)"
     }
 }
 
-struct RescheduleProposal: Codable {
-    let description: String
-    let proposedWeeks: [TrainingWeek]
+struct SwapCommand: Codable {
+    let weekNumber: Int
+    let fromDay: String
+    let toDay: String
 }
 
 struct WeatherForecast {
@@ -58,6 +104,24 @@ struct WeatherForecast {
     let condition: String
     let windMph: Int
     let humidity: Int
+
+    var icon: String {
+        switch condition {
+        case "Rainy": return "🌧️"
+        case "Drizzle": return "🌦️"
+        case "Showers": return "🌦️"
+        case "Cloudy": return "☁️"
+        case "Partly Cloudy": return "⛅"
+        case "Mostly Sunny": return "🌤️"
+        case "Sunny": return "☀️"
+        case "Fair": return "🌤️"
+        case "Sunny & Warm": return "☀️"
+        case "Sunny & Hot": return "🔥"
+        case "Hot & Sunny": return "🔥"
+        case "Clear": return "☀️"
+        default: return "🌤️"
+        }
+    }
 
     static func forecast(for date: Date) -> WeatherForecast {
         let calendar = Calendar.current
@@ -180,192 +244,192 @@ class TrainingPlanManager: ObservableObject {
         let baseWorkouts: [[DayWorkout]] = [
             // Week 1 — Mar 23 (~7.5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,600yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "40min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,800yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Sat", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil),
-                DayWorkout(day: "Sun", type: "🚴 Bike", duration: "1:45", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,600yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "40min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "🚴 Bike", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 2 gels + 1 bottle sport drink/hr")
             ],
             // Week 2 — Mar 30 (~8 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,800yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:15", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,000yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏃 Run", duration: "30min", zone: "Z2", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:15", zone: "Z2", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "55min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏃 Run", duration: "30min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:15", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil)
             ],
             // Week 3 — Apr 6 (~8.5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:10", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,200yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:35", zone: "Z2", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "60min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:10", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:35", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 4 — Apr 13 — RECOVERY (~5.5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
             ],
             // Week 5 — Apr 20 (~9 hrs) - Build 1
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,400yd", zone: "Z2-Z3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:35", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "70min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,400yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "70min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 6 — Apr 27 (~9.5 hrs) - Build 1
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,400yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00 + mini-brick", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-Z3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:55", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "75min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,400yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "1:00 + mini-brick", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:55", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "75min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 7 — May 4 (~10 hrs) - Build 1 KEY WEEK
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "60min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:15", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-Z3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "3:35", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "80min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
+                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "3:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60-80g carbs/hr, Run: 30-45g/hr. Add real food for 3+ hr ride"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "80min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 8 — May 11 — RECOVERY (~5.5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,800yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,800yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
             ],
             // Week 9 — May 18 (~10.5 hrs) - Build 2 / Race Specificity
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z3-4", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🏃 Tempo Run", duration: "65min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Race Sim", duration: "3:25", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "90min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🏃 Tempo Run", duration: "65min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Race Sim", duration: "3:25", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "90min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 10 — May 25 - SPRINT TRI TUNE-UP
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "40min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏃 Run", duration: "20min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sat", type: "★ SPRINT TRI", duration: "Race", zone: "-", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Run", duration: "60min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "40min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏃 Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "★ SPRINT TRI", duration: "Race", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "🏃 Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 11 — Jun 1 - PEAK WEEK (~11-12 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z3-4", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "3,000yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "70min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:15", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 KEY BRICK", duration: "3:50", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 LONGEST RUN", duration: "1:45", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "3,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "70min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
+                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 KEY BRICK", duration: "3:50", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
+                DayWorkout(day: "Sun", type: "🏃 LONGEST RUN", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink, practice race-day intake")
             ],
             // Week 12 — Jun 8 - RECOVERY (~5.5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🏃 Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
             ],
             // Week 13 — Jun 15 (~9.5 hrs) - DRESS REHEARSAL
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🏃 Run", duration: "60min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,400yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 DRESS REHEARSAL", duration: "3:05", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "75min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🏃 Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,400yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 DRESS REHEARSAL", duration: "3:05", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
+                DayWorkout(day: "Sun", type: "🏃 Long Run", duration: "75min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 14 — Jun 22 (~8.5 hrs) - Peak & Sharpen
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "55min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,000yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:25", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Run", duration: "60min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike + mini-brick", duration: "55min", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:25", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 15 — Jun 29 (~8 hrs) - Last hard week
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "50min", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,800yd", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:05", zone: "Z2", status: nil),
-                DayWorkout(day: "Sun", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🏃 Tempo Run", duration: "50min", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🚴+🏃 Brick", duration: "2:05", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Sun", type: "🏃 Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil)
             ],
             // Week 16 — Jul 6 - TAPER (~5 hrs)
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,500yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil),
-                DayWorkout(day: "Wed", type: "🏃 Run", duration: "35min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2", status: nil),
-                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,200yd", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Fri", type: "🏃 Run", duration: "20min", zone: "Z1-2", status: nil),
-                DayWorkout(day: "Sat", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil)
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🚴 Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
+                DayWorkout(day: "Wed", type: "🏃 Run", duration: "35min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🚴 Bike", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏊 Swim", duration: "1,200yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "🏃 Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
             ],
             // Week 17 — Jul 13 - RACE WEEK
             [
-                DayWorkout(day: "Mon", type: "✈️ Travel", duration: "Denver→Portland", zone: "-", status: nil),
-                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,000yd", zone: "Z2", status: nil),
-                DayWorkout(day: "Wed", type: "🚴 Bike + 🏃 Run", duration: "40min + 15min", zone: "Z2", status: nil),
-                DayWorkout(day: "Thu", type: "🏃 Easy Jog", duration: "20min", zone: "Z1", status: nil),
-                DayWorkout(day: "Fri", type: "Rest", duration: "-", zone: "-", status: nil),
-                DayWorkout(day: "Sat", type: "🏊 Shakeout Swim", duration: "15min", zone: "Z1", status: nil),
-                DayWorkout(day: "Sun", type: "🏁 RACE DAY", duration: "~5:45-5:58", zone: "Race", status: nil)
+                DayWorkout(day: "Mon", type: "✈️ Travel", duration: "Denver→Portland", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "🏊 Swim", duration: "1,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Wed", type: "🚴 Bike + 🏃 Run", duration: "40min + 15min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "🏃 Easy Jog", duration: "20min", zone: "Z1", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sat", type: "🏊 Shakeout Swim", duration: "15min", zone: "Z1", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Sun", type: "🏁 RACE DAY", duration: "~5:45-5:58", zone: "Race", status: nil, nutritionTarget: nil)
             ]
         ]
 
@@ -459,8 +523,17 @@ class TrainingPlanManager: ObservableObject {
                 if let data = currentVersion.value(forKey: "weeklyPlanData") as? Data {
                     let decoder = JSONDecoder()
                     if let restoredWeeks = try? decoder.decode([TrainingWeek].self, from: data) {
-                        self.weeks = restoredWeeks
-                        print("[COREDATA] Restored current plan version from Core Data")
+                        // Check if restored data is stale (missing nutritionTarget field added later)
+                        let hasNutritionData = restoredWeeks.flatMap(\.workouts).contains { $0.nutritionTarget != nil }
+                        if hasNutritionData {
+                            self.weeks = restoredWeeks
+                            print("[COREDATA] Restored current plan version from Core Data")
+                        } else {
+                            // Stale data from before nutrition targets — use fresh plan data
+                            // Re-save so future loads have the updated schema
+                            savePlanVersion(source: "schema_migration", description: "Added nutrition targets")
+                            print("[COREDATA] Skipped stale Core Data restore (missing nutrition targets), using fresh plan")
+                        }
                     }
                 }
             }
@@ -483,6 +556,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     @Published var isSyncing = false
     @Published var syncError: String?
     @Published var workouts: [HKWorkout] = []
+    @Published var workoutZones: [UUID: [String: Double]] = [:]
 
     private let healthStore = HKHealthStore()
 
@@ -503,7 +577,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
 
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType]
+        let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
+        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
 
         healthStore.getRequestStatusForAuthorization(toShare: [], read: typesToRead) { status, _ in
             DispatchQueue.main.async {
@@ -522,7 +597,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
 
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType]
+        let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
+        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
 
         do {
             try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
@@ -575,6 +651,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                     if let workouts = results as? [HKWorkout] {
                         DispatchQueue.main.async {
                             self.workouts = workouts
+                            self.fetchZonesForRecentWorkouts()
                         }
                     }
 
@@ -619,6 +696,18 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         220 - getUserAge()
     }
 
+    /// BPM zone boundaries derived from maxHeartRate using %maxHR thresholds.
+    /// Single source of truth for both analytics and Claude coaching.
+    var zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int) {
+        let maxHR = Double(maxHeartRate)
+        return (
+            z2: Int(round(maxHR * 0.69)),
+            z3: Int(round(maxHR * 0.79)),
+            z4: Int(round(maxHR * 0.85)),
+            z5: Int(round(maxHR * 0.92))
+        )
+    }
+
     func calculateZoneBreakdown(startDate: Date, endDate: Date, onComplete: @escaping ([String: Double]) -> Void) {
         guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
             onComplete(["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0])
@@ -629,6 +718,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
 
         var zones: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+
+        let bounds = zoneBoundaries
 
         let query = HKSampleQuery(
             sampleType: heartRateType,
@@ -646,20 +737,17 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
 
-            let maxHR = Double(self.maxHeartRate)
-
             for sample in samples {
-                let bpm = sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))
-                let percent = (bpm / maxHR) * 100
+                let bpm = Int(round(sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))))
 
                 let zone: String
-                if percent < 60 {
+                if bpm < bounds.z2 {
                     zone = "Z1"
-                } else if percent < 70 {
+                } else if bpm < bounds.z3 {
                     zone = "Z2"
-                } else if percent < 80 {
+                } else if bpm < bounds.z4 {
                     zone = "Z3"
-                } else if percent < 90 {
+                } else if bpm < bounds.z5 {
                     zone = "Z4"
                 } else {
                     zone = "Z5"
@@ -673,129 +761,67 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
 
         healthStore.execute(query)
     }
-}
 
-// MARK: - Completed Workout Entity (Core Data managed object)
-@objc(CompletedWorkoutEntity)
-public class CompletedWorkoutEntity: NSManagedObject {
-    @NSManaged public var weekNumber: Int32
-    @NSManaged public var day: String?
-    @NSManaged public var plannedType: String?
-    @NSManaged public var completionDate: Date?
-    @NSManaged public var hkWorkoutID: String?
-    @NSManaged public var actualDuration: Double
-    @NSManaged public var isManualOverride: Bool
-    @NSManaged public var notes: String?
+    func getWorkoutZoneBreakdown(workout: HKWorkout, completion: @escaping ([String: Double]) -> Void) {
+        guard let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate) else {
+            completion([:])
+            return
+        }
 
-    @nonobjc public class func fetchRequest() -> NSFetchRequest<CompletedWorkoutEntity> {
-        return NSFetchRequest<CompletedWorkoutEntity>(entityName: "CompletedWorkoutEntity")
+        let predicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [])
+        let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        let bounds = zoneBoundaries
+
+        let query = HKSampleQuery(
+            sampleType: heartRateType,
+            predicate: predicate,
+            limit: HKObjectQueryNoLimit,
+            sortDescriptors: [sortDescriptor]
+        ) { _, results, error in
+            var zones: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+
+            guard let samples = results as? [HKQuantitySample], !samples.isEmpty else {
+                completion(zones)
+                return
+            }
+
+            for sample in samples {
+                let bpm = Int(round(sample.quantity.doubleValue(for: HKUnit.count().unitDivided(by: HKUnit.minute()))))
+                let zone: String
+                if bpm < bounds.z2 { zone = "Z1" }
+                else if bpm < bounds.z3 { zone = "Z2" }
+                else if bpm < bounds.z4 { zone = "Z3" }
+                else if bpm < bounds.z5 { zone = "Z4" }
+                else { zone = "Z5" }
+                zones[zone] = zones[zone]! + 1
+            }
+
+            // Convert counts to percentages
+            let total = samples.count
+            var percentages: [String: Double] = [:]
+            for (zone, count) in zones {
+                percentages[zone] = (count / Double(total)) * 100
+            }
+
+            completion(percentages)
+        }
+
+        healthStore.execute(query)
     }
-}
 
-// MARK: - Completion Manager
-class CompletionManager: NSObject, ObservableObject {
-    static let shared = CompletionManager()
-
-    @Published var completions: [CompletedWorkoutEntity] = []
-
-    private let container: NSPersistentContainer
-
-    override init() {
-        container = NSPersistentContainer(name: "IronmanTrainer")
-        container.loadPersistentStores { description, error in
-            if let error = error {
-                print("❌ Core Data error: \(error.localizedDescription)")
+    func fetchZonesForRecentWorkouts() {
+        let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date()
+        let recent = workouts.filter { $0.startDate >= twoWeeksAgo }
+        for workout in recent {
+            getWorkoutZoneBreakdown(workout: workout) { zones in
+                DispatchQueue.main.async {
+                    self.workoutZones[workout.uuid] = zones
+                }
             }
         }
-        super.init()
-        loadCompletions()
-    }
-
-    func markWorkoutComplete(weekNumber: Int, day: String, plannedType: String, hkWorkoutID: String? = nil, actualDuration: Double? = nil, isManualOverride: Bool = false, notes: String? = nil) {
-        let context = container.viewContext
-        let entity = CompletedWorkoutEntity(context: context)
-        entity.weekNumber = Int32(weekNumber)
-        entity.day = day
-        entity.plannedType = plannedType
-        entity.completionDate = Date()
-        entity.hkWorkoutID = hkWorkoutID
-        entity.actualDuration = actualDuration ?? 0
-        entity.isManualOverride = isManualOverride
-        entity.notes = notes
-
-        do {
-            try context.save()
-            loadCompletions()
-        } catch {
-            print("❌ Failed to save completion: \(error.localizedDescription)")
-        }
-    }
-
-    func isWorkoutComplete(weekNumber: Int, day: String, plannedType: String) -> Bool {
-        let context = container.viewContext
-        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(
-            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
-            Int32(weekNumber), day, plannedType
-        )
-
-        do {
-            let results = try context.fetch(fetchRequest)
-            return !results.isEmpty
-        } catch {
-            print("❌ Fetch error: \(error.localizedDescription)")
-            return false
-        }
-    }
-
-    func getCompletion(weekNumber: Int, day: String, plannedType: String) -> CompletedWorkoutEntity? {
-        let context = container.viewContext
-        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(
-            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
-            Int32(weekNumber), day, plannedType
-        )
-
-        do {
-            let results = try context.fetch(fetchRequest)
-            return results.first
-        } catch {
-            print("❌ Fetch error: \(error.localizedDescription)")
-            return nil
-        }
-    }
-
-    func deleteCompletion(weekNumber: Int, day: String, plannedType: String) {
-        let context = container.viewContext
-        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(
-            format: "weekNumber == %d AND day == %@ AND plannedType == %@",
-            Int32(weekNumber), day, plannedType
-        )
-
-        do {
-            let results = try context.fetch(fetchRequest)
-            for completion in results {
-                context.delete(completion)
-            }
-            try context.save()
-            loadCompletions()
-        } catch {
-            print("❌ Delete error: \(error.localizedDescription)")
-        }
-    }
-
-    func loadCompletions() {
-        let context = container.viewContext
-        let fetchRequest = CompletedWorkoutEntity.fetchRequest()
-
-        do {
-            completions = try context.fetch(fetchRequest)
-        } catch {
-            print("❌ Load completions error: \(error.localizedDescription)")
-        }
     }
 }
+
 
 // MARK: - LangSmith Tracer
 class LangSmithTracer {
@@ -819,7 +845,7 @@ class LangSmithTracer {
 
         // LangSmith expects lowercase UUID format without dashes
         let runID = UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "")
-        let now = ISO8601DateFormatter().string(from: Date())
+        let now = Formatters.iso8601.string(from: Date())
 
         let inputs: [String: Any] = [
             "system_prompt": systemPrompt,
@@ -845,7 +871,7 @@ class LangSmithTracer {
     func endRun(runID: String, response: String) {
         guard isEnabled() && !runID.isEmpty else { return }
 
-        let now = ISO8601DateFormatter().string(from: Date())
+        let now = Formatters.iso8601.string(from: Date())
 
         let outputs: [String: Any] = [
             "response": response
@@ -927,8 +953,8 @@ class ClaudeService: NSObject, ObservableObject {
         super.init()
     }
 
-    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String) async throws -> String {
-        let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory)
+    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil) async throws -> String {
+        let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory, zoneBoundaries: zoneBoundaries)
 
         // Start LangSmith run
         let runID = LangSmithTracer.shared.startRun(systemPrompt: systemPrompt, userMessage: userMessage)
@@ -985,13 +1011,18 @@ class ClaudeService: NSObject, ObservableObject {
         }
     }
 
-    private func buildSystemPrompt(context: String, history: String) -> String {
-        """
+    private func buildSystemPrompt(context: String, history: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil) -> String {
+        let z2 = zoneBoundaries?.z2 ?? 126
+        let z3 = zoneBoundaries?.z3 ?? 144
+        let z4 = zoneBoundaries?.z4 ?? 155
+        let z5 = zoneBoundaries?.z5 ?? 167
+        return """
         You are a personal triathlon coaching assistant for Brent, training for Ironman 70.3 Oregon (Jul 19, 2026, Salem OR).
 
         TRAINING PLAN: 17-week program (Mar 23 - Jul 19, 2026)
-        ATHLETE: VO2 Max 57.8, HR zones Z1-Z5, 8-10 hrs/wk available
-        RACE GOAL: Sub-6:00 finish (Swim 38-42m | Bike 3:00-3:10 | Run 1:95-2:02)
+        ATHLETE: VO2 Max 57.8, 8-10 hrs/wk available
+        HR ZONES: Z1 <\(z2)bpm (recovery) | Z2 \(z2)-\(z3)bpm (endurance) | Z3 \(z3)-\(z4)bpm (tempo) | Z4 \(z4)-\(z5)bpm (threshold) | Z5 \(z5)+bpm (VO2max)
+        RACE GOAL: Sub-6:00 finish (Swim 38-42m | Bike 3:00-3:10 | Run 1:55-2:02)
 
         TRAINING CONTEXT:
         \(context)
@@ -1039,29 +1070,57 @@ struct ClaudeResponse: Codable {
 }
 
 // MARK: - Chat ViewModel
-struct ChatMessage: Identifiable {
-    let id = UUID()
+struct ChatMessage: Identifiable, Codable {
+    let id: UUID
     let isUser: Bool
     let text: String
-    let timestamp: Date = Date()
+    let timestamp: Date
+
+    init(id: UUID = UUID(), isUser: Bool, text: String, timestamp: Date = Date()) {
+        self.id = id
+        self.isUser = isUser
+        self.text = text
+        self.timestamp = timestamp
+    }
 }
 
 class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
-    @Published var inputText: String = ""
     @Published var isLoading = false
     @Published var error: String?
 
     private let claudeService = ClaudeService.shared
+    private(set) var lastSwap: SwapCommand? {
+        didSet { saveLastSwap() }
+    }
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
+
+    init() {
+        loadChatHistory()
+        loadLastSwap()
+    }
+
+    private func saveLastSwap() {
+        if let swap = lastSwap, let data = try? JSONEncoder().encode(swap) {
+            UserDefaults.standard.set(data, forKey: "last_swap_command")
+        } else {
+            UserDefaults.standard.removeObject(forKey: "last_swap_command")
+        }
+    }
+
+    private func loadLastSwap() {
+        guard let data = UserDefaults.standard.data(forKey: "last_swap_command"),
+              let swap = try? JSONDecoder().decode(SwapCommand.self, from: data) else { return }
+        lastSwap = swap
+    }
 
     func sendMessage(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
         await MainActor.run {
-            inputText = ""
             messages.append(ChatMessage(isUser: true, text: text))
+            saveChatHistory()
             isLoading = true
             error = nil
         }
@@ -1073,10 +1132,31 @@ class ChatViewModel: ObservableObject {
             // Include reschedule context for plan adaptation
             let updatedContext = context + "\n\n" + buildRescheduleContext()
 
-            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history)
+            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries)
 
             await MainActor.run {
                 messages.append(ChatMessage(isUser: false, text: response))
+                saveChatHistory()
+
+                // Check for undo swap command
+                if response.contains("[UNDO_SWAP]"), let prev = lastSwap {
+                    let undoCommand = SwapCommand(weekNumber: prev.weekNumber, fromDay: prev.toDay, toDay: prev.fromDay)
+                    if let result = executeSwap(undoCommand) {
+                        lastSwap = nil
+                        let confirmMsg = ChatMessage(isUser: false, text: "↩️ Undid previous swap: \(result). Your training plan has been restored!")
+                        messages.append(confirmMsg)
+                        saveChatHistory()
+                    }
+                }
+                // Check for swap command in response and execute it
+                else if let command = parseSwapCommand(from: response),
+                   let result = executeSwap(command) {
+                    lastSwap = command
+                    let confirmMsg = ChatMessage(isUser: false, text: "✅ \(result). Your training plan has been updated!")
+                    messages.append(confirmMsg)
+                    saveChatHistory()
+                }
+
                 isLoading = false
             }
         } catch {
@@ -1095,39 +1175,109 @@ class ChatViewModel: ObservableObject {
             return "Week \(week.weekNumber) (\(week.phase)): \(workouts)"
         }.joined(separator: "\n")
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        formatter.timeZone = TimeZone.current
-
         return """
         FULL 17-WEEK TRAINING PLAN FOR RESCHEDULING:
         \(allWeeks)
 
-        Current date: \(formatter.string(from: Date()))
+        Current date: \(Formatters.fullDate.string(from: Date()))
 
         RESCHEDULE GUIDELINES:
         - BUILD PHASE (weeks 5-9): Prioritize long/key workouts, drop short secondary runs
         - TAPER (weeks 10-12): Reduce volume but keep pace work
         - RACE PREP (weeks 13-15): Keep race-pace sessions, drop easy work
         - Only reschedule FUTURE workouts, not past ones
-        - Ask user WHY they need to reschedule before proposing changes
-        - Format reschedule proposal as JSON array of updated weeks
+        - When the user asks to swap days, confirm which days and week, then INCLUDE this exact tag in your response:
+          [SWAP_DAYS:week=NUMBER:from=DAY:to=DAY]
+          Example: [SWAP_DAYS:week=2:from=Tue:to=Wed]
+          Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
+        - The app will automatically perform the swap when it sees this tag
+        - You can include the tag along with your coaching explanation
+        - If the user asks to undo the last swap, include this exact tag: [UNDO_SWAP]
+        \(lastSwap != nil ? "- LAST SWAP: Swapped \(lastSwap!.fromDay) and \(lastSwap!.toDay) in week \(lastSwap!.weekNumber). User can ask to undo this." : "- No recent swap to undo.")
         """
     }
 
-    func parseRescheduleFromResponse(_ response: String) -> RescheduleProposal? {
-        // Extract JSON from Claude response
-        if let jsonStart = response.range(of: "{"),
-           let jsonEnd = response.range(of: "}", options: .backwards) {
-            let jsonString = String(response[jsonStart.lowerBound...jsonEnd.upperBound])
+    func parseSwapCommand(from response: String) -> SwapCommand? {
+        // Parse [SWAP_DAYS:week=2:from=Tue:to=Wed] tag from Claude response
+        guard let regex = try? NSRegularExpression(
+            pattern: "\\[SWAP_DAYS:week=(\\d+):from=(Mon|Tue|Wed|Thu|Fri|Sat|Sun):to=(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\]",
+            options: []
+        ) else { return nil }
 
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            if let proposal = try? decoder.decode(RescheduleProposal.self, from: jsonString.data(using: .utf8) ?? Data()) {
-                return proposal
-            }
+        let range = NSRange(response.startIndex..., in: response)
+        guard let match = regex.firstMatch(in: response, options: [], range: range) else { return nil }
+
+        guard let weekRange = Range(match.range(at: 1), in: response),
+              let fromRange = Range(match.range(at: 2), in: response),
+              let toRange = Range(match.range(at: 3), in: response),
+              let weekNumber = Int(response[weekRange]) else { return nil }
+
+        return SwapCommand(
+            weekNumber: weekNumber,
+            fromDay: String(response[fromRange]),
+            toDay: String(response[toRange])
+        )
+    }
+
+    func executeSwap(_ command: SwapCommand) -> String? {
+        guard let trainingPlan = trainingPlan else { return nil }
+
+        var updatedWeeks = trainingPlan.weeks
+        guard let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == command.weekNumber }) else {
+            return nil
         }
-        return nil
+
+        var newWorkouts = updatedWeeks[weekIdx].workouts
+        let fromWorkouts = newWorkouts.filter { $0.day == command.fromDay }
+        let toWorkouts = newWorkouts.filter { $0.day == command.toDay }
+
+        guard !fromWorkouts.isEmpty && !toWorkouts.isEmpty else { return nil }
+
+        // Swap days
+        newWorkouts = newWorkouts.map { workout in
+            if workout.day == command.fromDay {
+                return DayWorkout(day: command.toDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
+            } else if workout.day == command.toDay {
+                return DayWorkout(day: command.fromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
+            }
+            return workout
+        }
+
+        updatedWeeks[weekIdx] = TrainingWeek(
+            weekNumber: updatedWeeks[weekIdx].weekNumber,
+            phase: updatedWeeks[weekIdx].phase,
+            startDate: updatedWeeks[weekIdx].startDate,
+            endDate: updatedWeeks[weekIdx].endDate,
+            workouts: newWorkouts
+        )
+
+        trainingPlan.applyRescheduledPlan(
+            updatedWeeks,
+            source: "chat",
+            description: "Swapped \(command.fromDay) and \(command.toDay) in week \(command.weekNumber)"
+        )
+
+        return "Swapped \(command.fromDay) and \(command.toDay) in week \(command.weekNumber)"
+    }
+
+    func saveChatHistory() {
+        let encoder = JSONEncoder()
+        if let data = try? encoder.encode(messages) {
+            UserDefaults.standard.set(data, forKey: "coaching_chat_history")
+        }
+    }
+
+    func loadChatHistory() {
+        guard let data = UserDefaults.standard.data(forKey: "coaching_chat_history") else { return }
+        let decoder = JSONDecoder()
+        if let saved = try? decoder.decode([ChatMessage].self, from: data) {
+            messages = saved
+        }
+    }
+
+    func clearChatHistory() {
+        messages = []
+        UserDefaults.standard.removeObject(forKey: "coaching_chat_history")
     }
 
     private func getContextForClaude() -> String {
@@ -1136,26 +1286,25 @@ class ChatViewModel: ObservableObject {
         }
 
         let currentWeek = plan.getWeek(plan.currentWeekNumber) ?? plan.getWeek(1)
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-        formatter.timeZone = TimeZone.current
-
-        let dayFormatter = DateFormatter()
-        dayFormatter.dateFormat = "EEEE"
-        dayFormatter.timeZone = TimeZone.current
 
         let today = Date()
-        var context = "TODAY'S DATE: \(formatter.string(from: today)) (\(dayFormatter.string(from: today)))\n\n"
+        var context = "TODAY'S DATE: \(Formatters.fullDate.string(from: today)) (\(Formatters.dayOfWeek.string(from: today)))\n\n"
         context += "CURRENT WEEK PLAN:\n"
 
         if let week = currentWeek {
-            context += "Week \(week.weekNumber) (\(formatter.string(from: week.startDate)) - \(formatter.string(from: week.endDate))): \(week.phase)\n\n"
+            context += "Week \(week.weekNumber) (\(Formatters.fullDate.string(from: week.startDate)) - \(Formatters.fullDate.string(from: week.endDate))): \(week.phase)\n\n"
 
             let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
             for day in dayOrder {
                 let dayWorkouts = week.workouts.filter { $0.day == day }
                 if !dayWorkouts.isEmpty {
-                    let workoutTexts = dayWorkouts.map { "\($0.type) (\($0.duration) • \($0.zone))" }.joined(separator: " + ")
+                    let workoutTexts = dayWorkouts.map { workout in
+                        var text = "\(workout.type) (\(workout.duration) • \(workout.zone))"
+                        if let nutrition = workout.nutritionTarget {
+                            text += " [Nutrition: \(nutrition)]"
+                        }
+                        return text
+                    }.joined(separator: " + ")
                     context += "- \(day): \(workoutTexts)\n"
                 }
             }
@@ -1170,28 +1319,32 @@ class ChatViewModel: ObservableObject {
         }
 
         let calendar = Calendar.current
-        let fourWeeksAgo = calendar.date(byAdding: .day, value: -28, to: Date()) ?? Date()
+        // Look back to Feb 1, 2026 for full training context
+        let historyStart = calendar.date(from: DateComponents(year: 2026, month: 2, day: 1)) ?? Date()
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d, yyyy"
-
-        var swimCount = 0
-        var bikeCount = 0
-        var runCount = 0
-        var totalSwimYards = 0.0
-        var totalBikeHours = 0.0
-        var totalRunMinutes = 0.0
+        // --- Accumulate summary stats ---
+        var swimCount = 0, bikeCount = 0, runCount = 0
+        var totalSwimYards = 0.0, totalBikeHours = 0.0, totalRunMinutes = 0.0
+        var totalCalories = 0.0
 
         for workout in healthKit.workouts {
-            guard workout.startDate >= fourWeeksAgo else { continue }
+            guard workout.startDate >= historyStart else { continue }
 
             let durationHours = workout.duration / 3600
             let durationMinutes = workout.duration / 60
 
+            if let energy = workout.totalEnergyBurned {
+                totalCalories += energy.doubleValue(for: .kilocalorie())
+            }
+
             switch workout.workoutActivityType {
             case .swimming:
                 swimCount += 1
-                totalSwimYards += durationHours * 1800
+                if let distance = workout.totalDistance {
+                    totalSwimYards += distance.doubleValue(for: .yard())
+                } else {
+                    totalSwimYards += durationHours * 1800
+                }
             case .cycling:
                 bikeCount += 1
                 totalBikeHours += durationHours
@@ -1203,53 +1356,131 @@ class ChatViewModel: ObservableObject {
             }
         }
 
-        // Build day-by-day breakdown for the past 4 weeks
-        var history = "LAST 4 WEEKS - DAY BY DAY BREAKDOWN:\n\n"
+        // --- Side-by-side planned vs actual for last 4 weeks ---
+        var history = "WORKOUT REVIEW (Last 4 Weeks):\n\n"
 
-        let recentWorkouts = healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }
-        let sortedWorkouts = recentWorkouts.sorted { $0.startDate > $1.startDate } // Most recent first
+        let today = Date()
+        let currentWeek = trainingPlan?.currentWeekNumber ?? 1
 
-        var currentDay: Date? = nil
-        for workout in sortedWorkouts {
-            let workoutDay = calendar.startOfDay(for: workout.startDate)
-
-            // Add day header if it's a new day
-            if currentDay == nil || currentDay != workoutDay {
-                currentDay = workoutDay
-                let dayFormatter = DateFormatter()
-                dayFormatter.dateFormat = "EEE, MMM d"
-                dayFormatter.timeZone = TimeZone.current
-                let dayStr = dayFormatter.string(from: workoutDay)
-                history += "\(dayStr):\n"
-            }
-
-            // Add workout details
-            let workoutTypeStr: String
-            switch workout.workoutActivityType {
-            case .swimming:
-                workoutTypeStr = "Swimming"
-            case .cycling:
-                workoutTypeStr = "Cycling"
-            case .running:
-                workoutTypeStr = "Running"
-            default:
-                workoutTypeStr = "Other"
-            }
-
-            let durationMins = Int(workout.duration / 60)
-            let timeFormatter = DateFormatter()
-            timeFormatter.dateFormat = "h:mm a"
-            timeFormatter.timeZone = TimeZone.current
-            let timeStr = timeFormatter.string(from: workout.startDate)
-
-            history += "  • \(workoutTypeStr) - \(durationMins) min at \(timeStr)\n"
+        // Map workout type strings to HKWorkoutActivityType for matching
+        func hkActivityType(for planType: String) -> HKWorkoutActivityType? {
+            let lower = planType.lowercased()
+            if lower.contains("swim") { return .swimming }
+            if lower.contains("bike") || lower.contains("cycling") { return .cycling }
+            if lower.contains("run") { return .running }
+            return nil
         }
 
-        history += "\nSUMMARY (LAST 4 WEEKS):\n"
+        // Emoji for planned workout type
+        func typeEmoji(for planType: String) -> String {
+            let lower = planType.lowercased()
+            if lower.contains("swim") { return "\u{1F3CA}" } // swimmer emoji
+            if lower.contains("bike") || lower.contains("cycling") { return "\u{1F6B4}" } // cyclist emoji
+            if lower.contains("run") { return "\u{1F3C3}" } // runner emoji
+            return ""
+        }
+
+        // HKWorkout type display name
+        func hkTypeName(_ type: HKWorkoutActivityType) -> String {
+            switch type {
+            case .swimming: return "Swimming"
+            case .cycling: return "Cycling"
+            case .running: return "Running"
+            default: return "Other"
+            }
+        }
+
+        // Format an actual HKWorkout line
+        func formatActual(_ workout: HKWorkout) -> String {
+            let durationMins = Int(workout.duration / 60)
+            var parts = ["\(hkTypeName(workout.workoutActivityType)) \(durationMins)min"]
+
+            if let distance = workout.totalDistance {
+                let miles = distance.doubleValue(for: .mile())
+                if workout.workoutActivityType == .swimming {
+                    let yards = distance.doubleValue(for: .yard())
+                    if yards > 10 { parts.append("\(Int(yards))yd") }
+                } else if miles > 0.1 {
+                    parts.append("\(String(format: "%.1f", miles))mi")
+                }
+            }
+
+            if let energy = workout.totalEnergyBurned {
+                parts.append("\(Int(energy.doubleValue(for: .kilocalorie())))kcal")
+            }
+
+            // Append zone breakdown if cached (last 14 days)
+            if let zones = healthKit.workoutZones[workout.uuid] {
+                let significant = zones.filter { $0.value >= 5.0 }
+                    .sorted { $0.key < $1.key }
+                    .map { "\($0.key): \(Int(round($0.value)))%" }
+                if !significant.isEmpty {
+                    parts.append("(\(significant.joined(separator: ", ")))")
+                }
+            }
+
+            return parts.joined(separator: ", ")
+        }
+
+        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+        // Determine which training weeks fall within the last 4 weeks
+        let startWeek = max(1, currentWeek - 3)
+        let endWeek = min(currentWeek, 17)
+
+        for weekNum in startWeek...endWeek {
+            guard let week = trainingPlan?.getWeek(weekNum) else { continue }
+
+            let weekStartStr = Formatters.shortDate.string(from: week.startDate)
+            let weekEndStr = Formatters.shortDate.string(from: week.endDate)
+            history += "WEEK \(weekNum) (\(weekStartStr)-\(weekEndStr)):\n"
+
+            for day in dayOrder {
+                let dayWorkouts = week.workouts.filter { $0.day == day }
+                guard !dayWorkouts.isEmpty else { continue }
+
+                // Calculate the actual date for this day of the week
+                let dayIndex = dayOrder.firstIndex(of: day) ?? 0
+                // week.startDate is Monday (index 0)
+                guard let dayDate = calendar.date(byAdding: .day, value: dayIndex, to: week.startDate) else { continue }
+
+                // Skip future days — no actual data expected
+                if dayDate > today { continue }
+
+                let dayStart = calendar.startOfDay(for: dayDate)
+                let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
+
+                for planned in dayWorkouts {
+                    // Skip rest days from comparison
+                    if planned.type.lowercased() == "rest" { continue }
+
+                    let plannedStr = "\(typeEmoji(for: planned.type)) \(planned.type) \(planned.duration) \(planned.zone)"
+
+                    // Find matching HealthKit workout: same calendar day + same activity type
+                    let matchingActivity = hkActivityType(for: planned.type)
+                    let matchedWorkout = healthKit.workouts.first { hkWorkout in
+                        let hkDay = calendar.startOfDay(for: hkWorkout.startDate)
+                        return hkDay >= dayStart && hkDay < dayEnd && hkWorkout.workoutActivityType == matchingActivity
+                    }
+
+                    if let actual = matchedWorkout {
+                        history += "- \(day): Planned: \(plannedStr) | Actual: \(formatActual(actual))\n"
+                    } else {
+                        history += "- \(day): Planned: \(plannedStr) | Actual: \u{26A0}\u{FE0F} MISSED\n"
+                    }
+                }
+            }
+
+            history += "\n"
+        }
+
+        // --- Training summary ---
+        history += "TRAINING SUMMARY (since Feb 1, 2026):\n"
         history += "- Swimming: \(swimCount) sessions (\(Int(totalSwimYards)) total yards)\n"
         history += "- Cycling: \(bikeCount) sessions (\(String(format: "%.1f", totalBikeHours)) total hours)\n"
         history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n"
-        history += "- TOTAL: \(healthKit.workouts.filter { $0.startDate >= fourWeeksAgo }.count) completed workouts"
+        history += "- Total Calories: \(Int(totalCalories)) kcal\n"
+        history += "- TOTAL: \(healthKit.workouts.filter { $0.startDate >= historyStart }.count) completed workouts"
 
         return history
     }
@@ -1259,17 +1490,10 @@ struct ContentView: View {
     @StateObject private var trainingPlan = TrainingPlanManager()
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
-    @StateObject private var completionManager = CompletionManager.shared
-
     var body: some View {
-        // Set managers on chatViewModel immediately so they're available when messages are sent
-        chatViewModel.trainingPlan = trainingPlan
-        chatViewModel.healthKit = healthKit
-
-        return TabView {
+        TabView {
             HomeView()
                 .environmentObject(trainingPlan)
-                .environmentObject(completionManager)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
@@ -1283,16 +1507,22 @@ struct ContentView: View {
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
-                .environmentObject(completionManager)
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
 
-            PlanView()
-                .environmentObject(trainingPlan)
+            SettingsView()
+                .environmentObject(healthKit)
                 .tabItem {
-                    Label("Plan", systemImage: "calendar")
+                    Label("Settings", systemImage: "gear")
                 }
+        }
+        .onAppear {
+            NotificationManager.shared.setTrainingPlan(trainingPlan)
+        }
+        .onAppear {
+            chatViewModel.trainingPlan = trainingPlan
+            chatViewModel.healthKit = healthKit
         }
     }
 }
@@ -1301,6 +1531,8 @@ struct ContentView: View {
 struct WeekNavigationHeader: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @Binding var selectedWeek: Int
+    var completionText: String? = nil
+    @State private var showWeekPicker = false
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -1308,41 +1540,156 @@ struct WeekNavigationHeader: View {
 
     var formattedDateRange: String {
         guard let week = currentWeek else { return "" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        let startStr = formatter.string(from: week.startDate)
-        let endStr = formatter.string(from: week.endDate)
+        let startStr = Formatters.shortDate.string(from: week.startDate)
+        let endStr = Formatters.shortDate.string(from: week.endDate)
         return "\(startStr) - \(endStr), 2026"
     }
 
+    var isCurrentWeek: Bool {
+        guard let week = currentWeek else { return false }
+        let today = Date()
+        let endOfWeek = Calendar.current.date(byAdding: .day, value: 1, to: week.endDate) ?? week.endDate
+        return today >= week.startDate && today < endOfWeek
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            Button(action: { if selectedWeek > 1 { selectedWeek -= 1 } }) {
-                Image(systemName: "chevron.left")
-                    .font(.headline)
-            }
-            .disabled(selectedWeek <= 1)
+        Button(action: { showWeekPicker = true }) {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar")
+                    .font(.title3)
+                    .foregroundColor(.blue)
 
-            VStack(alignment: .center, spacing: 4) {
-                Text("Week \(selectedWeek) - \(currentWeek?.phase ?? "")")
-                    .font(.title2)
-                    .fontWeight(.bold)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text("Week \(selectedWeek) - \(currentWeek?.phase ?? "")")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
 
-                Text(formattedDateRange)
+                        if isCurrentWeek {
+                            Text("Current")
+                                .font(.caption2)
+                                .fontWeight(.medium)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.green.opacity(0.2))
+                                .foregroundColor(.green)
+                                .cornerRadius(4)
+                        }
+                    }
+
+                    HStack(spacing: 4) {
+                        Text(formattedDateRange)
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        if let completion = completionText {
+                            Text("(\(completion))")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.down")
                     .font(.caption)
                     .foregroundColor(.gray)
             }
-            .frame(maxWidth: .infinity)
-
-            Button(action: { if selectedWeek < 17 { selectedWeek += 1 } }) {
-                Image(systemName: "chevron.right")
-                    .font(.headline)
-            }
-            .disabled(selectedWeek >= 17)
         }
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(10)
+        .gesture(
+            DragGesture(minimumDistance: 30, coordinateSpace: .local)
+                .onEnded { value in
+                    if value.translation.width < -30 && selectedWeek < 17 {
+                        withAnimation { selectedWeek += 1 }
+                    } else if value.translation.width > 30 && selectedWeek > 1 {
+                        withAnimation { selectedWeek -= 1 }
+                    }
+                }
+        )
+        .sheet(isPresented: $showWeekPicker) {
+            WeekPickerSheet(selectedWeek: $selectedWeek, trainingPlan: trainingPlan)
+        }
+    }
+}
+
+// MARK: - Week Picker Sheet
+struct WeekPickerSheet: View {
+    @Binding var selectedWeek: Int
+    let trainingPlan: TrainingPlanManager
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        NavigationView {
+            List {
+                ForEach(trainingPlan.weeks.sorted(by: { $0.weekNumber < $1.weekNumber }), id: \.weekNumber) { week in
+                    Button(action: {
+                        withAnimation { selectedWeek = week.weekNumber }
+                        dismiss()
+                    }) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack {
+                                    Text("Week \(week.weekNumber)")
+                                        .fontWeight(.semibold)
+                                    Text("- \(week.phase)")
+                                        .foregroundColor(.secondary)
+                                }
+
+                                let startStr = Formatters.shortDate.string(from: week.startDate)
+                                let endStr = Formatters.shortDate.string(from: week.endDate)
+                                Text("\(startStr) - \(endStr)")
+                                    .font(.caption)
+                                    .foregroundColor(.gray)
+
+                                let workoutCount = week.workouts.filter { $0.type != "Rest" }.count
+                                Text("\(workoutCount) workouts")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+
+                            Spacer()
+
+                            if week.weekNumber == selectedWeek {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(.blue)
+                                    .fontWeight(.semibold)
+                            }
+
+                            if isCurrentWeek(week) {
+                                Text("Current")
+                                    .font(.caption2)
+                                    .fontWeight(.medium)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.green.opacity(0.2))
+                                    .foregroundColor(.green)
+                                    .cornerRadius(4)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                    .listRowBackground(week.weekNumber == selectedWeek ? Color.blue.opacity(0.08) : Color.clear)
+                }
+            }
+            .navigationTitle("Select Week")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func isCurrentWeek(_ week: TrainingWeek) -> Bool {
+        let today = Date()
+        return today >= week.startDate && today <= Calendar.current.date(byAdding: .day, value: 1, to: week.endDate)!
     }
 }
 
@@ -1351,6 +1698,7 @@ struct HomeView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @State private var selectedWeek: Int = 1
+    @State private var hasAppearedOnce = false
     @State private var draggedFromDay: String?
     @State private var draggedWorkout: DayWorkout?
 
@@ -1360,48 +1708,72 @@ struct HomeView: View {
 
     var formattedDateRange: String {
         guard let week = currentWeek else { return "" }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        let startStr = formatter.string(from: week.startDate)
-        let endStr = formatter.string(from: week.endDate)
+        let startStr = Formatters.shortDate.string(from: week.startDate)
+        let endStr = Formatters.shortDate.string(from: week.endDate)
         return "\(startStr) - \(endStr), 2026"
     }
 
-    var todaysTotalWorkouts: Int {
-        guard let week = currentWeek else { return 0 }
-
-        let today = Date()
+    var daysUntilRace: Int {
         let calendar = Calendar.current
-        let todayStartOfDay = calendar.startOfDay(for: today)
-
-        var count = 0
-
-        // Count all non-rest workouts from start of week through today
-        for workout in week.workouts {
-            if !workout.type.contains("Rest") {
-                let dayDate = getDateForDay(workout)
-                let dayStartOfDay = calendar.startOfDay(for: dayDate)
-                if dayStartOfDay <= todayStartOfDay {
-                    count += 1
-                }
-            }
-        }
-
-        // Add 1 for each rest day from start through today that is "completed" (no non-yoga/walking workouts)
-        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        for day in dayOrder {
-            let dayWorkouts = week.workouts.filter { $0.day == day }
-            if let restWorkout = dayWorkouts.first(where: { $0.type.contains("Rest") }) {
-                let dayDate = getDateForDay(restWorkout)
-                let dayStartOfDay = calendar.startOfDay(for: dayDate)
-                if dayStartOfDay <= todayStartOfDay && isRestDayCompleted(for: restWorkout) {
-                    count += 1
-                }
-            }
-        }
-
-        return count
+        var comps = DateComponents()
+        comps.year = 2026
+        comps.month = 7
+        comps.day = 19
+        guard let raceDate = calendar.date(from: comps) else { return 0 }
+        let today = calendar.startOfDay(for: Date())
+        let race = calendar.startOfDay(for: raceDate)
+        return calendar.dateComponents([.day], from: today, to: race).day ?? 0
     }
+
+    var currentPhase: String {
+        switch selectedWeek {
+        case 1...4: return "Base Building"
+        case 5...8: return "Build Phase"
+        case 9...12: return "Peak Training"
+        case 13...15: return "Race Specific"
+        case 16...17: return "Taper"
+        default: return "Training"
+        }
+    }
+
+    private var completionCounts: (total: Int, completed: Int) {
+        guard let week = currentWeek else { return (0, 0) }
+
+        let calendar = Calendar.current
+        let todayStartOfDay = calendar.startOfDay(for: Date())
+        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
+
+        var total = 0
+        var completed = 0
+
+        for day in dayOrder {
+            guard let dayWorkouts = grouped[day] else { continue }
+            let sampleWorkout = dayWorkouts[0]
+            let dayDate = getDateForDay(sampleWorkout)
+            let dayStartOfDay = calendar.startOfDay(for: dayDate)
+            guard dayStartOfDay <= todayStartOfDay else { continue }
+
+            if let restWorkout = dayWorkouts.first(where: { $0.type.contains("Rest") }) {
+                if isRestDayCompleted(for: restWorkout) {
+                    total += 1
+                    completed += 1
+                }
+            } else {
+                for workout in dayWorkouts {
+                    total += 1
+                    if isWorkoutCompleted(workout) {
+                        completed += 1
+                    }
+                }
+            }
+        }
+
+        return (total, completed)
+    }
+
+    var todaysTotalWorkouts: Int { completionCounts.total }
+    var todaysCompletedWorkouts: Int { completionCounts.completed }
 
     var workoutsByDay: [(day: String, workouts: [DayWorkout])] {
         guard let week = currentWeek else { return [] }
@@ -1413,42 +1785,6 @@ struct HomeView: View {
             guard let workouts = grouped[day] else { return nil }
             return (day: day, workouts: workouts)
         }
-    }
-
-    var todaysCompletedWorkouts: Int {
-        guard let week = currentWeek else { return 0 }
-
-        let today = Date()
-        let calendar = Calendar.current
-        let todayStartOfDay = calendar.startOfDay(for: today)
-
-        var count = 0
-
-        // Count completed non-rest workouts from start through today
-        for workout in week.workouts {
-            if !workout.type.contains("Rest") {
-                let dayDate = getDateForDay(workout)
-                let dayStartOfDay = calendar.startOfDay(for: dayDate)
-                if dayStartOfDay <= todayStartOfDay && isWorkoutCompleted(workout) {
-                    count += 1
-                }
-            }
-        }
-
-        // Add 1 for each rest day from start through today that is "completed"
-        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        for day in dayOrder {
-            let dayWorkouts = week.workouts.filter { $0.day == day }
-            if let restWorkout = dayWorkouts.first(where: { $0.type.contains("Rest") }) {
-                let dayDate = getDateForDay(restWorkout)
-                let dayStartOfDay = calendar.startOfDay(for: dayDate)
-                if dayStartOfDay <= todayStartOfDay && isRestDayCompleted(for: restWorkout) {
-                    count += 1
-                }
-            }
-        }
-
-        return count
     }
 
     func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
@@ -1578,11 +1914,42 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                // Week Navigation Header with Undo Button
+                // Race Countdown Banner
                 HStack {
-                    WeekNavigationHeader(selectedWeek: $selectedWeek)
-
+                    if daysUntilRace > 0 {
+                        HStack(spacing: 4) {
+                            Text("\(daysUntilRace)")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Text("DAYS TO RACE")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.secondary)
+                        }
+                    } else if daysUntilRace == 0 {
+                        Text("RACE DAY!")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.orange)
+                    } else {
+                        Text("RACE COMPLETE")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.green)
+                    }
                     Spacer()
+                    Text("Week \(selectedWeek) \u{00B7} \(currentPhase)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(Color(.systemGray6))
+                .cornerRadius(10)
+
+                // Week Navigation Header with Completion Count and Undo
+                HStack {
+                    WeekNavigationHeader(selectedWeek: $selectedWeek, completionText: "\(todaysCompletedWorkouts)/\(todaysTotalWorkouts)")
 
                     if trainingPlan.previousPlanVersion != nil {
                         Button(action: {
@@ -1594,20 +1961,6 @@ struct HomeView: View {
                         }
                     }
                 }
-
-                // Completion Counter
-                HStack {
-                    Text("Workouts Completed")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                    Spacer()
-                    Text("\(todaysCompletedWorkouts)/\(todaysTotalWorkouts)")
-                        .font(.headline)
-                        .foregroundColor(.blue)
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(10)
 
                 // Sync Error Display
                 if let error = healthKit.syncError {
@@ -1634,15 +1987,51 @@ struct HomeView: View {
                         healthKit: healthKit,
                         parent: self,
                         draggedWorkout: $draggedWorkout,
-                        draggedFromDay: $draggedFromDay
+                        draggedFromDay: $draggedFromDay,
+                        selectedWeek: selectedWeek
                     )
+                }
+                .onDrop(of: [.plainText], isTargeted: nil) { _ in
+                    print("[DROP] ScrollView catch-all onDrop fired, clearing drag state")
+                    draggedFromDay = nil
+                    draggedWorkout = nil
+                    return false
+                }
+                .onTapGesture {
+                    if draggedFromDay != nil {
+                        print("[DRAG] Tap detected, clearing draggedFromDay=\(draggedFromDay ?? "nil")")
+                        draggedFromDay = nil
+                        draggedWorkout = nil
+                    }
+                }
+                .onChange(of: selectedWeek) { _, _ in
+                    draggedFromDay = nil
+                    draggedWorkout = nil
                 }
 
                 Spacer()
             }
-            .navigationTitle("Training Plan")
+            .navigationBarTitleDisplayMode(.inline)
+            .gesture(
+                DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                    .onEnded { value in
+                        if value.translation.width < -50 && selectedWeek < 17 {
+                            withAnimation { selectedWeek += 1 }
+                        } else if value.translation.width > 50 && selectedWeek > 1 {
+                            withAnimation { selectedWeek -= 1 }
+                        }
+                    }
+            )
             .onAppear {
-                selectedWeek = trainingPlan.currentWeekNumber
+                if !hasAppearedOnce {
+                    selectedWeek = trainingPlan.currentWeekNumber
+                    hasAppearedOnce = true
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .navigateToWeek)) { notification in
+                if let week = notification.userInfo?["week"] as? Int {
+                    withAnimation { selectedWeek = week }
+                }
             }
         }
     }
@@ -1656,6 +2045,10 @@ struct DayDetailView: View {
     @State private var note: String = ""
     @Environment(\.dismiss) var dismiss
 
+    private var noteKey: String {
+        "workout_note_w\(week.weekNumber)_\(day.day)_\(day.type)"
+    }
+
     var dayName: String {
         let dayMap = ["Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday",
                       "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"]
@@ -1663,9 +2056,7 @@ struct DayDetailView: View {
     }
 
     var navTitle: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return "\(dayName), \(formatter.string(from: getDateForDay()))"
+        return "\(dayName), \(Formatters.shortDate.string(from: getDateForDay()))"
     }
 
     var matchingHealthKitWorkouts: [HKWorkout] {
@@ -1779,16 +2170,30 @@ struct DayDetailView: View {
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
 
-                    // Weather Forecast - Only show if within 7 days
+                    // Nutrition Target
+                    if let nutrition = day.nutritionTarget {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Nutrition Target", systemImage: "fork.knife")
+                                .font(.headline)
+                            Text(nutrition)
+                                .font(.body)
+                        }
+                        .padding()
+                        .background(Color.green.opacity(0.1))
+                        .cornerRadius(12)
+                    }
+
+                    // Weather - show for past days and up to 7 days ahead
                     let dayDate = getDateForDay()
                     let calendar = Calendar.current
                     let today = Date()
                     let daysUntil = calendar.dateComponents([.day], from: today, to: dayDate).day ?? 0
+                    let isPastDay = daysUntil < 0
 
-                    if daysUntil >= -1 && daysUntil <= 7 {
+                    if isPastDay || daysUntil <= 7 {
                         let weather = WeatherForecast.forecast(for: dayDate)
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Expected Weather")
+                            Text(isPastDay ? "Weather" : "Expected Weather")
                                 .font(.headline)
 
                             VStack(alignment: .leading, spacing: 8) {
@@ -1888,6 +2293,16 @@ struct DayDetailView: View {
             }
             .navigationTitle(navTitle)
             .navigationBarTitleDisplayMode(.inline)
+            .onAppear {
+                note = UserDefaults.standard.string(forKey: noteKey) ?? ""
+            }
+            .onChange(of: note) { _, newValue in
+                if newValue.isEmpty {
+                    UserDefaults.standard.removeObject(forKey: noteKey)
+                } else {
+                    UserDefaults.standard.set(newValue, forKey: noteKey)
+                }
+            }
         }
     }
 }
@@ -1935,6 +2350,7 @@ struct DayGroupsView: View {
     let parent: HomeView
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
+    let selectedWeek: Int
 
     var body: some View {
         if let week = week, !dayGroups.isEmpty {
@@ -1947,7 +2363,8 @@ struct DayGroupsView: View {
                         draggedWorkout: $draggedWorkout,
                         draggedFromDay: $draggedFromDay,
                         week: week,
-                        healthKit: healthKit
+                        healthKit: healthKit,
+                        selectedWeek: selectedWeek
                     )
                 }
             }
@@ -1971,6 +2388,7 @@ struct DayRowView: View {
     @Binding var draggedFromDay: String?
     let week: TrainingWeek?
     @ObservedObject var healthKit: HealthKitManager
+    let selectedWeek: Int
 
     var isRestDay: Bool {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
@@ -1988,7 +2406,8 @@ struct DayRowView: View {
                 week: week,
                 draggedWorkout: $draggedWorkout,
                 draggedFromDay: $draggedFromDay,
-                hideHeader: false
+                hideHeader: false,
+                selectedWeek: selectedWeek
             )
         }
     }
@@ -2001,27 +2420,22 @@ struct RestDayRow: View {
     let parent: HomeView
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M/d"
-        return f
-    }()
 
     var dayDate: String {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
-        return Self.dateFormatter.string(from: date)
+        return Formatters.monthDay.string(from: date)
     }
 
     var body: some View {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
 
-        // Only show weather if within 7 days
+        // Show weather for past days and up to 7 days ahead
         let calendar = Calendar.current
         let today = Date()
         let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
-        let showWeather = daysUntil >= -1 && daysUntil <= 7
+        let showWeather = daysUntil < 0 || daysUntil <= 7
 
         return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from card
@@ -2037,13 +2451,13 @@ struct RestDayRow: View {
 
                 if showWeather {
                     let weather = WeatherForecast.forecast(for: date)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(weather.condition)
+                    HStack(spacing: 4) {
+                        Text(weather.icon)
+                            .font(.title3)
+                        Text("\(weather.highTemp)°")
                             .font(.caption)
                             .fontWeight(.semibold)
-                        Text("\(weather.highTemp)°F")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                 }
 
@@ -2091,26 +2505,18 @@ struct WorkoutDayRows: View {
     @Binding var draggedWorkout: DayWorkout?
     @Binding var draggedFromDay: String?
     var hideHeader: Bool = false
+    let selectedWeek: Int
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "M/d"
-        return f
-    }()
 
     var dayDate: String {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
-        return Self.dateFormatter.string(from: date)
+        return Formatters.monthDay.string(from: date)
     }
 
     var trainingPlan: TrainingPlanManager {
         parent.trainingPlan
-    }
-
-    var selectedWeek: Int {
-        parent.trainingPlan.currentWeekNumber
     }
 
     func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
@@ -2120,11 +2526,11 @@ struct WorkoutDayRows: View {
     var body: some View {
         let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate
 
-        // Only show weather if within 7 days
+        // Show weather for past days and up to 7 days ahead
         let calendar = Calendar.current
         let today = Date()
         let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
-        let showWeather = daysUntil >= -1 && daysUntil <= 7
+        let showWeather = daysUntil < 0 || daysUntil <= 7
 
         return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from cards
@@ -2140,13 +2546,13 @@ struct WorkoutDayRows: View {
 
                 if showWeather {
                     let weather = WeatherForecast.forecast(for: date)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(weather.condition)
+                    HStack(spacing: 4) {
+                        Text(weather.icon)
+                            .font(.title3)
+                        Text("\(weather.highTemp)°")
                             .font(.caption)
                             .fontWeight(.semibold)
-                        Text("\(weather.highTemp)°F")
-                            .font(.caption2)
-                            .foregroundColor(.gray)
+                            .foregroundColor(.secondary)
                     }
                 }
 
@@ -2191,12 +2597,22 @@ struct WorkoutDayRows: View {
         }
         // Opacity feedback when dragging this entire day
         .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)
-        .id(draggedFromDay) // Force re-render when drag state changes
         // Drag the entire day as one unit
         .onDrag {
             draggedFromDay = dayGroup.day
             draggedWorkout = nil
-            print("[DRAG] Started dragging entire day \(dayGroup.day)")
+            print("[DRAG] Started dragging day=\(dayGroup.day), draggedFromDay is now=\(draggedFromDay ?? "nil")")
+            // Auto-clear after 2 seconds if drop never completes (cancelled drag)
+            let dragDay = dayGroup.day
+            let binding = $draggedFromDay
+            let workoutBinding = $draggedWorkout
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                if binding.wrappedValue == dragDay {
+                    binding.wrappedValue = nil
+                    workoutBinding.wrappedValue = nil
+                    print("[DRAG] Auto-cleared stale drag state for \(dragDay)")
+                }
+            }
             return NSItemProvider(object: dayGroup.day as NSString)
         }
         .onDrop(of: [.plainText], delegate: WorkoutDropDelegate(
@@ -2225,118 +2641,80 @@ struct AnalyticsView: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var selectedWeek: Int = 1
+    @State private var hasAppearedOnce = false
     @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
     @State private var actualZonePercentages: [String: Double] = [:]
     @State private var isLoadingZones = false
+    @State private var cachedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
+    @State private var cachedPlannedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
+    @State private var cachedZonePercentages: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
     }
 
-    var volumeData: (swim: Double, bike: Double, run: Double) {
-        guard let week = currentWeek else { return (0, 0, 0) }
+    func recalculateAnalytics() {
+        guard let week = currentWeek else {
+            cachedVolume = (0, 0, 0)
+            cachedPlannedVolume = (0, 0, 0)
+            cachedZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+            return
+        }
 
+        // Actual volume from HealthKit (single pass)
         let calendar = Calendar.current
         let weekStart = calendar.startOfDay(for: week.startDate)
         let weekEnd = calendar.startOfDay(for: week.endDate)
+        var swimH: Double = 0, bikeH: Double = 0, runH: Double = 0
 
-        var swimHours: Double = 0
-        var bikeHours: Double = 0
-        var runHours: Double = 0
-
-        // Count completed workouts from HealthKit for this week
         for hkWorkout in healthKit.workouts {
             let workoutDate = calendar.startOfDay(for: hkWorkout.startDate)
-
-            // Only include workouts within the selected week
             guard workoutDate >= weekStart && workoutDate <= weekEnd else { continue }
-
-            let hours = hkWorkout.duration / 3600 // Convert seconds to hours
-
+            let hours = hkWorkout.duration / 3600
             switch hkWorkout.workoutActivityType {
-            case .swimming:
-                swimHours += hours
-            case .cycling:
-                bikeHours += hours
-            case .running:
-                runHours += hours
-            default:
-                break
+            case .swimming: swimH += hours
+            case .cycling: bikeH += hours
+            case .running: runH += hours
+            default: break
             }
         }
+        cachedVolume = (swimH, bikeH, runH)
 
-        return (swimHours, bikeHours, runHours)
-    }
-
-    var zoneDistribution: [String: Double] {
-        guard let week = currentWeek else {
-            return ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
-        }
-
+        // Planned volume + zone distribution (single pass over workouts)
+        var pSwim: Double = 0, pBike: Double = 0, pRun: Double = 0
         var zoneHours: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
 
         for workout in week.workouts {
             if workout.type.contains("Rest") { continue }
-
-            let hours = parseWorkoutDuration(workout.duration)
-            let zone = parseZone(workout.zone)
-
-            for z in zone {
-                zoneHours[z, default: 0] += hours / Double(zone.count)
-            }
-        }
-
-        return zoneHours
-    }
-
-    var totalTrainingHours: Double {
-        let volume = volumeData
-        return volume.swim + volume.bike + volume.run
-    }
-
-    var zonePercentages: [String: Double] {
-        let distribution = zoneDistribution
-        let total = distribution.values.reduce(0, +)
-
-        guard total > 0 else {
-            return ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
-        }
-
-        return [
-            "Z1": (distribution["Z1"] ?? 0) / total * 100,
-            "Z2": (distribution["Z2"] ?? 0) / total * 100,
-            "Z3": (distribution["Z3"] ?? 0) / total * 100,
-            "Z4": (distribution["Z4"] ?? 0) / total * 100,
-            "Z5": (distribution["Z5"] ?? 0) / total * 100
-        ]
-    }
-
-    var plannedVolumeData: (swim: Double, bike: Double, run: Double) {
-        guard let week = currentWeek else { return (0, 0, 0) }
-
-        var swimHours: Double = 0
-        var bikeHours: Double = 0
-        var runHours: Double = 0
-
-        for workout in week.workouts {
-            if workout.type.contains("Rest") { continue }
-
             let hours = parseWorkoutDuration(workout.duration)
 
+            // Planned volume
             if workout.type.contains("🏊") {
-                swimHours += hours
+                pSwim += hours
             } else if workout.type.contains("🚴") && !workout.type.contains("🏃") {
-                bikeHours += hours
+                pBike += hours
             } else if workout.type.contains("🏃") && !workout.type.contains("🚴") {
-                runHours += hours
+                pRun += hours
             } else if workout.type.contains("🚴") && workout.type.contains("🏃") {
-                // Brick workouts split between bike and run
-                bikeHours += hours * 0.6
-                runHours += hours * 0.4
+                pBike += hours * 0.6
+                pRun += hours * 0.4
+            }
+
+            // Zone distribution
+            let zones = parseZone(workout.zone)
+            for z in zones {
+                zoneHours[z, default: 0] += hours / Double(zones.count)
             }
         }
+        cachedPlannedVolume = (pSwim, pBike, pRun)
 
-        return (swimHours, bikeHours, runHours)
+        // Zone percentages
+        let total = zoneHours.values.reduce(0, +)
+        if total > 0 {
+            cachedZonePercentages = zoneHours.mapValues { ($0 / total) * 100 }
+        } else {
+            cachedZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+        }
     }
 
     func parseWorkoutDuration(_ duration: String) -> Double {
@@ -2428,9 +2806,9 @@ struct AnalyticsView: View {
                         .font(.headline)
 
                     HStack(spacing: 20) {
-                        VolumeCard(label: "Swim", hours: volumeData.swim, planned: plannedVolumeData.swim, color: .blue)
-                        VolumeCard(label: "Bike", hours: volumeData.bike, planned: plannedVolumeData.bike, color: .orange)
-                        VolumeCard(label: "Run", hours: volumeData.run, planned: plannedVolumeData.run, color: .green)
+                        VolumeCard(label: "Swim", hours: cachedVolume.swim, planned: cachedPlannedVolume.swim, color: .blue)
+                        VolumeCard(label: "Bike", hours: cachedVolume.bike, planned: cachedPlannedVolume.bike, color: .orange)
+                        VolumeCard(label: "Run", hours: cachedVolume.run, planned: cachedPlannedVolume.run, color: .green)
                     }
                 }
                 .padding()
@@ -2475,11 +2853,11 @@ struct AnalyticsView: View {
                         .padding(.bottom, 4)
 
                         HStack(spacing: 20) {
-                            ZoneBar(zone: "Z1", plannedPercent: zonePercentages["Z1"] ?? 0, actualPercent: actualZonePercentages["Z1"] ?? 0, color: .gray)
-                            ZoneBar(zone: "Z2", plannedPercent: zonePercentages["Z2"] ?? 0, actualPercent: actualZonePercentages["Z2"] ?? 0, color: .green)
-                            ZoneBar(zone: "Z3", plannedPercent: zonePercentages["Z3"] ?? 0, actualPercent: actualZonePercentages["Z3"] ?? 0, color: .yellow)
-                            ZoneBar(zone: "Z4", plannedPercent: zonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
-                            ZoneBar(zone: "Z5", plannedPercent: zonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
+                            ZoneBar(zone: "Z1", plannedPercent: cachedZonePercentages["Z1"] ?? 0, actualPercent: actualZonePercentages["Z1"] ?? 0, color: .gray)
+                            ZoneBar(zone: "Z2", plannedPercent: cachedZonePercentages["Z2"] ?? 0, actualPercent: actualZonePercentages["Z2"] ?? 0, color: .green)
+                            ZoneBar(zone: "Z3", plannedPercent: cachedZonePercentages["Z3"] ?? 0, actualPercent: actualZonePercentages["Z3"] ?? 0, color: .yellow)
+                            ZoneBar(zone: "Z4", plannedPercent: cachedZonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
+                            ZoneBar(zone: "Z5", plannedPercent: cachedZonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
                         }
                     }
                 }
@@ -2490,12 +2868,27 @@ struct AnalyticsView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("Analytics")
+            .navigationBarTitleDisplayMode(.inline)
+            .gesture(
+                DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                    .onEnded { value in
+                        if value.translation.width < -50 && selectedWeek < 17 {
+                            withAnimation { selectedWeek += 1 }
+                        } else if value.translation.width > 50 && selectedWeek > 1 {
+                            withAnimation { selectedWeek -= 1 }
+                        }
+                    }
+            )
             .onAppear {
-                selectedWeek = trainingPlan.currentWeekNumber
+                if !hasAppearedOnce {
+                    selectedWeek = trainingPlan.currentWeekNumber
+                    hasAppearedOnce = true
+                }
+                recalculateAnalytics()
                 fetchActualZoneData()
             }
             .onChange(of: selectedWeek) { _, _ in
+                recalculateAnalytics()
                 fetchActualZoneData()
             }
         }
@@ -2574,94 +2967,6 @@ struct ZoneBar: View {
     }
 }
 
-// MARK: - Reschedule Modal
-struct RescheduleModal: View {
-    @Binding var isPresented: Bool
-    @EnvironmentObject var trainingPlan: TrainingPlanManager
-
-    let proposedWeeks: [TrainingWeek]
-    let changeDescription: String
-    let onAccept: () -> Void
-    let onDecline: () -> Void
-
-    var body: some View {
-        VStack(spacing: 16) {
-            // Header
-            HStack {
-                Text("Proposed Reschedule")
-                    .font(.headline)
-                Spacer()
-                Button(action: onDecline) {
-                    Image(systemName: "xmark.circle")
-                        .foregroundColor(.gray)
-                }
-            }
-            .padding(.bottom, 8)
-
-            // Claude's description
-            VStack(alignment: .leading, spacing: 8) {
-                Text(changeDescription)
-                    .font(.caption)
-                    .foregroundColor(.gray)
-                    .padding(8)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(8)
-            }
-
-            // Week preview (show current week with changes)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("Updated Week Plan")
-                    .font(.caption)
-                    .fontWeight(.bold)
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        ForEach(proposedWeeks.filter { $0.weekNumber == trainingPlan.currentWeekNumber }, id: \.weekNumber) { week in
-                            ForEach(week.workouts, id: \.day) { workout in
-                                HStack {
-                                    Text(workout.day)
-                                        .font(.caption)
-                                        .frame(width: 50, alignment: .leading)
-                                    Text(workout.type)
-                                        .font(.caption)
-                                    Text(workout.duration)
-                                        .font(.caption2)
-                                        .foregroundColor(.gray)
-                                    Spacer()
-                                }
-                                .padding(4)
-                                .background(Color(.systemGray6))
-                                .cornerRadius(4)
-                            }
-                        }
-                    }
-                }
-                .frame(maxHeight: 200)
-            }
-
-            // Action buttons
-            HStack(spacing: 12) {
-                Button(action: onDecline) {
-                    Text("Decline")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-
-                Button(action: onAccept) {
-                    Text("Accept & Update")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 10)
-    }
-}
-
 // MARK: - Workout Drop Delegate
 struct WorkoutDropDelegate: DropDelegate {
     let targetDay: String
@@ -2677,6 +2982,14 @@ struct WorkoutDropDelegate: DropDelegate {
         }
     }
 
+    func dropExited(info: DropInfo) {
+        print("[DROP] Exited target day: \(targetDay)")
+    }
+
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        DropProposal(operation: .move)
+    }
+
     func performDrop(info: DropInfo) -> Bool {
         guard let draggedFromDay = getDraggedFromDay() else {
             print("[DROP] performDrop: No draggedFromDay")
@@ -2686,7 +2999,8 @@ struct WorkoutDropDelegate: DropDelegate {
         print("[DROP] performDrop: from=\(draggedFromDay) to=\(targetDay) week=\(selectedWeek)")
 
         guard draggedFromDay != targetDay else {
-            print("[DROP] Same day, returning false")
+            print("[DROP] Same day, clearing state")
+            clearDragState()
             return false
         }
 
@@ -2710,10 +3024,10 @@ struct WorkoutDropDelegate: DropDelegate {
             newWorkouts = newWorkouts.map { workout in
                 if workout.day == draggedFromDay {
                     // Change draggedFromDay workouts to targetDay
-                    return DayWorkout(day: targetDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status)
+                    return DayWorkout(day: targetDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
                 } else if workout.day == targetDay {
                     // Change targetDay workouts to draggedFromDay
-                    return DayWorkout(day: draggedFromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status)
+                    return DayWorkout(day: draggedFromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
                 } else {
                     return workout
                 }
@@ -2755,105 +3069,126 @@ struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
-    @FocusState private var isInputFocused: Bool
-    @State private var showRescheduleModal = false
-    @State private var currentRescheduleProposal: (weeks: [TrainingWeek], description: String)?
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(viewModel.messages) { message in
-                                ChatBubble(message: message)
-                                    .id(message.id)
-                            }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 12) {
+                        ForEach(viewModel.messages) { message in
+                            ChatBubble(message: message)
+                                .id(message.id)
+                        }
 
-                            if viewModel.isLoading {
-                                HStack(spacing: 4) {
-                                    ForEach(0..<3, id: \.self) { _ in
-                                        Circle()
-                                            .fill(Color.gray)
-                                            .frame(width: 8, height: 8)
-                                    }
+                        if viewModel.isLoading {
+                            HStack(spacing: 4) {
+                                ForEach(0..<3, id: \.self) { i in
+                                    Circle()
+                                        .fill(Color.gray.opacity(0.6))
+                                        .frame(width: 8, height: 8)
                                 }
-                                .padding()
                             }
-
-                            if let error = viewModel.error {
-                                Text(error)
-                                    .foregroundColor(.red)
-                                    .font(.caption)
-                                    .padding()
-                            }
+                            .padding(.leading, 16)
+                            .padding(.vertical, 8)
                         }
-                        .padding()
-                        .onChange(of: viewModel.messages.count) {
-                            if let last = viewModel.messages.last {
-                                proxy.scrollTo(last.id, anchor: .bottom)
-                            }
+
+                        if let error = viewModel.error {
+                            Text(error)
+                                .foregroundColor(.red)
+                                .font(.caption)
+                                .padding(.horizontal)
                         }
                     }
+                    .padding()
                 }
-                .onTapGesture {
-                    isInputFocused = false
-                }
-
-                Divider()
-
-                HStack(spacing: 8) {
-                    TextField("Ask about your training...", text: $viewModel.inputText)
-                        .textFieldStyle(.roundedBorder)
-                        .disabled(viewModel.isLoading)
-                        .focused($isInputFocused)
-
-                    Button(action: {
-                        Task {
-                            await viewModel.sendMessage(viewModel.inputText)
-                        }
-                        isInputFocused = false
-                    }) {
-                        Image(systemName: "paperplane.fill")
-                            .foregroundColor(.blue)
+                .defaultScrollAnchor(.bottom)
+                .scrollDismissesKeyboard(.immediately)
+                .onChange(of: viewModel.messages.count) {
+                    withAnimation {
+                        proxy.scrollTo(viewModel.messages.last?.id, anchor: .bottom)
                     }
-                    .disabled(viewModel.inputText.trimmingCharacters(in: .whitespaces).isEmpty || viewModel.isLoading)
                 }
-                .padding()
+                .safeAreaInset(edge: .bottom) {
+                    ChatInputBar(viewModel: viewModel)
+                }
             }
-            .navigationTitle("Training Coach")
-            .onChange(of: viewModel.messages.count) {
-                // Check latest message for reschedule proposal
-                if let lastMessage = viewModel.messages.last, !lastMessage.isUser {
-                    if let proposal = viewModel.parseRescheduleFromResponse(lastMessage.text) {
-                        currentRescheduleProposal = (proposal.proposedWeeks, proposal.description)
-                        showRescheduleModal = true
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            viewModel.clearChatHistory()
+                        } label: {
+                            Label("Clear History", systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
                     }
                 }
             }
-            .sheet(isPresented: $showRescheduleModal) {
-                if let proposal = currentRescheduleProposal {
-                    RescheduleModal(
-                        isPresented: $showRescheduleModal,
-                        proposedWeeks: proposal.weeks,
-                        changeDescription: proposal.description,
-                        onAccept: {
-                            trainingPlan.applyRescheduledPlan(
-                                proposal.weeks,
-                                source: "chat",
-                                description: proposal.description
-                            )
-                            showRescheduleModal = false
-                            currentRescheduleProposal = nil
-                        },
-                        onDecline: {
-                            showRescheduleModal = false
-                            currentRescheduleProposal = nil
-                        }
-                    )
-                    .environmentObject(trainingPlan)
+        }
+    }
+}
+
+struct ChatInputBar: View {
+    @ObservedObject var viewModel: ChatViewModel
+    @FocusState private var isFocused: Bool
+    @State private var text: String = ""
+
+    private var canSend: Bool {
+        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isLoading
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(alignment: .bottom, spacing: 0) {
+                TextField("Message your coach...", text: $text, axis: .vertical)
+                    .lineLimit(1...6)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .padding(.trailing, 36)
+                    .focused($isFocused)
+                    .disabled(viewModel.isLoading)
+                    .onSubmit { if canSend { send() } }
+            }
+            .background(Color(.secondarySystemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                Button(action: send) {
+                    Image(systemName: "arrow.up")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 30, height: 30)
+                        .background(
+                            Circle()
+                                .fill(canSend ? Color.blue : Color(.systemGray4))
+                        )
+                }
+                .disabled(!canSend)
+                .padding(.trailing, 6)
+                .padding(.bottom, 6)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+        .background(.bar)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    isFocused = false
                 }
             }
+        }
+    }
+
+    private func send() {
+        let message = text
+        text = ""
+        isFocused = false
+        Task {
+            await viewModel.sendMessage(message)
         }
     }
 }
@@ -2867,18 +3202,20 @@ struct ChatBubble: View {
                 Spacer()
 
                 Text(message.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .background(Color.blue)
                     .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .cornerRadius(16)
             } else {
                 Text(message.text)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
+                    .font(.body)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                     .background(Color(.systemGray5))
-                    .foregroundColor(.black)
-                    .cornerRadius(12)
+                    .foregroundColor(.primary)
+                    .cornerRadius(16)
 
                 Spacer()
             }
@@ -2906,7 +3243,7 @@ struct PlanView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Plan Overview")
+            .navigationBarTitleDisplayMode(.inline)
         }
     }
 }
@@ -2914,24 +3251,21 @@ struct PlanView: View {
 struct WeekCard: View {
     let weekNumber: Int
     let isCurrentWeek: Bool
+    @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var phase: String {
-        switch weekNumber {
-        case 1...4: return "Volume Rebalance"
-        case 5...8: return "Build 1"
-        case 9...12: return "Build 2 / Race Specificity"
-        case 13...15: return "Peak & Sharpen"
-        default: return "Taper & Race"
-        }
+        trainingPlan.getWeek(weekNumber)?.phase ?? ""
     }
 
     var startDate: String {
-        let start = Date(timeIntervalSince1970: 1711190400) // Mar 23, 2026
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 3
+        components.day = 23
+        let start = Calendar.current.date(from: components) ?? Date()
         let calendar = Calendar.current
         let weekStart = calendar.date(byAdding: .weekOfYear, value: weekNumber - 1, to: start)!
-        let formatter = DateFormatter()
-        formatter.dateFormat = "MMM d"
-        return formatter.string(from: weekStart)
+        return Formatters.shortDate.string(from: weekStart)
     }
 
     var body: some View {
@@ -2966,6 +3300,200 @@ struct WeekCard: View {
         .background(isCurrentWeek ? Color(.systemGray5) : Color(.systemBackground))
         .border(isCurrentWeek ? Color.green : Color.clear, width: isCurrentWeek ? 2 : 0)
         .cornerRadius(8)
+    }
+}
+
+// MARK: - Notification Manager
+class NotificationManager: ObservableObject {
+    static let shared = NotificationManager()
+
+    @Published var morningWorkoutReminder: Bool {
+        didSet {
+            UserDefaults.standard.set(morningWorkoutReminder, forKey: "morningWorkoutReminder")
+            if morningWorkoutReminder {
+                requestPermissionAndSchedule()
+            } else {
+                cancelAllNotifications()
+            }
+        }
+    }
+
+    @Published var reminderTime: Date {
+        didSet {
+            UserDefaults.standard.set(reminderTime.timeIntervalSince1970, forKey: "reminderTime")
+            if morningWorkoutReminder {
+                scheduleWorkoutNotifications()
+            }
+        }
+    }
+
+    @Published var isAuthorized = false
+
+    private var trainingPlan: TrainingPlanManager?
+
+    init() {
+        self.morningWorkoutReminder = UserDefaults.standard.bool(forKey: "morningWorkoutReminder")
+        let savedTime = UserDefaults.standard.double(forKey: "reminderTime")
+        if savedTime > 0 {
+            self.reminderTime = Date(timeIntervalSince1970: savedTime)
+        } else {
+            // Default to 6:30 AM
+            var components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+            components.hour = 6
+            components.minute = 30
+            self.reminderTime = Calendar.current.date(from: components) ?? Date()
+        }
+        checkAuthorizationStatus()
+    }
+
+    func setTrainingPlan(_ plan: TrainingPlanManager) {
+        self.trainingPlan = plan
+        if morningWorkoutReminder {
+            scheduleWorkoutNotifications()
+        }
+    }
+
+    private func checkAuthorizationStatus() {
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            DispatchQueue.main.async {
+                self.isAuthorized = settings.authorizationStatus == .authorized
+            }
+        }
+    }
+
+    private func requestPermissionAndSchedule() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            DispatchQueue.main.async {
+                self.isAuthorized = granted
+                if granted {
+                    self.scheduleWorkoutNotifications()
+                } else {
+                    self.morningWorkoutReminder = false
+                }
+            }
+        }
+    }
+
+    func scheduleWorkoutNotifications() {
+        guard let plan = trainingPlan else { return }
+
+        let center = UNUserNotificationCenter.current()
+        center.removeAllPendingNotificationRequests()
+
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: reminderTime)
+        let minute = calendar.component(.minute, from: reminderTime)
+        let today = calendar.startOfDay(for: Date())
+
+        // Schedule for next 14 days
+        for dayOffset in 0..<14 {
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
+
+            let dayOfWeek = calendar.component(.weekday, from: date)
+            let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+            let dayName = dayNames[dayOfWeek]
+
+            // Find the week this date falls in
+            let planStart = plan.weeks.first?.startDate ?? today
+            let weekIndex = calendar.dateComponents([.weekOfYear], from: planStart, to: date).weekOfYear ?? 0
+            let weekNumber = weekIndex + 1
+
+            guard weekNumber >= 1 && weekNumber <= 17,
+                  let week = plan.getWeek(weekNumber) else { continue }
+
+            let dayWorkouts = week.workouts.filter { $0.day == dayName && $0.type != "Rest" }
+            guard !dayWorkouts.isEmpty else { continue }
+
+            let workoutSummary = dayWorkouts.map { "\($0.type) \($0.duration)" }.joined(separator: ", ")
+
+            let content = UNMutableNotificationContent()
+            content.title = "Today's Training"
+            content.body = workoutSummary
+            content.sound = .default
+
+            var triggerComponents = calendar.dateComponents([.year, .month, .day], from: date)
+            triggerComponents.hour = hour
+            triggerComponents.minute = minute
+
+            let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
+            let request = UNNotificationRequest(identifier: "workout-\(dayOffset)", content: content, trigger: trigger)
+
+            center.add(request)
+        }
+
+        print("[NOTIFICATIONS] Scheduled workout reminders for next 14 days")
+    }
+
+    private func cancelAllNotifications() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+        print("[NOTIFICATIONS] Cancelled all reminders")
+    }
+}
+
+// MARK: - Settings View
+struct SettingsView: View {
+    @ObservedObject var notificationManager = NotificationManager.shared
+    @EnvironmentObject var healthKit: HealthKitManager
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Notifications")) {
+                    Toggle("Morning Workout Reminder", isOn: $notificationManager.morningWorkoutReminder)
+
+                    if notificationManager.morningWorkoutReminder {
+                        DatePicker("Reminder Time", selection: $notificationManager.reminderTime, displayedComponents: .hourAndMinute)
+                    }
+                }
+
+                Section(header: Text("Health"), footer: Text("Max HR is used to calculate your training zones. Derived from age: 220 - age.")) {
+                    HStack {
+                        Text("Max Heart Rate")
+                        Spacer()
+                        Text("\(healthKit.maxHeartRate) bpm")
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        Text("Age")
+                        Spacer()
+                        Text("\(healthKit.getUserAge())")
+                            .foregroundColor(.secondary)
+                    }
+                }
+
+                Section(header: Text("HR Zones")) {
+                    let zones = healthKit.zoneBoundaries
+                    HStack { Text("Z1"); Spacer(); Text("< \(zones.z2) bpm").foregroundColor(.secondary) }
+                    HStack { Text("Z2"); Spacer(); Text("\(zones.z2)-\(zones.z3 - 1) bpm").foregroundColor(.secondary) }
+                    HStack { Text("Z3"); Spacer(); Text("\(zones.z3)-\(zones.z4 - 1) bpm").foregroundColor(.secondary) }
+                    HStack { Text("Z4"); Spacer(); Text("\(zones.z4)-\(zones.z5 - 1) bpm").foregroundColor(.secondary) }
+                    HStack { Text("Z5"); Spacer(); Text("> \(zones.z5) bpm").foregroundColor(.secondary) }
+                }
+
+                Section(header: Text("About")) {
+                    HStack {
+                        Text("Race")
+                        Spacer()
+                        Text("Ironman 70.3 Oregon")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Race Date")
+                        Spacer()
+                        Text("July 19, 2026")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
+                        Text("Goal")
+                        Spacer()
+                        Text("Sub 6:00")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            .navigationBarTitleDisplayMode(.inline)
+        }
     }
 }
 

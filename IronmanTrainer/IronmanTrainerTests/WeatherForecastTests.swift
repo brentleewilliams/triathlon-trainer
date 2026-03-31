@@ -1,7 +1,9 @@
 import XCTest
+@testable import IronmanTrainer
 
-// Copy WeatherForecast struct for testing
-struct WeatherForecast {
+// WeatherForecast is now accessed via @testable import, but keeping local copy
+// for tests that were written against it. Remove duplicate to avoid conflicts.
+/*struct WeatherForecast {
     let highTemp: Int // °F
     let lowTemp: Int
     let condition: String
@@ -55,7 +57,7 @@ struct WeatherForecast {
             humidity: humidity
         )
     }
-}
+}*/
 
 final class WeatherForecastTests: XCTestCase {
 
@@ -361,7 +363,7 @@ final class WeatherForecastTests: XCTestCase {
         for date in dates {
             let forecast = WeatherForecast.forecast(for: date)
             // Should produce valid forecast
-            XCTAssertGreater(forecast.highTemp, forecast.lowTemp)
+            XCTAssertGreaterThan(forecast.highTemp, forecast.lowTemp)
             XCTAssertFalse(forecast.condition.isEmpty)
             XCTAssertGreaterThanOrEqual(forecast.humidity, 30)
         }
@@ -377,7 +379,7 @@ final class WeatherForecastTests: XCTestCase {
         for date in dates {
             let forecast = WeatherForecast.forecast(for: date)
             // Should produce valid forecast
-            XCTAssertGreater(forecast.highTemp, forecast.lowTemp)
+            XCTAssertGreaterThan(forecast.highTemp, forecast.lowTemp)
             XCTAssertFalse(forecast.condition.isEmpty)
             XCTAssertLessThanOrEqual(forecast.humidity, 85)
         }

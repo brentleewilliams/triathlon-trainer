@@ -124,31 +124,149 @@ These are features competitors have that your app currently lacks, ranked by imp
 
 ## Recommended Product Strategy
 
-### Phase 1: Fix the Foundation (Now)
+### ROI-Prioritized Build Order (Pre-Race)
 
-- Resolve duplicate class definitions
-- Implement HealthKit → planned workout matching per spec
-- Align HR zone calculations with actual training zones
-- Add workout completion persistence (CoreData or JSON)
+Features ranked by impact on race outcome vs. build effort. This is what matters between now and July 19.
 
-### Phase 2: Activate the AI Differentiator (Next)
+#### Tier 1: High Impact, Low Effort (This Week)
 
-- Enable plan adaptation through Claude chat ("I missed my Tuesday ride, what should I do?")
-- Surface per-workout nutrition targets in the UI (gut training progression)
-- Add weekly volume tracking with deviation warnings
-- Build race-day countdown with escalating specificity in final 3 weeks
+- [x] ~~Resolve duplicate class definitions~~ — DONE
+- [x] ~~Implement HealthKit → planned workout matching per spec~~ — DONE
+- [ ] **Fix HR zone calculation** — Replace %maxHR thresholds with actual BPM zones (Z1: <126, Z2: 126-144, Z3: 144-155, Z4: 155-167, Z5: 167-180). ~30 min of work. Currently analytics AND Claude coaching responses reference wrong zone data. Highest ROI single change.
+- [ ] **Race countdown banner** — Simple `daysUntil(july19)` + current phase name on home screen. Reframes the app from training log to mission with a deadline. Trivial code, high psychological value.
 
-### Phase 3: Platform Play (V2 — If Going Public)
+#### Tier 2: High Impact, Moderate Effort (Next 2-3 Weeks)
+
+- [ ] **Per-workout nutrition targets** — Add `nutritionTarget` to `DayWorkout` for every long ride and brick (e.g., "Target: 60g carbs/hr — 2 gels + 1 bottle sport drink"). This is the feature that directly prevents a repeat of Boise. Data already exists in Claude system prompt — surface it in the UI so you see it before each session.
+- [ ] **Feed actual HealthKit data into Claude context** — Format real workout data (duration, distance, HR avg) into the system prompt. Turns Claude from "coach who read your plan" into "coach who saw your actual Tuesday ride was 45 min instead of 60 min at HR 152." The difference between a chatbot and a coach.
+- [ ] **Plan adaptation via chat** — Let Claude suggest rescheduled workouts when you say "I missed today's ride," with a UI path to accept changes. Requires mutable workout data model. Humango's best feature.
+
+#### Tier 3: Medium Impact, Medium Effort (Weeks 4-8)
+
+- [ ] **Weekly volume deviation warning** — Compare actual HealthKit hours to planned hours, surface "You're 22% under plan this week" alert. Data is already there, just a comparison calculation.
+
+#### Deferred — Not Building Pre-Race
+
+These are valid features but wrong priority for the Oregon 70.3 cycle:
+
+- **Apple Watch app** — Months of work, marginal training benefit over the native Workout app. V2.
+- **Strava/Garmin Connect sync** — You're on Apple Watch + HealthKit. Solve your own problem first. V2.
+- **Full activity checklist UI** — The race countdown milestone list is valuable but trackable in Notes or a todo app. Don't burn build time on it when the nutrition and zone fixes directly affect training quality. Revisit for V2 as a product feature.
+- **File architecture refactor** — 2,975 lines in ContentView.swift is painful but doesn't affect race outcome. Refactor after July 19.
+
+### Phase 3: Platform Play (V2 — Post-Race, If Going Public)
 
 - "Pick your race" from Ironman calendar → auto-pull course data, weather history, aid station locations
 - User enters past race results + what went wrong → AI builds failure-informed coaching context
+- Claude generates the training plan (not hardcoded) based on athlete profile, race, and available hours
 - Apple Watch structured workout push
 - Strava/Garmin sync
+- Multi-race lifecycle support (see Retention section below)
+- Full race countdown with activity milestone checklist
 - Pricing position: $15-20/mo (undercuts TriDot significantly, matches Humango/MOTTIV, but with deeper race-specific intelligence)
 
 ### The V2 Public Pitch
 
-> Most triathlon apps give you a generic training plan and wish you luck on race day. IronmanTrainer is different: tell it your race, your history, and what went wrong last time. It builds a 17-week plan specific to your course — the elevation, the weather, the aid stations — with nutrition baked into every training session so you never bonk again. It's not a platform. It's your coach for your next race.
+> Most triathlon apps give you a generic training plan and wish you luck on race day. IronmanTrainer is different: tell it your race, your history, and what went wrong last time. It builds a training plan specific to your course — the elevation, the weather, the aid stations — with nutrition baked into every training session so you never bonk again. It's not a platform. It's your coach for your next race.
+
+---
+
+## Competitive Pricing Comparison
+
+| App | Free Tier | Entry Price | Full Tri Price | Human Coach | Notes |
+|-----|-----------|-------------|----------------|-------------|-------|
+| TrainingPeaks | Yes (limited) | $12/mo (annual) | $20/mo | Separate cost | Plans sold separately ($5-200) |
+| TriDot | No | $29/mo | $89/mo | $199/mo | Official Ironman partner |
+| Humango | Yes (basic) | $9/mo | $19/mo | No | Best AI adaptability |
+| MOTTIV | No | $20/mo | $20/mo | No | Includes strength/nutrition |
+| Stamina | No | $15/mo | $15/mo | No | Schedule-aware, newer entrant |
+| Watchletic | Limited | ~$10/mo | ~$10/mo | No | Watch-only, no coaching |
+| RaceDay | Free (basic) | One-time | One-time | No | Race-day only, not training |
+| Fuelin | No | Subscription | Subscription | Dietitian-built | Nutrition only, add-on |
+| **IronmanTrainer (proposed)** | **No** | **$15/mo** | **$15-20/mo** | **AI (Claude)** | **Race-specific + nutrition** |
+
+The $15-20/mo range sits below TriDot's meaningful tier ($89) and matches Humango/MOTTIV, but with deeper per-race intelligence that neither offers.
+
+---
+
+## Retention & Post-Race Lifecycle
+
+This is the biggest unaddressed strategic question. The app is built for a single 17-week training cycle ending July 19. Every competitor offers ongoing value — TrainingPeaks is year-round analytics, TriDot generates infinite plans, Humango adapts continuously.
+
+**The risk:** If you go public, users churn after their race. A 17-week subscription at $15/mo = ~$60 LTV. That's thin.
+
+**Potential solutions:**
+
+- **Next-race pipeline:** After Oregon, immediately offer "What's your next race?" and generate a new cycle. Most triathletes race 2-4 times per year. The AI coach carries forward everything learned from the previous race.
+- **Off-season base building:** Generate maintenance/base-building plans between race cycles. Humango does this well.
+- **Post-race analysis:** After race day, ingest the actual race data (splits, HR, nutrition log) and generate a detailed race report with lessons for next time. This feeds the "post-race failure analysis" differentiator and creates a reason to stay subscribed.
+- **Race selection advisor:** "Based on your Oregon 70.3 finish, here are 3 races in the next 6 months where your fitness would target a PR." Keeps athletes engaged and planning.
+
+---
+
+## Target User Personas (V2 Public Product)
+
+**Primary: The "Never Again" Athlete**
+Mid-pack age-grouper (35-50) who has completed at least one 70.3 or full Ironman and had a bad experience — bonked, missed their goal time, got injured. They know what went wrong but don't know how to fix it. They can't afford or don't want a $200/mo human coach. They want an AI that remembers their mistakes and builds a plan that specifically prevents them.
+
+**Secondary: The Ambitious First-Timer**
+First 70.3 athlete (30-45) who's done sprint/Olympic distance and is stepping up. Overwhelmed by generic 70.3 plans that don't account for their specific race course. Willing to pay $15-20/mo for a coach-like experience that's specific to their race, not a one-size-fits-all PDF.
+
+**Tertiary: The Data-Driven Optimizer**
+Experienced age-grouper (30-50) who currently uses TrainingPeaks but wants more intelligence from their data. They're not getting coaching insights from their platform, just charts. They want AI that actually interprets their workouts in the context of their race goals.
+
+---
+
+## Dev Advantages Worth Noting
+
+**LangSmith Tracing Integration**
+
+The app already logs every Claude coaching conversation to LangSmith (run start, system prompt, user message, response, run end). This is invisible to users but significant for product iteration — you can observe exactly what athletes ask, how the AI responds, where coaching quality breaks down, and improve prompts systematically. No competitor has disclosed this level of observability into their AI coaching layer. This becomes a compounding advantage as the user base grows.
+
+---
+
+## Race Countdown: Activity Milestones (Reference — Not Building in App Pre-Race)
+
+A structured checklist of activities grouped by time horizon for Oregon 70.3. Tracked externally for now; candidate for in-app feature in V2.
+
+**12-8 Weeks Out (Build Phase)**
+- [ ] Book travel: Denver → Portland (flights, car rental)
+- [ ] Book race-week accommodation (Salem or nearby)
+- [ ] Register for sprint tri tune-up race (Week 10)
+- [ ] Order race-day nutrition (gels, sport drink mix, salt caps) — test brands NOW, not race week
+- [ ] Begin gut training: target 50g carbs/hr on long rides, log tolerance
+- [ ] Schedule bike tune-up / fitting check (4-6 weeks before race)
+
+**8-4 Weeks Out (Build 2 / Peak)**
+- [ ] Gut training checkpoint: should be tolerating 70-80g carbs/hr
+- [ ] Finalize race-day nutrition plan (specific products, quantities, timing per leg)
+- [ ] Practice T1/T2 transitions during brick workouts — time them
+- [ ] Research Oregon 70.3 bike course: elevation profile, key climbs, technical sections
+- [ ] Research run course: shade coverage, aid station locations + what they serve
+- [ ] Dial in race-day gear: tri suit, goggles (clear + tinted), bike setup
+- [ ] Test full race-day outfit on a long brick — nothing new on race day
+
+**4-2 Weeks Out (Sharpen / Taper)**
+- [ ] Gut training checkpoint: should be at 80-100g carbs/hr comfortably
+- [ ] Pack checklist: wetsuit, bike tools, spare tubes/CO2, flat kit, nutrition, race belt, sunscreen
+- [ ] Print/save race-day pacing plan (swim: 38-42min, bike: 3:00-3:10, run: negative split)
+- [ ] Confirm travel logistics: bike shipping/case, airport transfer
+- [ ] Review Ironman athlete guide when published (packet pickup times, transition open/close)
+- [ ] Mental rehearsal: visualize swim start, T1, first 10mi of bike, T2, run aid stations
+
+**Race Week (Jul 13-19)**
+- [ ] Mon: Travel Denver → Portland. Easy day. Hydrate on the plane.
+- [ ] Tue: Light 1,000yd swim. Drive to Salem. Check into accommodation. Course recon drive.
+- [ ] Wed: 40min bike + 15min run shakeout. Packet pickup. Rack bike in transition. Walk transition area.
+- [ ] Thu: 20min easy jog. Lay out all race-day gear. Pre-load nutrition (high carb meals).
+- [ ] Fri: Full rest. Prep race morning bag (nutrition, timing chip, body glide, sunscreen). Check weather → finalize hydration plan.
+- [ ] Sat: 15min shakeout swim in the Willamette. Mandatory athlete briefing. Final gear check. Eat early, sleep early.
+- [ ] Sun: RACE DAY. Alarm 4:00am → eat 3hrs pre-race (600-800 cal). Arrive transition 5:30am. Warm up swim 6:15am.
+
+**Post-Race**
+- [ ] Log actual race splits, HR data, nutrition consumed vs. planned
+- [ ] Debrief with AI coach: what worked, what didn't, what to change for next race
+- [ ] Recovery week: 3-5 days full rest, then easy movement only
 
 ---
 
