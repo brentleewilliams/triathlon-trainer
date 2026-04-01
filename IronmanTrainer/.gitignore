@@ -12,9 +12,9 @@ DerivedData/
 build/
 .build/
 
-# Config files with secrets
-IronmanTrainer/Config.plist
-IronmanTrainer/GoogleService-Info.plist
+# Config files with secrets (placeholders committed, CI overwrites with real values)
+# IronmanTrainer/Config.plist
+# IronmanTrainer/GoogleService-Info.plist
 
 # CocoaPods
 Pods/
