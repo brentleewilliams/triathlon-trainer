@@ -26,6 +26,7 @@ struct ContentView: View {
                 }
 
             SettingsView()
+                .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
                 .tabItem {
                     Label("Settings", systemImage: "gear")

@@ -28,9 +28,11 @@ class ChatViewModel: ObservableObject {
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
 
-    init() {
-        loadChatHistory()
-        loadLastSwap()
+    init(skipHistory: Bool = false) {
+        if !skipHistory {
+            loadChatHistory()
+            loadLastSwap()
+        }
     }
 
     private func saveLastSwap() {
@@ -64,7 +66,13 @@ class ChatViewModel: ObservableObject {
             // Include reschedule context for plan adaptation
             let updatedContext = context + "\n\n" + buildRescheduleContext()
 
-            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries)
+            // Build conversation history from prior messages (exclude the message we just added)
+            let priorMessages = messages.dropLast()
+            let conversationHistory: [[String: String]] = priorMessages.map { msg in
+                ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
+            }
+
+            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory)
 
             await MainActor.run {
                 messages.append(ChatMessage(isUser: false, text: response))

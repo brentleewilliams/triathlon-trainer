@@ -158,6 +158,12 @@ class TrainingPlanManager: ObservableObject {
         return weeks.first { $0.weekNumber == weekNumber }
     }
 
+    /// Restore the original hardcoded 17-week Ironman 70.3 Oregon plan
+    func restoreHardcodedPlan() {
+        weeks = []
+        setupTrainingPlan()
+    }
+
     private func setupTrainingPlan() {
         let phaseNames = ["Ramp Up", "Ramp Up", "Ramp Up", "Ramp Up", "Build 1", "Build 1", "Build 2", "Build 2", "Build 3", "Taper", "Taper", "Taper", "Race Prep", "Race Prep", "Race Prep", "Rest", "Race Week"]
 

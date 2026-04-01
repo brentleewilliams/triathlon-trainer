@@ -1,3 +1,6 @@
+# Secrets
+functions/.env
+
 # Xcode
 .DS_Store
 .xcworkspace

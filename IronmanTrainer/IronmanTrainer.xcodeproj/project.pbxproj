@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		038644CCB73FF11F044856C2 /* OnboardingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B514A0F839F901530837044 /* OnboardingViewModel.swift */; };
+		1104417793A7975B4B149B6E /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93BC4A45AD574335045A9A44 /* OnboardingView.swift */; };
 		1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0000FF1F1A0001 /* IronmanTrainerApp.swift */; };
 		1A0001031F1A0001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001021F1A0001 /* ContentView.swift */; };
 		1A0001051F1A0001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 1A0001041F1A0001 /* Assets.xcassets */; };
@@ -20,6 +22,9 @@
 		1AA000030A0A0001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000040A0A0001 /* WidgetKit.framework */; };
 		1AA000050A0A0001 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000060A0A0001 /* SwiftUI.framework */; };
 		1AA000070A0A0001 /* IronmanTrainerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1AA000080A0A0001 /* IronmanTrainerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */; };
+		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
+		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */; };
 		84D0F0C62F7C343F007D9BC7 /* TrainingPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */; };
 		84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */; };
@@ -33,6 +38,14 @@
 		84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D72F7C3672007D9BC7 /* ChatView.swift */; };
 		84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D92F7C367C007D9BC7 /* PlanView.swift */; };
 		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
+		9F2B4F4C9A203C9E873B0A4C /* OnboardingChatHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */; };
+		C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EEB4860AEA33842F967FEB4 /* AuthService.swift */; };
+		F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29D426AAD0F04F2CAAE16BF /* SignInView.swift */; };
+		F1D84CD399E2031469782E91 /* HealthKitOnboardingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012B43DD81DAFFDC8DE08DFD /* HealthKitOnboardingData.swift */; };
+		FB000004000000001 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FB000002000000001 /* FirebaseAuth */; };
+		FB000005000000001 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB000003000000001 /* FirebaseFirestore */; };
+		FB000006000000001 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000007000000001 /* OnboardingTests.swift */; };
+		FB000008000000001 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FB000009000000001 /* FirebaseFunctions */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +80,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		012B43DD81DAFFDC8DE08DFD /* HealthKitOnboardingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HealthKitOnboardingData.swift; path = IronmanTrainer/HealthKitOnboardingData.swift; sourceTree = SOURCE_ROOT; };
+		108346CB94A363F99B289838 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UserProfile.swift; path = IronmanTrainer/UserProfile.swift; sourceTree = SOURCE_ROOT; };
 		1A00000A1F1A0001 /* IronmanTrainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = IronmanTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000FF1F1A0001 /* IronmanTrainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IronmanTrainerApp.swift; sourceTree = "<group>"; };
 		1A0001021F1A0001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -85,6 +100,10 @@
 		1AA000060A0A0001 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		1AA000080A0A0001 /* IronmanTrainerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = IronmanTrainerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AA000150A0A0001 /* IronmanTrainerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IronmanTrainerWidget.entitlements; sourceTree = "<group>"; };
+		1B514A0F839F901530837044 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingViewModel.swift; path = IronmanTrainer/OnboardingViewModel.swift; sourceTree = SOURCE_ROOT; };
+		64F2428F89A590D906E6358F /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronmanTrainer/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
+		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
+		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
 		84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
 		84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManager.swift; sourceTree = "<group>"; };
 		84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -98,6 +117,10 @@
 		84D0F0D72F7C3672007D9BC7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		84D0F0D92F7C367C007D9BC7 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
 		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		93BC4A45AD574335045A9A44 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = IronmanTrainer/OnboardingView.swift; sourceTree = SOURCE_ROOT; };
+		9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FirestoreService.swift; path = IronmanTrainer/FirestoreService.swift; sourceTree = SOURCE_ROOT; };
+		D29D426AAD0F04F2CAAE16BF /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = IronmanTrainer/SignInView.swift; sourceTree = SOURCE_ROOT; };
+		FB000007000000001 /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +128,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB000004000000001 /* FirebaseAuth in Frameworks */,
+				FB000005000000001 /* FirebaseFirestore in Frameworks */,
+				FB000008000000001 /* FirebaseFunctions in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,6 +162,15 @@
 				1AA0000B0A0A0001 /* Frameworks */,
 				1A00000B1F1A0001 /* Products */,
 				84D0F0C22F7C30F7007D9BC7 /* Recovered References */,
+				6EEB4860AEA33842F967FEB4 /* AuthService.swift */,
+				D29D426AAD0F04F2CAAE16BF /* SignInView.swift */,
+				108346CB94A363F99B289838 /* UserProfile.swift */,
+				9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */,
+				012B43DD81DAFFDC8DE08DFD /* HealthKitOnboardingData.swift */,
+				93BC4A45AD574335045A9A44 /* OnboardingView.swift */,
+				1B514A0F839F901530837044 /* OnboardingViewModel.swift */,
+				77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */,
+				64F2428F89A590D906E6358F /* GoogleService-Info.plist */,
 			);
 			sourceTree = "<group>";
 		};
@@ -190,6 +225,7 @@
 				1A00014F1F1A0001 /* WorkoutMatchingTests.swift */,
 				1A0001531F1A0001 /* WeatherForecastTests.swift */,
 				1A0001651F1A0002 /* ChatSwapTests.swift */,
+				FB000007000000001 /* OnboardingTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -238,6 +274,11 @@
 				1AA000110A0A0001 /* PBXTargetDependency */,
 			);
 			name = IronmanTrainer;
+			packageProductDependencies = (
+				FB000002000000001 /* FirebaseAuth */,
+				FB000003000000001 /* FirebaseFirestore */,
+				FB000009000000001 /* FirebaseFunctions */,
+			);
 			productName = IronmanTrainer;
 			productReference = 1A00000A1F1A0001 /* IronmanTrainer.app */;
 			productType = "com.apple.product-type.application";
@@ -303,6 +344,9 @@
 				Base,
 			);
 			mainGroup = 1A0000011F1A0001;
+			packageReferences = (
+				FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+			);
 			productRefGroup = 1A00000B1F1A0001 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -322,6 +366,7 @@
 				1A0001051F1A0001 /* Assets.xcassets in Resources */,
 				1A00010A1F1A0001 /* Config.plist in Resources */,
 				1A00010B1F1A0001 /* IronmanTrainer.xcdatamodeld in Resources */,
+				7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -354,6 +399,14 @@
 				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
+				C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */,
+				F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */,
+				625049B48489E93AE90639D7 /* UserProfile.swift in Sources */,
+				26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */,
+				F1D84CD399E2031469782E91 /* HealthKitOnboardingData.swift in Sources */,
+				1104417793A7975B4B149B6E /* OnboardingView.swift in Sources */,
+				038644CCB73FF11F044856C2 /* OnboardingViewModel.swift in Sources */,
+				9F2B4F4C9A203C9E873B0A4C /* OnboardingChatHelper.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -365,6 +418,7 @@
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
 				1A0001641F1A0002 /* ChatSwapTests.swift in Sources */,
+				FB000006000000001 /* OnboardingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -612,6 +666,35 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 11.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FB000002000000001 /* FirebaseAuth */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseAuth;
+		};
+		FB000003000000001 /* FirebaseFirestore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFirestore;
+		};
+		FB000009000000001 /* FirebaseFunctions */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseFunctions;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1A0000021F1A0001 /* Project object */;
 }

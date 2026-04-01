@@ -14,22 +14,21 @@ class ClaudeService: NSObject, ObservableObject {
         super.init()
     }
 
-    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil) async throws -> String {
+    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil, conversationHistory: [[String: String]] = []) async throws -> String {
         let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory, zoneBoundaries: zoneBoundaries)
 
         // Start LangSmith run
         let runID = LangSmithTracer.shared.startRun(systemPrompt: systemPrompt, userMessage: userMessage)
 
+        // Build messages array with conversation history + current message
+        var messages: [[String: String]] = conversationHistory
+        messages.append(["role": "user", "content": userMessage])
+
         let requestBody: [String: Any] = [
             "model": model,
             "max_tokens": 1024,
             "system": systemPrompt,
-            "messages": [
-                [
-                    "role": "user",
-                    "content": userMessage
-                ]
-            ]
+            "messages": messages
         ]
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: requestBody) else {

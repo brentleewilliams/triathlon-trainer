@@ -131,7 +131,12 @@ class NotificationManager: ObservableObject {
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
+    @ObservedObject var authService = AuthService.shared
     @EnvironmentObject var healthKit: HealthKitManager
+    @State private var showSignOutAlert = false
+    @State private var showReOnboardAlert = false
+    @State private var showRestorePlanAlert = false
+    @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var body: some View {
         NavigationView {
@@ -189,8 +194,61 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                Section(header: Text("Training Plan")) {
+                    Button("Generate New Plan") {
+                        showReOnboardAlert = true
+                    }
+                    .foregroundColor(.blue)
+
+                    Button("Restore Original Plan") {
+                        showRestorePlanAlert = true
+                    }
+                    .foregroundColor(.orange)
+                }
+
+                Section(header: Text("Account")) {
+                    if let uid = authService.currentUserID {
+                        HStack {
+                            Text("User ID")
+                            Spacer()
+                            Text(String(uid.prefix(12)) + "...")
+                                .foregroundColor(.secondary)
+                                .font(.caption)
+                        }
+                    }
+
+                    Button("Sign Out") {
+                        showSignOutAlert = true
+                    }
+                    .foregroundColor(.red)
+                }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .alert("Generate New Plan?", isPresented: $showReOnboardAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Continue") {
+                    authService.onboardingComplete = false
+                    if let uid = authService.currentUserID {
+                        UserDefaults.standard.set(false, forKey: "onboarding_complete_\(uid)")
+                    }
+                }
+            } message: {
+                Text("This will take you through onboarding to create a new AI-generated training plan. Your current plan will be saved as a backup.")
+            }
+            .alert("Sign Out?", isPresented: $showSignOutAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out", role: .destructive) {
+                    try? authService.signOut()
+                }
+            }
+            .alert("Restore Original Plan?", isPresented: $showRestorePlanAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Restore") {
+                    trainingPlan.restoreHardcodedPlan()
+                }
+            } message: {
+                Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
+            }
         }
     }
 }
