@@ -1,6 +1,6 @@
 #!/bin/sh
 # Xcode Cloud post-clone script
-# Writes API keys from environment variables into Config.local.xcconfig
+# Writes API keys and config files from environment variables
 
 echo "Writing Config.local.xcconfig from environment variables..."
 
@@ -10,4 +10,39 @@ ANTHROPIC_API_KEY = ${ANTHROPICAPIKEY}
 LANGSMITH_API_KEY = ${LANGSMITHAPIKEY}
 EOL
 
-echo "Config.local.xcconfig written successfully."
+echo "Writing GoogleService-Info.plist..."
+
+cat > "$CI_PRIMARY_REPOSITORY_PATH/IronmanTrainer/GoogleService-Info.plist" <<EOL
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>API_KEY</key>
+	<string>${FIREBASEAPIKEY}</string>
+	<key>GCM_SENDER_ID</key>
+	<string>469784468799</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.brent.ironmantrainer</string>
+	<key>PROJECT_ID</key>
+	<string>brents-trainer</string>
+	<key>STORAGE_BUCKET</key>
+	<string>brents-trainer.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false/>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false/>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true/>
+	<key>IS_GCM_ENABLED</key>
+	<true/>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true/>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:469784468799:ios:ecad30d44b4d7e5670878a</string>
+</dict>
+</plist>
+EOL
+
+echo "CI setup complete."
