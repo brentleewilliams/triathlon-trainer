@@ -7,6 +7,7 @@ Config.local.xcconfig
 .xcworkspace
 xcuserdata/
 *.xcworkspace/
+!*.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved
 DerivedData/
 build/
 .build/
