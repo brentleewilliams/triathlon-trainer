@@ -1,5 +1,6 @@
 # Secrets
 functions/.env
+Config.local.xcconfig
 
 # Xcode
 .DS_Store
@@ -11,7 +12,6 @@ build/
 .build/
 
 # Config files with secrets
-Config.xcconfig
 IronmanTrainer/Config.plist
 
 # CocoaPods

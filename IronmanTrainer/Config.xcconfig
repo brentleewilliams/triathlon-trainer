@@ -1,0 +1,13 @@
+// API Configuration
+// Override these values locally by creating Config.local.xcconfig (gitignored)
+
+// Import local overrides if they exist
+#include? "Config.local.xcconfig"
+
+// Default empty values (overridden by Config.local.xcconfig)
+ANTHROPIC_API_KEY =
+LANGSMITH_API_KEY =
+
+// Embed API keys in Info.plist
+INFOPLIST_KEY_ANTHROPIC_API_KEY = $(ANTHROPIC_API_KEY)
+INFOPLIST_KEY_LANGSMITH_API_KEY = $(LANGSMITH_API_KEY)
