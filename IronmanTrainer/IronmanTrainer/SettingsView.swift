@@ -200,6 +200,18 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                Section(header: Text("Swim Drills")) {
+                    NavigationLink {
+                        DrillsDetailView()
+                    } label: {
+                        HStack {
+                            Image(systemName: "figure.pool.swim")
+                                .foregroundColor(.blue)
+                            Text("Drill Sets A, B & C")
+                        }
+                    }
+                }
+
                 Section(header: Text("Training Plan")) {
                     Button("Generate New Plan") {
                         showReOnboardAlert = true
@@ -255,6 +267,79 @@ struct SettingsView: View {
             } message: {
                 Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
             }
+        }
+    }
+}
+
+// MARK: - Drills Detail View
+
+struct DrillsDetailView: View {
+    var body: some View {
+        List {
+            Section(header: drillSetHeader("A", subtitle: "Catch Focus")) {
+                drillRow("Catch-Up", reps: "4x50", description: "One hand stays extended at the front until the other hand catches up. Builds hand entry timing and catch mechanics.")
+                drillRow("Fingertip Drag", reps: "4x50", description: "Drag fingertips along the water surface during recovery. Develops high elbow recovery and shoulder mobility.")
+            }
+
+            Section(header: drillSetHeader("B", subtitle: "Kick & Bilateral")) {
+                drillRow("6-Kick Switch", reps: "4x50", description: "Six kicks on your side, then switch to the other side with one stroke. Builds kick-to-stroke coordination and body rotation.")
+                drillRow("Side Kick", reps: "4x50", description: "Kick on your side with bottom arm extended, top arm at your hip. Develops balance, body position, and bilateral breathing.")
+            }
+
+            Section(header: drillSetHeader("C", subtitle: "Advanced Stroke")) {
+                drillRow("Single-Arm", reps: "4x50 alternating", description: "Swim with one arm while the other stays at your side. Isolates each arm's pull pattern to identify imbalances.")
+                drillRow("3-Stroke Glide", reps: "4x50", description: "Take three strokes then glide in streamline. Emphasizes distance per stroke, catch power, and streamlined body position.")
+            }
+
+            Section(header: Text("Progression")) {
+                VStack(alignment: .leading, spacing: 8) {
+                    progressionRow("Weeks 1-4", "Sets A & B rotating — build foundation")
+                    progressionRow("Weeks 5-8", "A, B & C mixed — add advanced drills")
+                    progressionRow("Weeks 9-12", "Drill volume decreases, race-pace increases")
+                    progressionRow("Weeks 13-17", "Minimal drills, race-specific sharpening")
+                }
+                .padding(.vertical, 4)
+            }
+        }
+        .navigationTitle("Swim Drills")
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private func drillSetHeader(_ letter: String, subtitle: String) -> some View {
+        HStack(spacing: 8) {
+            Text("Set \(letter)")
+                .fontWeight(.bold)
+            Text("—")
+            Text(subtitle)
+        }
+    }
+
+    private func drillRow(_ name: String, reps: String, description: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(name)
+                    .fontWeight(.semibold)
+                Spacer()
+                Text(reps)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+            Text(description)
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func progressionRow(_ weeks: String, _ detail: String) -> some View {
+        HStack(alignment: .top, spacing: 8) {
+            Text(weeks)
+                .font(.subheadline)
+                .fontWeight(.medium)
+                .frame(width: 80, alignment: .leading)
+            Text(detail)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
         }
     }
 }

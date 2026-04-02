@@ -69,7 +69,7 @@ struct SignInView: View {
                         }
                     }
                 }
-                .signInWithAppleButtonStyle(.black)
+                .signInWithAppleButtonStyle(.white)
                 .frame(height: 50)
 
                 // Divider

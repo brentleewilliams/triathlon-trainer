@@ -439,6 +439,31 @@ struct DayDetailView: View {
         return typeString
     }
 
+    struct DrillInfo {
+        let title: String
+        let items: [(name: String, tip: String)]
+    }
+
+    func drillsReferenced(in notes: String) -> DrillInfo? {
+        if notes.contains("Drill Set A") {
+            return DrillInfo(title: "Drill Set A — Catch Focus", items: [
+                (name: "Catch-Up (4x50)", tip: "One hand stays extended until the other catches up. Focus on hand entry timing and front-quadrant catch."),
+                (name: "Fingertip Drag (4x50)", tip: "Drag fingertips along the water during recovery. Builds high elbow recovery and shoulder mobility.")
+            ])
+        } else if notes.contains("Drill Set B") {
+            return DrillInfo(title: "Drill Set B — Kick & Bilateral", items: [
+                (name: "6-Kick Switch (4x50)", tip: "Six kicks on your side, then switch with one stroke. Builds kick-to-stroke coordination and rotation."),
+                (name: "Side Kick (4x50)", tip: "Kick on your side, bottom arm extended, top arm at hip. Develops balance and bilateral breathing.")
+            ])
+        } else if notes.contains("Drill Set C") {
+            return DrillInfo(title: "Drill Set C — Advanced Stroke", items: [
+                (name: "Single-Arm (4x50 alternating)", tip: "Swim with one arm, other at your side. Isolates each arm's pull pattern to find imbalances."),
+                (name: "3-Stroke Glide (4x50)", tip: "Three strokes then glide in streamline. Emphasizes distance per stroke and catch power.")
+            ])
+        }
+        return nil
+    }
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -497,6 +522,39 @@ struct DayDetailView: View {
                         .padding()
                         .background(Color.blue.opacity(0.1))
                         .cornerRadius(12)
+
+                        // Drill Set Info
+                        if let drills = drillsReferenced(in: notes) {
+                            NavigationLink {
+                                DrillsDetailView()
+                            } label: {
+                                VStack(alignment: .leading, spacing: 12) {
+                                    HStack {
+                                        Label(drills.title, systemImage: "figure.pool.swim")
+                                            .font(.headline)
+                                        Spacer()
+                                        Image(systemName: "chevron.right")
+                                            .font(.caption)
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    ForEach(drills.items, id: \.name) { drill in
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(drill.name)
+                                                .font(.subheadline)
+                                                .fontWeight(.semibold)
+                                            Text(drill.tip)
+                                                .font(.caption)
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
+                                }
+                                .padding()
+                                .background(Color.cyan.opacity(0.1))
+                                .cornerRadius(12)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
 
                     // Nutrition Target

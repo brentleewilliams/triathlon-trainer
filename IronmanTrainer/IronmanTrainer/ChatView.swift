@@ -79,45 +79,21 @@ struct ChatInputBar: View {
         VStack(spacing: 0) {
             Divider()
             HStack(alignment: .bottom, spacing: 0) {
-                TextField("Message your coach...", text: $text, axis: .vertical)
-                    .lineLimit(1...6)
+                TextField("Message your coach...", text: $text)
                     .autocorrectionDisabled()
+                    .submitLabel(.send)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .padding(.trailing, 36)
                     .focused($isFocused)
                     .disabled(viewModel.isLoading)
                     .onSubmit { if canSend { send() } }
             }
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-            .overlay(alignment: .bottomTrailing) {
-                Button(action: send) {
-                    Image(systemName: "arrow.up")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 30, height: 30)
-                        .background(
-                            Circle()
-                                .fill(canSend ? Color.blue : Color(.systemGray4))
-                        )
-                }
-                .disabled(!canSend)
-                .padding(.trailing, 6)
-                .padding(.bottom, 6)
-            }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
         }
         .background(.bar)
-        .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button("Done") {
-                    isFocused = false
-                }
-            }
-        }
     }
 
     private func send() {
