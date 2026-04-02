@@ -25,6 +25,8 @@
 		26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */; };
 		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
+		84A561E42F7D612500BA3761 /* WorkoutComplianceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */; };
+		84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E52F7D614300BA3761 /* ComplianceTests.swift */; };
 		84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */; };
 		84D0F0C62F7C343F007D9BC7 /* TrainingPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */; };
 		84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */; };
@@ -104,6 +106,8 @@
 		64F2428F89A590D906E6358F /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronmanTrainer/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
 		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
+		84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutComplianceService.swift; sourceTree = "<group>"; };
+		84A561E52F7D614300BA3761 /* ComplianceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceTests.swift; sourceTree = "<group>"; };
 		84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
 		84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManager.swift; sourceTree = "<group>"; };
 		84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
@@ -206,6 +210,7 @@
 				84D0F0D72F7C3672007D9BC7 /* ChatView.swift */,
 				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
 				84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */,
+				84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -226,6 +231,7 @@
 				1A0001531F1A0001 /* WeatherForecastTests.swift */,
 				1A0001651F1A0002 /* ChatSwapTests.swift */,
 				FB000007000000001 /* OnboardingTests.swift */,
+				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -267,6 +273,7 @@
 				1A0000071F1A0001 /* Frameworks */,
 				1A0000081F1A0001 /* Resources */,
 				1AA000100A0A0001 /* Embed Foundation Extensions */,
+				BA000001000000001 /* Increment Build Number */,
 			);
 			buildRules = (
 			);
@@ -379,6 +386,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		BA000001000000001 /* Increment Build Number */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Increment Build Number";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Auto-increment build number\nif [ \"$CI\" = \"TRUE\" ]; then\n  # Xcode Cloud: use CI build number\n  BUILD_NUM=${CI_BUILD_NUMBER:-1}\nelse\n  # Local: use git commit count\n  BUILD_NUM=$(git rev-list --count HEAD 2>/dev/null || echo 1)\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUM\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\necho \"Build number set to $BUILD_NUM\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		1A0000061F1A0001 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -400,6 +428,7 @@
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
 				C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */,
+				84A561E42F7D612500BA3761 /* WorkoutComplianceService.swift in Sources */,
 				F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */,
 				625049B48489E93AE90639D7 /* UserProfile.swift in Sources */,
 				26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */,
@@ -414,6 +443,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */,
 				1A0001501F1A0001 /* TrainingPlanManagerTests.swift in Sources */,
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
@@ -475,6 +505,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
+				ONLY_ACTIVE_ARCH = YES;
 				OTHER_LDFLAGS = (
 					"-framework",
 					HealthKit,
@@ -672,8 +703,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/firebase/firebase-ios-sdk";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 11.0.0;
+				kind = exactVersion;
+				version = 12.7.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */

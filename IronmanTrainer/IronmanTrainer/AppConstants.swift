@@ -66,7 +66,11 @@ enum Formatters {
 // MARK: - Secrets & Configuration
 struct Secrets {
     static let anthropicAPIKey: String = {
-        // Load from Config.plist
+        // Primary: read from Info.plist (populated by xcconfig build settings)
+        if let key = Bundle.main.infoDictionary?["ANTHROPIC_API_KEY"] as? String, !key.isEmpty {
+            return key
+        }
+        // Fallback: read from Config.plist (used by CI-generated bundles)
         if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
            let config = NSDictionary(contentsOfFile: configPath),
            let key = config["ANTHROPIC_API_KEY"] as? String, !key.isEmpty {
@@ -76,7 +80,11 @@ struct Secrets {
     }()
 
     static let langsmithAPIKey: String = {
-        // Load from Config.plist
+        // Primary: read from Info.plist (populated by xcconfig build settings)
+        if let key = Bundle.main.infoDictionary?["LANGSMITH_API_KEY"] as? String, !key.isEmpty {
+            return key
+        }
+        // Fallback: read from Config.plist (used by CI-generated bundles)
         if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
            let config = NSDictionary(contentsOfFile: configPath),
            let key = config["LANGSMITH_API_KEY"] as? String, !key.isEmpty {

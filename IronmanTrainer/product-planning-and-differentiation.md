@@ -1,19 +1,48 @@
 # IronmanTrainer: Product Planning & Competitive Differentiation
 
+*Last updated: 2026-04-01*
+
 ## App Review: Current State
 
 ### What Exists
 
-A single-file SwiftUI iOS app with a hardcoded 17-week training plan, HealthKit workout sync, HR zone analysis, a Claude-powered coaching chat with deeply personalized context (Boise 70.3 lessons, nutrition protocol, race targets), and LangSmith tracing. Built for one athlete (Brent), one race (Ironman 70.3 Oregon), one goal (sub-6:00).
+A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase auth (Sign In with Apple), a 6-step onboarding flow, Firestore cloud sync, a hardcoded 17-week training plan with per-workout nutrition targets, HealthKit workout sync with compliance tracking, HR zone analytics, Claude-powered coaching chat with conversation history and plan adaptation (day swapping), LangSmith tracing, and push notification reminders. Built for one athlete (Brent), one race (Ironman 70.3 Oregon), one goal (sub-6:00).
 
-### Code-Level Issues
+### Architecture (28 files)
 
-- **Duplicate classes:** `HealthKitManager` and `ClaudeService` are both defined in ContentView.swift AND in their own standalone files. This will cause build conflicts.
-- **No workout matching logic:** The spec calls for auto-matching HealthKit workouts to planned workouts by type, day, and duration (±15 min tolerance). That code doesn't exist — HealthKit pulls `HKWorkout` objects but never maps them to `DayWorkout` entries.
-- **Completion tracking is broken:** The `status` field on `DayWorkout` is always `nil`. There's no mechanism to mark workouts complete.
-- **Zone calculation mismatch:** The HR zone calculation uses percentage-of-max-HR (60/70/80/90% thresholds) rather than the actual documented zones in the coaching prompt (Z1: <126, Z2: 126-144, Z3: 144-155, Z4: 155-167, Z5: 167-180). Analytics won't match the training plan.
-- **String interpolation bug:** The standalone ClaudeService.swift uses `{history}` and `{context}` as literal strings rather than Swift interpolation `\(history)` / `\(context)`. The ContentView version is correct.
-- **Monolithic file:** The entire app (~800+ lines) lives in ContentView.swift. Fine for MVP, painful for iteration.
+| File | Lines | Purpose |
+|------|-------|---------|
+| ContentView.swift | 47 | Tab shell (Home, Analytics, Chat, Settings) |
+| HomeView.swift | 996 | Weekly plan display, workout cards, race countdown, completion status |
+| AnalyticsView.swift | 533 | Zone distribution, volume charts |
+| ChatView.swift | 160 | Chat UI |
+| ChatViewModel.swift | 441 | Claude messaging, swap command parsing, reschedule context |
+| TrainingPlanManager.swift | 509 | 17-week plan data, week navigation |
+| HealthKitManager.swift | 277 | HealthKit sync, zone calculations, per-workout zone breakdowns |
+| ClaudeService.swift | 130 | Claude API with conversation history + zone boundaries |
+| WorkoutComplianceService.swift | 186 | Green/yellow/red deviation tracking (±20%/±50%) |
+| WorkoutMatchingHelpers.swift | — | Type + date + duration matching |
+| AuthService.swift | 149 | Firebase Auth, Sign In with Apple, onboarding state |
+| FirestoreService.swift | 125 | Cloud sync for profiles and training plans |
+| OnboardingView.swift | 1,282 | 6-step flow (HealthKit → Profile → Race Search → Goals → Fitness Chat → Plan Review) |
+| OnboardingViewModel.swift | 281 | Onboarding state machine |
+| OnboardingChatHelper.swift | 247 | AI-assisted fitness assessment during onboarding |
+| HealthKitOnboardingData.swift | 437 | Pre-populate profile from HealthKit during onboarding |
+| SignInView.swift | 334 | Sign In with Apple UI |
+| SettingsView.swift | 254 | Notification settings, workout reminders |
+| UserProfile.swift | 97 | RaceType, GoalType, Race models |
+| LangSmithTracer.swift | 117 | Conversation observability |
+| SharedComponents.swift | 186 | Reusable UI (WeekNavigationHeader, etc.) |
+| AppConstants.swift | — | Shared config (Secrets, Formatters) |
+| PlanView.swift | — | Calendar overview of all 17 weeks |
+| CoreData entities | — | CompletedWorkoutEntity, WorkoutPlanVersion |
+| IronmanTrainerApp.swift | 54 | App entry: Firebase init, auth flow, deep linking |
+
+### Remaining Code Issues
+
+- **Zone calculation is approximate, not exact.** Uses `%maxHR` formula (0.69/0.79/0.85/0.92 × maxHR) rather than the fixed BPM values from the original training plan (126/144/155/167). For a 38-year-old (maxHR=182), the formula produces ~126/144/155/168 — close but drifts if age input is wrong. Both analytics and Claude use the same `zoneBoundaries` computed property, so they're at least internally consistent. Would break for a public product with varying athlete ages/zones.
+- **HealthKit sync is 30-day window only.** Changed from "Feb 1 forward" to last 30 days with a 100-workout limit. This means early training weeks will drop out of Claude's context as the season progresses. Fine for coaching recency, but means you can't ask "how was my volume in March?" in June.
+- **Hardcoded plan for one athlete.** The onboarding flow exists (race search, goal setting, fitness chat) but the training plan is still the same hardcoded 17-week array. The onboarding collects data but doesn't generate a personalized plan from it yet.
 
 ---
 
@@ -80,9 +109,9 @@ No competitor app bakes a specific previous race failure analysis into AI coachi
 
 Positioning: *"An AI coach that actually knows what went wrong last time and won't let it happen again."*
 
-**2. Integrated Nutrition-Training Progression**
+**2. Integrated Nutrition-Training Progression (Built)**
 
-Training apps handle training. Nutrition apps handle nutrition. RaceDay handles race-day pacing. Nobody integrates gut training progression (50→100g carbs/hr ramp) directly into the weekly training plan. Your Claude context already includes specific fueling protocols per discipline — the gap is surfacing this in the UI so every long ride/brick shows a nutrition reminder with target carb intake, tracking gut training progression across the 17 weeks.
+Training apps handle training. Nutrition apps handle nutrition. RaceDay handles race-day pacing. Nobody else integrates gut training progression directly into the weekly training plan. IronmanTrainer already does this: every long ride and brick has a `nutritionTarget` field with progressive carb/hr goals (60g→70g→80g→100g across the 17 weeks), visible in the workout card UI and included in Claude's coaching context. This is not a planned feature — it's shipped and working.
 
 **3. Single-Race Specificity as a Feature**
 
@@ -94,76 +123,100 @@ For a v2 public product: *"Your AI coach for YOUR next race"* — not a training
 
 ## Competitive Gaps to Close
 
-These are features competitors have that your app currently lacks, ranked by impact:
+Features competitors have that your app currently lacks, ranked by impact. Updated 2026-04-01 to reflect current codebase.
 
-### Critical (Blocks Core Value Prop)
+### Remaining Gaps
 
-1. **Workout completion tracking** — The spec's HealthKit matching logic (type + day + ±15min duration) isn't implemented. Without this, the app can't show progress or feed accurate data to the AI coach. Every competitor does this.
+1. **AI-generated training plans** — The onboarding flow collects race, goals, fitness data, and HealthKit history, but the plan is still the same hardcoded 17-week array. Humango, TriDot, Athletica, and MOTTIV all generate personalized plans from athlete input. This is the biggest gap for a public product — the onboarding promises personalization that the plan doesn't deliver yet.
 
-2. **Plan adaptability via chat** — Humango's killer feature. If you miss Tuesday's bike, nothing adjusts. Claude already has the coaching context to reschedule intelligently — the gap is piping chat responses back into the plan data model.
+2. **Recovery/readiness signals** — Humango proactively adjusts based on HRV/Garmin Body Battery/WHOOP. Your app reads HR data but doesn't factor in resting HR trends, HRV, or sleep quality for recovery recommendations.
 
-3. **HR zone alignment** — The code uses generic %maxHR zones while the coaching prompt uses your actual tested zones. These need to match or analytics are meaningless.
+3. **Apple Watch app** — Watchletic proves serious triathletes want structured workouts on their wrist. Deferred — native Workout app is sufficient pre-race. V2.
 
-### Important (Competitive Parity)
+4. **Strava/Garmin Connect sync** — HealthKit-only limits to Apple Watch users. Every competitor integrates with the broader device ecosystem. Deferred — solve your own problem first. V2.
 
-4. **Apple Watch app** — Watchletic proves serious triathletes want structured workouts on their wrist. Already on V2 roadmap.
+5. **Race-day execution plan** — RaceDay's 15-minute-interval pacing + nutrition plan is a natural extension of your nutrition coaching focus. Could be a "Race Week" tab that generates a plan using Claude + course data.
 
-5. **Strava/Garmin Connect sync** — HealthKit-only limits you to Apple Watch users. Every competitor integrates with the broader device ecosystem.
+6. **Weather-aware training adjustments** — TriDot's EnviroNorm auto-adjusts paces for temperature/humidity. Relevant for Oregon race prep from Denver's altitude/dry air.
 
-6. **Recovery/readiness signals** — Humango proactively adjusts based on HRV and recovery scores. Your app doesn't read or factor in any recovery data from HealthKit or wearables.
+### Resolved Gaps (Previously Critical)
 
-### Nice-to-Have (Differentiation Amplifiers)
-
-7. **Race-day execution plan** — RaceDay's 15-minute-interval pacing + nutrition plan is a natural extension of your nutrition coaching focus. A "Race Week" tab that generates a RaceDay-style plan using Claude + course data would be compelling.
-
-8. **Weather-aware training** — TriDot's EnviroNorm adjusts paces for heat/humidity. Relevant for Oregon race prep if training in Denver's altitude/dry air.
-
-9. **Volume deviation alerts** — Your spec asks "Should app warn if weekly volume deviates >15% from plan?" — yes. TrainingPeaks' TSB/Form chart exists for exactly this reason.
+- ~~**Workout completion tracking**~~ — Done. WorkoutComplianceService with green/yellow/red (±20%/±50%) + WorkoutMatchingHelpers (type + date + ±15min duration).
+- ~~**Plan adaptation via chat**~~ — Done. `[SWAP_DAYS]` tag parsing in ChatViewModel, `executeSwap()`, undo support.
+- ~~**HR zone alignment**~~ — Substantially fixed. Analytics and Claude both use same `zoneBoundaries` from HealthKitManager. Uses %maxHR formula (approximate, not hardcoded BPM), but internally consistent.
+- ~~**Per-workout nutrition targets**~~ — Done. `nutritionTarget` field on all long rides/bricks with progressive carb/hr goals (60g→100g).
+- ~~**Real workout data in Claude context**~~ — Done. `getWorkoutHistoryForClaude()` formats actual HealthKit data with stats.
+- ~~**Race countdown**~~ — Done. `daysUntilRace` banner on home screen with phase label.
+- ~~**File architecture**~~ — Done. 28 files, largest is OnboardingView at 1,282 lines.
+- ~~**Cloud sync**~~ — Done. Firebase Auth + Firestore for profiles and plans (was listed as V2).
+- ~~**Notifications**~~ — Done. Morning workout reminders with deep linking to specific weeks.
 
 ---
 
 ## Recommended Product Strategy
 
-### ROI-Prioritized Build Order (Pre-Race)
+### Implementation Status (as of 2026-04-01)
 
-Features ranked by impact on race outcome vs. build effort. This is what matters between now and July 19.
+| Feature | Status | Notes |
+|---------|--------|-------|
+| 17-week training plan display | ✅ Done | All weeks with workouts, zones, phases, nutrition targets |
+| Week navigation (forward/back/swipe) | ✅ Done | WeekNavigationHeader with swipe gestures |
+| HealthKit workout sync | ✅ Done | Last 30 days, 100 workout limit |
+| HealthKit → planned workout matching | ✅ Done | Type + date + ±15min duration tolerance |
+| Workout compliance (green/yellow/red) | ✅ Done | ±20% green, ±50% yellow, >50% red |
+| Race countdown banner | ✅ Done | Days-until-race + phase label on home screen |
+| Per-workout nutrition targets | ✅ Done | Progressive carb/hr goals on bikes/bricks (60g→100g) |
+| Claude AI coaching chat | ✅ Done | System prompt with race targets, zones, Boise lessons |
+| Conversation history in Claude | ✅ Done | Multi-turn conversations preserved |
+| Real HealthKit data in Claude context | ✅ Done | Actual workout stats formatted and sent |
+| Plan adaptation via chat (day swap) | ✅ Done | `[SWAP_DAYS]` parsing + undo support |
+| Zone boundaries → Claude | ✅ Done | Same zoneBoundaries used in analytics and coaching |
+| LangSmith conversation tracing | ✅ Done | Start/end run logging |
+| Chat history persistence | ✅ Done | UserDefaults save/load |
+| Firebase Auth (Sign In with Apple) | ✅ Done | AuthService with state listener |
+| Onboarding flow (6 steps) | ✅ Done | HealthKit → Profile → Race → Goals → Chat → Plan Review |
+| Firestore cloud sync | ✅ Done | Profiles and training plans |
+| Push notification reminders | ✅ Done | Configurable morning reminders + deep linking |
+| Settings tab | ✅ Done | Replaced Plan tab in navigation |
+| Per-workout zone breakdowns | ✅ Done | Zone distribution per individual workout |
+| CoreData persistence | ✅ Done | CompletedWorkoutEntity, WorkoutPlanVersion |
+| File architecture refactor | ✅ Done | 28 files, ~7,100 lines total |
+| Weekly volume deviation warning | ❌ Not built | No actual-vs-planned comparison |
+| AI-generated training plans | ❌ Not built | Onboarding collects data but plan is still hardcoded |
+| Apple Watch app | ❌ Deferred | V2 — native Workout app sufficient |
+| Strava/Garmin sync | ❌ Deferred | V2 — HealthKit-only for now |
+| Race countdown activity checklist | ❌ Deferred | Track externally pre-race; V2 feature |
+| Recovery/readiness signals | ❌ Not built | No HRV or sleep data integration |
 
-#### Tier 1: High Impact, Low Effort (This Week)
+### Pre-Race Remaining Work (ROI Priority)
 
-- [x] ~~Resolve duplicate class definitions~~ — DONE
-- [x] ~~Implement HealthKit → planned workout matching per spec~~ — DONE
-- [ ] **Fix HR zone calculation** — Replace %maxHR thresholds with actual BPM zones (Z1: <126, Z2: 126-144, Z3: 144-155, Z4: 155-167, Z5: 167-180). ~30 min of work. Currently analytics AND Claude coaching responses reference wrong zone data. Highest ROI single change.
-- [ ] **Race countdown banner** — Simple `daysUntil(july19)` + current phase name on home screen. Reframes the app from training log to mission with a deadline. Trivial code, high psychological value.
+Only two features remain from the original pre-race build list:
 
-#### Tier 2: High Impact, Moderate Effort (Next 2-3 Weeks)
+1. **Weekly volume deviation warning** — Compare actual HealthKit hours to planned hours, surface "You're 22% under plan this week" alert. Medium impact, low-medium effort. The WorkoutComplianceService already calculates per-workout deviation — this extends it to weekly aggregate.
 
-- [ ] **Per-workout nutrition targets** — Add `nutritionTarget` to `DayWorkout` for every long ride and brick (e.g., "Target: 60g carbs/hr — 2 gels + 1 bottle sport drink"). This is the feature that directly prevents a repeat of Boise. Data already exists in Claude system prompt — surface it in the UI so you see it before each session.
-- [ ] **Feed actual HealthKit data into Claude context** — Format real workout data (duration, distance, HR avg) into the system prompt. Turns Claude from "coach who read your plan" into "coach who saw your actual Tuesday ride was 45 min instead of 60 min at HR 152." The difference between a chatbot and a coach.
-- [ ] **Plan adaptation via chat** — Let Claude suggest rescheduled workouts when you say "I missed today's ride," with a UI path to accept changes. Requires mutable workout data model. Humango's best feature.
+2. **Hardcoded zone values option** — The %maxHR formula (0.69/0.79/0.85/0.92) produces approximately correct zones for your age, but adding an override to use your actual tested BPM values (126/144/155/167) would make analytics precisely match the coaching prompt. Trivial code change.
 
-#### Tier 3: Medium Impact, Medium Effort (Weeks 4-8)
-
-- [ ] **Weekly volume deviation warning** — Compare actual HealthKit hours to planned hours, surface "You're 22% under plan this week" alert. Data is already there, just a comparison calculation.
-
-#### Deferred — Not Building Pre-Race
-
-These are valid features but wrong priority for the Oregon 70.3 cycle:
+### Deferred — Not Building Pre-Race
 
 - **Apple Watch app** — Months of work, marginal training benefit over the native Workout app. V2.
 - **Strava/Garmin Connect sync** — You're on Apple Watch + HealthKit. Solve your own problem first. V2.
-- **Full activity checklist UI** — The race countdown milestone list is valuable but trackable in Notes or a todo app. Don't burn build time on it when the nutrition and zone fixes directly affect training quality. Revisit for V2 as a product feature.
-- **File architecture refactor** — 2,975 lines in ContentView.swift is painful but doesn't affect race outcome. Refactor after July 19.
+- **Full activity checklist UI** — Valuable but trackable externally. V2 product feature.
+- **AI-generated plans from onboarding data** — The onboarding collects everything needed, but wiring Claude to generate a full 17-week plan from profile + race + goals is a significant effort. Critical for V2 public product, not needed for personal use.
 
-### Phase 3: Platform Play (V2 — Post-Race, If Going Public)
+### V2: Platform Play (Post-Race, If Going Public)
 
-- "Pick your race" from Ironman calendar → auto-pull course data, weather history, aid station locations
-- User enters past race results + what went wrong → AI builds failure-informed coaching context
-- Claude generates the training plan (not hardcoded) based on athlete profile, race, and available hours
-- Apple Watch structured workout push
-- Strava/Garmin sync
-- Multi-race lifecycle support (see Retention section below)
-- Full race countdown with activity milestone checklist
-- Pricing position: $15-20/mo (undercuts TriDot significantly, matches Humango/MOTTIV, but with deeper race-specific intelligence)
+*Goal: Generalize from "Brent's Oregon app" to "your coach for your next race."*
+
+The foundation is stronger than expected for a public product. Firebase auth, onboarding, Firestore sync, and the full coaching stack are already in place. The critical V2 work is:
+
+- **Claude-generated training plans** — Wire onboarding data (profile, race, goals, HealthKit fitness assessment) into Claude to generate a personalized multi-week plan. The onboarding already collects everything needed; this is the missing link.
+- **Race course intelligence** — "Pick your race" from Ironman calendar → auto-pull course data, weather history, aid station locations, water conditions
+- **Post-race failure analysis** — User enters past race results + what went wrong → AI builds failure-informed coaching context that persists across cycles
+- **Apple Watch structured workout push**
+- **Strava/Garmin sync**
+- **Multi-race lifecycle support** (see Retention section below)
+- **Full race countdown with activity milestone checklist**
+- **Pricing position:** $15-20/mo (undercuts TriDot significantly, matches Humango/MOTTIV, but with deeper race-specific intelligence)
 
 ### The V2 Public Pitch
 

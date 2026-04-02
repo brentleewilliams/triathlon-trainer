@@ -5,6 +5,7 @@ struct WeekNavigationHeader: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @Binding var selectedWeek: Int
     var completionText: String? = nil
+    var complianceText: String? = nil
     @State private var showWeekPicker = false
 
     var currentWeek: TrainingWeek? {
@@ -23,6 +24,13 @@ struct WeekNavigationHeader: View {
         let today = Date()
         let endOfWeek = Calendar.current.date(byAdding: .day, value: 1, to: week.endDate) ?? week.endDate
         return today >= week.startDate && today < endOfWeek
+    }
+
+    private func complianceColor(for text: String) -> Color {
+        guard let value = Double(text.replacingOccurrences(of: "%", with: "")) else { return .gray }
+        if value >= 80 { return .green }
+        if value >= 50 { return .yellow }
+        return .red
     }
 
     var body: some View {
@@ -61,6 +69,17 @@ struct WeekNavigationHeader: View {
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .foregroundColor(.blue)
+                        }
+
+                        if let compliance = complianceText {
+                            Text(compliance)
+                                .font(.caption2)
+                                .fontWeight(.bold)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(complianceColor(for: compliance).opacity(0.2))
+                                .foregroundColor(complianceColor(for: compliance))
+                                .cornerRadius(4)
                         }
                     }
                 }

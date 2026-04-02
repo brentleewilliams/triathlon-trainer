@@ -83,6 +83,14 @@ struct HomeView: View {
     var todaysTotalWorkouts: Int { completionCounts.total }
     var todaysCompletedWorkouts: Int { completionCounts.completed }
 
+    var weeklyComplianceText: String? {
+        guard let week = currentWeek else { return nil }
+        if let pct = calculateWeekCompliance(week: week, hkWorkouts: healthKit.workouts) {
+            return "\(Int(pct))%"
+        }
+        return nil
+    }
+
     var workoutsByDay: [(day: String, workouts: [DayWorkout])] {
         guard let week = currentWeek else { return [] }
 
@@ -257,7 +265,7 @@ struct HomeView: View {
 
                 // Week Navigation Header with Completion Count and Undo
                 HStack {
-                    WeekNavigationHeader(selectedWeek: $selectedWeek, completionText: "\(todaysCompletedWorkouts)/\(todaysTotalWorkouts)")
+                    WeekNavigationHeader(selectedWeek: $selectedWeek, completionText: "\(todaysCompletedWorkouts)/\(todaysTotalWorkouts)", complianceText: weeklyComplianceText)
 
                     if trainingPlan.previousPlanVersion != nil {
                         Button(action: {
@@ -477,6 +485,19 @@ struct DayDetailView: View {
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(12)
+
+                    // Workout Notes
+                    if let notes = day.notes, !notes.isEmpty {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Label("Workout Details", systemImage: "doc.text")
+                                .font(.headline)
+                            Text(notes)
+                                .font(.body)
+                        }
+                        .padding()
+                        .background(Color.blue.opacity(0.1))
+                        .cornerRadius(12)
+                    }
 
                     // Nutrition Target
                     if let nutrition = day.nutritionTarget {
@@ -890,15 +911,17 @@ struct WorkoutDayRows: View {
 
                             Spacer()
 
-                            if parent.isWorkoutCompleted(workout) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                                    .font(.title3)
-                            } else {
-                                Image(systemName: "circle")
-                                    .foregroundColor(.gray)
-                                    .font(.title3)
+                            let compliance = calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts)
+
+                            if let actualMin = compliance.actualDurationMinutes {
+                                Text("\u{2192} \(Int(actualMin))min")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
                             }
+
+                            Image(systemName: compliance.level.iconName)
+                                .foregroundColor(compliance.level.color)
+                                .font(.title3)
                         }
                         .foregroundColor(.primary)
                     }
@@ -908,6 +931,23 @@ struct WorkoutDayRows: View {
                 }
             }
             .padding(.horizontal, 12)
+
+            // Threshold warning for missed/significantly off workouts
+            let hasRedWorkout = dayGroup.workouts.contains { workout in
+                workout.type.lowercased() != "rest" &&
+                calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts).level == .red
+            }
+            if hasRedWorkout {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                        .font(.caption)
+                    Text("Missed or significantly under-trained")
+                        .font(.caption2)
+                        .foregroundColor(.red)
+                }
+                .padding(.horizontal, 16)
+            }
         }
         // Opacity feedback when dragging this entire day
         .opacity(draggedFromDay == dayGroup.day ? 0.5 : 1.0)

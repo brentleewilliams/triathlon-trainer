@@ -403,14 +403,28 @@ class ChatViewModel: ObservableObject {
                         return hkDay >= dayStart && hkDay < dayEnd && hkWorkout.workoutActivityType == matchingActivity
                     }
 
+                    // Compliance marker
+                    let compliance = calculateCompliance(for: planned, on: dayDate, from: healthKit.workouts, today: today)
+                    let complianceEmoji: String
+                    switch compliance.level {
+                    case .green: complianceEmoji = "\u{2705}"  // ✅
+                    case .yellow: complianceEmoji = "\u{26A0}\u{FE0F}"  // ⚠️
+                    case .red: complianceEmoji = "\u{274C}"  // ❌
+                    case .future: complianceEmoji = "\u{23F3}"  // ⏳
+                    }
+
                     if let actual = matchedWorkout {
-                        history += "- \(day): Planned: \(plannedStr) | Actual: \(formatActual(actual))\n"
+                        history += "- \(day): \(complianceEmoji) Planned: \(plannedStr) | Actual: \(formatActual(actual))\n"
                     } else {
-                        history += "- \(day): Planned: \(plannedStr) | Actual: \u{26A0}\u{FE0F} MISSED\n"
+                        history += "- \(day): \(complianceEmoji) Planned: \(plannedStr) | Actual: \u{26A0}\u{FE0F} MISSED\n"
                     }
                 }
             }
 
+            // Weekly compliance percentage
+            if let pct = calculateWeekCompliance(week: week, hkWorkouts: healthKit.workouts, today: today) {
+                history += "  WEEK COMPLIANCE: \(Int(pct))%\n"
+            }
             history += "\n"
         }
 

@@ -137,6 +137,27 @@ struct AnalyticsView: View {
         return [trimmed]
     }
 
+    func complianceTrendData() -> [(week: Int, percent: Double)] {
+        var results: [(week: Int, percent: Double)] = []
+        let currentWeekNum = trainingPlan.currentWeekNumber
+        let startWeek = max(1, currentWeekNum - 5)
+        let endWeek = min(currentWeekNum, 17)
+
+        for weekNum in startWeek...endWeek {
+            guard let week = trainingPlan.getWeek(weekNum) else { continue }
+            if let pct = calculateWeekCompliance(week: week, hkWorkouts: healthKit.workouts) {
+                results.append((week: weekNum, percent: pct))
+            }
+        }
+        return results
+    }
+
+    func complianceBarColor(_ percent: Double) -> Color {
+        if percent >= 80 { return .green }
+        if percent >= 50 { return .yellow }
+        return .red
+    }
+
     func fetchActualZoneData() {
         guard let week = currentWeek else { return }
         isLoadingZones = true
@@ -230,6 +251,44 @@ struct AnalyticsView: View {
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
 
+                // Weekly Compliance Trend
+                VStack(spacing: 12) {
+                    Text("Weekly Compliance Trend")
+                        .font(.headline)
+
+                    let trendData = complianceTrendData()
+                    if trendData.isEmpty {
+                        Text("No compliance data yet")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                    } else {
+                        HStack(alignment: .bottom, spacing: 6) {
+                            ForEach(trendData, id: \.week) { entry in
+                                VStack(spacing: 4) {
+                                    Text("\(Int(entry.percent))%")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.secondary)
+
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(complianceBarColor(entry.percent))
+                                        .frame(height: max(4, CGFloat(entry.percent) * 0.8))
+
+                                    Text("W\(entry.week)")
+                                        .font(.system(size: 9))
+                                        .foregroundColor(.gray)
+                                }
+                                .frame(maxWidth: .infinity)
+                            }
+                        }
+                        .frame(height: 100)
+                    }
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+
                 Spacer()
             }
             .padding()
@@ -266,6 +325,19 @@ struct VolumeCard: View {
     let planned: Double
     let color: Color
 
+    var deviationColor: Color {
+        guard planned > 0 else { return color }
+        let deviation = abs(hours - planned) / planned
+        if deviation <= 0.20 { return .green }
+        if deviation <= 0.50 { return .yellow }
+        return .red
+    }
+
+    var completionFraction: Double {
+        guard planned > 0 else { return 0 }
+        return min(hours / planned, 1.5)
+    }
+
     var body: some View {
         VStack(spacing: 8) {
             Text(label)
@@ -274,11 +346,26 @@ struct VolumeCard: View {
 
             Text("\(String(format: "%.1f", hours))h")
                 .font(.headline)
-                .foregroundColor(color)
+                .foregroundColor(hours > 0 ? deviationColor : color)
 
             Text("plan: \(String(format: "%.1f", planned))h")
                 .font(.caption2)
                 .foregroundColor(.gray)
+
+            // Compliance progress bar
+            if planned > 0 {
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(Color(.systemGray4))
+                            .frame(height: 4)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(deviationColor)
+                            .frame(width: geo.size.width * min(completionFraction, 1.0), height: 4)
+                    }
+                }
+                .frame(height: 4)
+            }
         }
         .frame(maxWidth: .infinity)
     }

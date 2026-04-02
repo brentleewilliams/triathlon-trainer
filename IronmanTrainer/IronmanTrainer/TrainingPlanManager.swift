@@ -17,9 +17,21 @@ struct DayWorkout: Equatable, Codable, Identifiable, Hashable {
     let zone: String
     let status: String?
     let nutritionTarget: String?
+    let notes: String?
 
     var id: String {
         "\(day)-\(type)-\(duration)-\(zone)"
+    }
+
+    // Convenience init without notes for backward compatibility
+    init(day: String, type: String, duration: String, zone: String, status: String?, nutritionTarget: String?, notes: String? = nil) {
+        self.day = day
+        self.type = type
+        self.duration = duration
+        self.zone = zone
+        self.status = status
+        self.nutritionTarget = nutritionTarget
+        self.notes = notes
     }
 }
 
@@ -191,190 +203,190 @@ class TrainingPlanManager: ObservableObject {
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,600yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,600yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 6x100 Z2 (15s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "40min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "\u{1F6B4} Bike", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 2 gels + 1 bottle sport drink/hr")
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Shoulder prehab 15min after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 800 Z2 continuous + 300 CD. Catch + bilateral drill focus."),
+                DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Long run"),
+                DayWorkout(day: "Sun", type: "\u{1F6B4} Bike", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 2 gels + 1 bottle sport drink/hr", notes: "Long ride")
             ],
             // Week 2 — Mar 30 (~8 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 8x100 Z2 (15s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "30min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:15", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Shoulder prehab after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 1000 continuous Z2 + 300 CD"),
+                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "30min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Double day — easy effort"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:15", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:00 Z2 + Brick Run 15min @ 9:15 pace. First brick. Practice T2."),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil)
             ],
-            // Week 3 — Apr 6 (~8.5 hrs)
+            // Week 3 — Apr 6 (~8.5 hrs) — Add 3rd bike
             [
-                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "Optional: 20min Drill Set C practice (4x50 Single-Arm, 4x50 3-Stroke Glide)"),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 6x150 Z2 (15s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:10", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:35", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:10", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Bike 1:00 Z2 + mini-brick run 10min @ 9:15 pace. Midweek mini-brick starts. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 4x200 Z2 (20s rest) + 200 CD. OWS if weather allows."),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:35", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:15 Z2 + Brick Run 20min @ 9:00-9:15 pace"),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 4 — Apr 13 — RECOVERY (~5.5 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "200 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 600 easy + 300 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Prehab after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "200 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 600 easy + 300 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "No brick this week"),
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "Full recovery day")
             ],
             // Week 5 — Apr 20 (~9 hrs) - Build 1
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
-                DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "70min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "WU 15min, 5x5min Z4 w/ 3min recovery intervals, CD. Key bike intensity session."),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 6x100 descend (15s rest) + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Z2 with 4x20s strides"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Z2 + mini-brick run 10min @ 9:00 pace. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 4x200 Z2/Z3 alternating (20s rest) + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:30 Z2 + Brick Run 25min (10min @ 9:15, 15min @ 8:45-9:00). Gut training: 50-60g carbs/hr."),
+                DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "70min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "Back-to-back fatigue training. Optional: 1,000yd easy swim after.")
             ],
             // Week 6 — Apr 27 (~9.5 hrs) - Build 1
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00 + mini-brick", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:55", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "WU 15min, 4x7min Z4 w/ 3min recovery intervals, CD"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 4x150 descend + 4x50 fast + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Z2 with 4x20s strides"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:00 + mini-brick", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Bike 1:00 Z2 + mini-brick run 12min @ 8:50-9:00 pace. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 800 continuous Z2 + 4x100 Z3 + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:55", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:45 Z2 + Brick Run 30min (10min @ 9:15, 15min @ 8:45, 5min @ 8:30 if HR ok). Gut training: 60g carbs/hr."),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "75min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 7 — May 4 (~10 hrs) - Build 1 KEY WEEK
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "3:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60-80g carbs/hr, Run: 30-45g/hr. Add real food for 3+ hr ride"),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "WU 15min, 3x10min Z4 w/ 4min recovery intervals, CD. Key bike week."),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set C (4x50 Single-Arm alternating, 4x50 3-Stroke Glide) + 6x150 descend + 200 fast + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "WU 15min, 25min @ 8:15 Denver pace, CD 20min. Key run session."),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Bike 1:00 Z2 + mini-brick run 15min @ 8:50 pace. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-Z3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 5x200 Z2/Z3 alternating + 4x50 sprint + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "3:35", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60-80g carbs/hr, Run: 30-45g/hr. Add real food for 3+ hr ride", notes: "Bike 3:00 Z2 + Brick Run 35min (10min @ 9:15, 20min @ 8:45, 5min @ 8:15 if HR<155). Gut training: 70g carbs/hr."),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "80min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 8 — May 11 — RECOVERY (~5.5 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "200 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 800 easy + 400 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Prehab after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Easy swim"),
                 DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "Sleep 8+ hours")
             ],
             // Week 9 — May 18 (~10.5 hrs) - Build 2 / Race Specificity
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F3C3} Tempo Run", duration: "65min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Race Sim", duration: "3:25", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
-                DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "90min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "2x15min Z3-4 w/ 5min recovery intervals"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 3x300 race-pace (30s rest) + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Z2 with strides"),
+                DayWorkout(day: "Thu", type: "\u{1F3C3} Tempo Run", duration: "65min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "WU 15min, 30min @ 8:15 Denver pace, CD 20min. Key run + midweek brick: bike 1:00 Z2 + run 10min @ 9:00. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 800 race-pace + 4x100 Z3 + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Race Sim", duration: "3:25", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal", notes: "Bike 2:45 (last 60min @ 135-145 HR) + Brick Run 40min (15min @ 9:15, 15min @ 8:45, 10min @ 8:30). Gut training: 80g/hr. Lock in race products."),
+                DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "90min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "Midday run in heat — heat protocol starts")
             ],
-            // Week 10 — May 25 - SPRINT TRI TUNE-UP
+            // Week 10 — May 25 - SPRINT TRI TUNE-UP (~9 hrs + race)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Reduced volume pre-race"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 4x200 Z2/Z3 (20s rest) + 200 CD. Reduced volume pre-race."),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "40min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{2605} SPRINT TRI", duration: "Race", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "\u{1F3C3} Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "Include 4x30s openers. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Easy swim with 4x50 race-pace. Pre-race activation."),
+                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Shakeout run — pre-race activation"),
+                DayWorkout(day: "Sat", type: "\u{2605} SPRINT TRI", duration: "Race", zone: "-", status: nil, nutritionTarget: nil, notes: "Practice transitions, pacing, and nutrition strategy"),
+                DayWorkout(day: "Sun", type: "\u{1F3C3} Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "Or rest if fatigued from race")
             ],
             // Week 11 — Jun 1 - PEAK WEEK (~11-12 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "3,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "70min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} KEY BRICK", duration: "3:50", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
-                DayWorkout(day: "Sun", type: "\u{1F3C3} LONGEST RUN", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink, practice race-day intake")
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z3-4", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "3x12min Z3-4 w/ 4min recovery intervals"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "3,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set C (4x50 Single-Arm alternating, 4x50 3-Stroke Glide) + 4x300 race-pace (30s rest) + 4x50 sprint + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "70min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "WU 15min, 35min @ 8:15 Denver pace, CD 20min. Key run week."),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Bike 1:00 Z2 + mini-brick run 15min @ 8:45-9:00. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "OWS if possible: race-pace 1000 continuous"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} KEY BRICK", duration: "3:50", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal", notes: "Bike 3:00 @ race effort + Run 50min (15min @ 9:15, 25min @ 8:45, 10min @ 8:30). Full nutrition: 80-100g/hr. Take gel immediately off bike."),
+                DayWorkout(day: "Sun", type: "\u{1F3C3} LONGEST RUN", duration: "1:45", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink, practice race-day intake", notes: "Time on feet — not fast. Longest run of the plan.")
             ],
             // Week 12 — Jun 8 - RECOVERY (~5.5 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "200 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 1000 easy + 400 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "30min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Prehab after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Easy swim"),
                 DayWorkout(day: "Sat", type: "\u{1F3C3} Run", duration: "35min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
+                DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "HRV should recover to baseline")
             ],
             // Week 13 — Jun 15 (~9.5 hrs) - DRESS REHEARSAL
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "2x12min @ race HR 135-145"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,500yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 3x300 race-pace (30s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F3C3} Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink"),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} DRESS REHEARSAL", duration: "3:05", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal"),
+                DayWorkout(day: "Thu", type: "\u{1F3C3} Run", duration: "60min", zone: "Z2-3", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink", notes: "WU 15min, 5mi @ 8:15-8:30 pace, CD. Then mini-brick: bike 45min + run 10min @ 9:00. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,400yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set C (4x50 Single-Arm alternating, 4x50 3-Stroke Glide) + 600 race-pace + 4x100 Z3 + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} DRESS REHEARSAL", duration: "3:05", zone: "Z2-3", status: nil, nutritionTarget: "Race simulation: Bike 60-80g carbs/hr, Run 30-45g/hr. Full race nutrition rehearsal", notes: "Bike 2:30 @ race effort + Run 35min (9:15 -> 8:45 -> 8:30). Full nutrition rehearsal. Time T1/T2."),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "75min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 14 — Jun 22 (~8.5 hrs) - Peak & Sharpen
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "2x10min @ race HR. Volume down 15%."),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,200yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 4x200 race-pace (20s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "55min", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:25", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike + mini-brick", duration: "55min", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "Bike 45min Z2 + mini-brick run 10min @ 8:50. Prehab after."),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 500 race-pace + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:25", zone: "Z2-3", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:00 @ race effort + Brick Run 25min (8:45-9:00 pace)"),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Run", duration: "60min", zone: "Z2", status: nil, nutritionTarget: "30-45g carbs/hr: 1 gel per 30min + electrolyte drink")
             ],
             // Week 15 — Jun 29 (~8 hrs) - Last hard week
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "50min", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:05", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff"),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "15min @ race HR"),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 3x200 race-pace (20s rest) + 200 CD"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Tempo Run", duration: "50min", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "WU 15min, 3mi @ 8:15-8:30 pace, CD. Last tempo run."),
+                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Prehab after ride"),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2-3", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 400 race-pace + 200 CD"),
+                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:05", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 1:45 (30min @ race effort) + Brick Run 20min @ 8:45. Last real brick."),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Run", duration: "50min", zone: "Z2", status: nil, nutritionTarget: nil)
             ],
             // Week 16 — Jul 6 - TAPER (~5 hrs)
             [
                 DayWorkout(day: "Mon", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
-                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "35min", zone: "Z2", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,500yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Include 4x100 fast"),
+                DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2-3", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Include 15min Z3-4 openers"),
+                DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "35min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Include 2mi @ 8:45 pace"),
                 DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,200yd", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
+                DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "1,200yd", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Easy swim"),
+                DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "20min", zone: "Z1-2", status: nil, nutritionTarget: nil, notes: "Shakeout run"),
+                DayWorkout(day: "Sat", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "Sleep 8+. Carb-load begins."),
                 DayWorkout(day: "Sun", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil)
             ],
             // Week 17 — Jul 13 - RACE WEEK
             [
-                DayWorkout(day: "Mon", type: "\u{2708}\u{FE0F} Travel", duration: "Denver\u{2192}Portland", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,000yd", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Wed", type: "\u{1F6B4} Bike + \u{1F3C3} Run", duration: "40min + 15min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F3C3} Easy Jog", duration: "20min", zone: "Z1", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Fri", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sat", type: "\u{1F3CA} Shakeout Swim", duration: "15min", zone: "Z1", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Sun", type: "\u{1F3C1} RACE DAY", duration: "~5:45-5:58", zone: "Race", status: nil, nutritionTarget: nil)
+                DayWorkout(day: "Mon", type: "\u{2708}\u{FE0F} Travel", duration: "Denver\u{2192}Portland", zone: "-", status: nil, nutritionTarget: nil, notes: "Fly Denver to Portland, drive to Salem. Build bike, walk transitions."),
+                DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,000yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Include 4x50 race-pace openers. OWS in Willamette if allowed."),
+                DayWorkout(day: "Wed", type: "\u{1F6B4} Bike + \u{1F3C3} Run", duration: "40min + 15min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Bike 40min w/ 10min Z3 openers + Run 15min shakeout"),
+                DayWorkout(day: "Thu", type: "\u{1F3C3} Easy Jog", duration: "20min", zone: "Z1", status: nil, nutritionTarget: nil, notes: "Athlete briefing. Walk T1/T2. Lay out kit."),
+                DayWorkout(day: "Fri", type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: "Rack bike. Prep nutrition. Carb-load. Sleep early."),
+                DayWorkout(day: "Sat", type: "\u{1F3CA} Shakeout Swim", duration: "15min", zone: "Z1", status: nil, nutritionTarget: nil, notes: "15min shakeout jog + 10min easy swim. Prep race morning bag. Early bed."),
+                DayWorkout(day: "Sun", type: "\u{1F3C1} RACE DAY", duration: "~5:45-5:58", zone: "Race", status: nil, nutritionTarget: nil, notes: "Alarm 3 AM. Eat 3:30. Arrive 5:00. Execute. Swim: sight every 6-8 strokes. Bike: 135-145 HR, no surges. Run: 9:00-9:15 start, negative split to 8:15-8:30.")
             ]
         ]
 

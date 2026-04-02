@@ -176,6 +176,12 @@ struct SettingsView: View {
 
                 Section(header: Text("About")) {
                     HStack {
+                        Text("Version")
+                        Spacer()
+                        Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"))")
+                            .foregroundColor(.secondary)
+                    }
+                    HStack {
                         Text("Race")
                         Spacer()
                         Text("Ironman 70.3 Oregon")
