@@ -81,6 +81,7 @@ struct ChatInputBar: View {
             HStack(alignment: .bottom, spacing: 0) {
                 TextField("Message your coach...", text: $text, axis: .vertical)
                     .lineLimit(1...6)
+                    .autocorrectionDisabled()
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .padding(.trailing, 36)

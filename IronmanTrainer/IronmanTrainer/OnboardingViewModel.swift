@@ -174,7 +174,14 @@ class OnboardingViewModel: ObservableObject {
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
-        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClaudeServiceError.networkError
+        }
+
+        guard httpResponse.statusCode == 200 else {
+            if let errorBody = String(data: data, encoding: .utf8) {
+                print("[RACE SEARCH] API error \(httpResponse.statusCode): \(errorBody)")
+            }
             throw ClaudeServiceError.serverError
         }
 
