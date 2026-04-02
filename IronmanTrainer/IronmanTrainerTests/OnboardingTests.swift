@@ -16,7 +16,7 @@ final class UserProfileTests: XCTestCase {
         XCTAssertNil(profile.weightKg)
         XCTAssertNil(profile.restingHR)
         XCTAssertNil(profile.vo2Max)
-        XCTAssertNil(profile.homeCity)
+        XCTAssertNil(profile.homeZip)
     }
 
     func testUserProfileCodable() throws {
@@ -29,7 +29,7 @@ final class UserProfileTests: XCTestCase {
             weightKg: 75.0,
             restingHR: 55,
             vo2Max: 57.8,
-            homeCity: "Denver",
+            homeZip: "80202",
             homeElevationM: 1609.0,
             onboardingComplete: true,
             createdAt: Date(timeIntervalSince1970: 1700000000)
@@ -45,7 +45,7 @@ final class UserProfileTests: XCTestCase {
         XCTAssertEqual(decoded.weightKg, 75.0)
         XCTAssertEqual(decoded.restingHR, 55)
         XCTAssertEqual(decoded.vo2Max, 57.8)
-        XCTAssertEqual(decoded.homeCity, "Denver")
+        XCTAssertEqual(decoded.homeZip, "80202")
         XCTAssertEqual(decoded.homeElevationM, 1609.0)
         XCTAssertTrue(decoded.onboardingComplete)
     }
@@ -310,7 +310,7 @@ final class OnboardingChatHelperTests: XCTestCase {
             weightKg: nil,
             restingHR: nil,
             vo2Max: nil,
-            homeCity: nil,
+            homeZip: nil,
             homeElevationM: nil,
             onboardingComplete: false,
             createdAt: Date()

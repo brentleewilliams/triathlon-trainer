@@ -284,7 +284,7 @@ struct ProfileStep: View {
                 VStack(spacing: 16) {
                     OnboardingTextField(label: "Name", text: $viewModel.userName, placeholder: "Your name")
 
-                    OnboardingTextField(label: "Home City", text: $viewModel.homeCity, placeholder: "e.g. Denver, CO")
+                    OnboardingTextField(label: "Zip Code", text: $viewModel.homeZip, placeholder: "e.g. 80202")
 
                     if viewModel.hkHasDOB {
                         HKProvidedRow(label: "Date of Birth", value: Formatters.fullDate.string(from: viewModel.userDOB))

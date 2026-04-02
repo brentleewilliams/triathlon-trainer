@@ -72,7 +72,7 @@ struct UserProfile: Codable {
     var weightKg: Double?
     var restingHR: Int?
     var vo2Max: Double?
-    var homeCity: String?
+    var homeZip: String?
     var homeElevationM: Double?
     var onboardingComplete: Bool
     var createdAt: Date

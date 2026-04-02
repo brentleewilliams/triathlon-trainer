@@ -27,7 +27,7 @@ class OnboardingViewModel: ObservableObject {
     @Published var userHeightCm: Double?
     @Published var userWeightKg: Double?
     @Published var userRestingHR: Int?
-    @Published var homeCity: String = ""
+    @Published var homeZip: String = ""
 
     // Flags for what HK provided
     @Published var hkHasDOB = false
@@ -235,7 +235,7 @@ class OnboardingViewModel: ObservableObject {
             weightKg: userWeightKg,
             restingHR: userRestingHR,
             vo2Max: hkProfile?.vo2Max,
-            homeCity: homeCity.isEmpty ? nil : homeCity,
+            homeZip: homeZip.isEmpty ? nil : homeZip,
             homeElevationM: nil,
             onboardingComplete: true,
             createdAt: Date()
