@@ -104,32 +104,45 @@ struct HomeView: View {
     }
 
     func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
-        // Check if there's a matching HealthKit workout with duration tolerance
+        let isBrick = workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim")
+        let targetDate = getDateForDay(workout)
+
+        if isBrick {
+            // Brick requires both bike AND run on the same day
+            let calendar = Calendar.current
+            let targetDay = calendar.startOfDay(for: targetDate)
+            let hasBike = healthKit.workouts.contains { hkWorkout in
+                calendar.startOfDay(for: hkWorkout.startDate) == targetDay &&
+                hkWorkout.workoutActivityType == .cycling
+            }
+            let hasRun = healthKit.workouts.contains { hkWorkout in
+                calendar.startOfDay(for: hkWorkout.startDate) == targetDay &&
+                hkWorkout.workoutActivityType == .running
+            }
+            return hasBike && hasRun
+        }
+
+        // Standard workout: check type + duration tolerance
         let workoutType = extractWorkoutType(from: workout.type)
         let plannedDurationMinutes = parseDuration(workout.duration)
         let toleranceMinutes = 15
-        let targetDate = getDateForDay(workout)
 
         return healthKit.workouts.contains { hkWorkout in
             let calendar = Calendar.current
             let workoutDate = calendar.startOfDay(for: hkWorkout.startDate)
             let targetStartOfDay = calendar.startOfDay(for: targetDate)
 
-            // Date and type match (required)
             guard workoutDate == targetStartOfDay &&
                    workoutTypeMatches(plannedType: workoutType, healthKitType: hkWorkout.workoutActivityType) else {
                 return false
             }
 
-            // Duration match (+/-15 min tolerance) -- skip if planned duration is distance-based
             if let plannedMin = plannedDurationMinutes {
                 let hkDurationMinutes = Int(hkWorkout.duration / 60)
                 let durationDiff = abs(hkDurationMinutes - plannedMin)
-
                 return durationDiff <= toleranceMinutes
             }
 
-            // If planned duration is distance-based (yd), skip duration check and just match type
             return true
         }
     }
@@ -389,6 +402,40 @@ struct DayDetailView: View {
         }
     }
 
+    var matchingBikeWorkouts: [HKWorkout] {
+        let targetDate = getDateForDay()
+        return healthKit.workouts.filter { hkWorkout in
+            let calendar = Calendar.current
+            return calendar.startOfDay(for: hkWorkout.startDate) == calendar.startOfDay(for: targetDate) &&
+                   hkWorkout.workoutActivityType == .cycling
+        }
+    }
+
+    var matchingRunWorkouts: [HKWorkout] {
+        let targetDate = getDateForDay()
+        return healthKit.workouts.filter { hkWorkout in
+            let calendar = Calendar.current
+            return calendar.startOfDay(for: hkWorkout.startDate) == calendar.startOfDay(for: targetDate) &&
+                   hkWorkout.workoutActivityType == .running
+        }
+    }
+
+    func parseBrickDetail(from notes: String) -> WorkoutDayRows.BrickSplit? {
+        let pattern = #"[Bb]ike\s+([\d:]+\s*(?:min)?)\s*(?:\([^)]*\))?\s*(?:[@Z][\w\s\-]*)?\s*\+\s*(?:[Bb]rick\s+)?(?:mini-brick\s+)?[Rr]un\s+([\d:]+\s*(?:min)?)\s*(?:[@(]\s*([\d:]+(?:-[\d:]+)?\s*pace))?"#
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)) {
+            let bikeTime = String(notes[Range(match.range(at: 1), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            let runTime = String(notes[Range(match.range(at: 2), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            var runPace: String? = nil
+            if match.range(at: 3).location != NSNotFound,
+               let paceRange = Range(match.range(at: 3), in: notes) {
+                runPace = String(notes[paceRange]).trimmingCharacters(in: .whitespaces)
+            }
+            return WorkoutDayRows.BrickSplit(bikeDuration: bikeTime, runDuration: runTime, runPace: runPace)
+        }
+        return nil
+    }
+
     func getDateForDay() -> Date {
         let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         let dayIndex = dayOrder.firstIndex(of: day.day) ?? 0
@@ -469,33 +516,41 @@ struct DayDetailView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Planned Workout
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Planned Workout")
-                                .font(.headline)
-                            Spacer()
-                            if matchingHealthKitWorkouts.count > 0 {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.green)
-                            }
-                        }
+                    let isBrickDetail = day.type.lowercased().contains("brick") || day.type.lowercased().contains("race sim")
+                    let brickSplit = isBrickDetail ? (day.notes.flatMap { parseBrickDetail(from: $0) }) : nil
 
-                        if day.type.contains("Rest") {
-                            Text("Rest Day")
-                                .font(.title3)
-                                .fontWeight(.semibold)
-                        } else {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Text("Type:")
-                                    Spacer()
-                                    Text(day.type)
-                                        .fontWeight(.semibold)
+                    if isBrickDetail, let split = brickSplit {
+                        // Brick: two exercise sections
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text(day.type.lowercased().contains("race sim") ? "Race Sim" : "Brick")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 3)
+                                    .background(Color.orange)
+                                    .cornerRadius(6)
+                                Text("Total: \(day.duration)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                                let bikeOk = matchingBikeWorkouts.count > 0
+                                let runOk = matchingRunWorkouts.count > 0
+                                if bikeOk && runOk {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
                                 }
+                            }
+
+                            // Bike leg
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\u{1F6B4} Bike")
+                                    .font(.headline)
                                 HStack {
                                     Text("Duration:")
                                     Spacer()
-                                    Text(day.duration)
+                                    Text(split.bikeDuration)
                                         .fontWeight(.semibold)
                                 }
                                 HStack {
@@ -504,12 +559,99 @@ struct DayDetailView: View {
                                     Text(day.zone)
                                         .fontWeight(.semibold)
                                 }
+                                if matchingBikeWorkouts.count > 0 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.caption)
+                                        Text("Completed: \(Int(matchingBikeWorkouts[0].duration / 60))min")
+                                            .font(.caption)
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray5))
+                            .cornerRadius(8)
+
+                            // Run leg
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("\u{1F3C3} Run")
+                                    .font(.headline)
+                                HStack {
+                                    Text("Duration:")
+                                    Spacer()
+                                    Text(split.runDuration)
+                                        .fontWeight(.semibold)
+                                }
+                                HStack {
+                                    Text("Target:")
+                                    Spacer()
+                                    Text(split.runPace ?? day.zone)
+                                        .fontWeight(.semibold)
+                                }
+                                if matchingRunWorkouts.count > 0 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.caption)
+                                        Text("Completed: \(Int(matchingRunWorkouts[0].duration / 60))min")
+                                            .font(.caption)
+                                            .foregroundColor(.green)
+                                    }
+                                }
+                            }
+                            .padding()
+                            .background(Color(.systemGray5))
+                            .cornerRadius(8)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                    } else {
+                        // Standard single workout
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Planned Workout")
+                                    .font(.headline)
+                                Spacer()
+                                if matchingHealthKitWorkouts.count > 0 {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                }
+                            }
+
+                            if day.type.contains("Rest") {
+                                Text("Rest Day")
+                                    .font(.title3)
+                                    .fontWeight(.semibold)
+                            } else {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack {
+                                        Text("Type:")
+                                        Spacer()
+                                        Text(day.type)
+                                            .fontWeight(.semibold)
+                                    }
+                                    HStack {
+                                        Text("Duration:")
+                                        Spacer()
+                                        Text(day.duration)
+                                            .fontWeight(.semibold)
+                                    }
+                                    HStack {
+                                        Text("Zone:")
+                                        Spacer()
+                                        Text(day.zone)
+                                            .fontWeight(.semibold)
+                                    }
+                                }
                             }
                         }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
                     }
-                    .padding()
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
 
                     // Workout Notes
                     if let notes = day.notes, !notes.isEmpty {
@@ -956,30 +1098,109 @@ struct WorkoutDayRows: View {
 
             // Workout cards - draggable as a group
             VStack(spacing: 8) {
-                ForEach(dayGroup.workouts, id: \.duration) { workout in
+                let isMultiWorkoutDay = dayGroup.workouts.filter { !$0.type.contains("Rest") }.count > 1
+                ForEach(Array(dayGroup.workouts.enumerated()), id: \.element.duration) { index, workout in
+                    let isBrick = workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim")
                     NavigationLink(destination: DayDetailView(day: workout, week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []), healthKit: parent.healthKit)) {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(workout.type)
-                                    .fontWeight(.semibold)
-                                Text("\(workout.duration) \u{2022} \(workout.zone)")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
+                        VStack(alignment: .leading, spacing: 0) {
+                            if isBrick, let notes = workout.notes, let split = parseBrickComponents(from: notes) {
+                                // Brick label header
+                                HStack {
+                                    Text(workout.type.lowercased().contains("race sim") ? "Race Sim" : "Brick")
+                                        .font(.caption2)
+                                        .fontWeight(.bold)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(Color.orange)
+                                        .cornerRadius(4)
+                                    Text(workout.duration)
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Spacer()
+                                    let brickCompliance = brickComplianceLevel(for: workout, on: date)
+                                    Image(systemName: brickCompliance.iconName)
+                                        .foregroundColor(brickCompliance.color)
+                                        .font(.title3)
+                                }
+                                .padding(.bottom, 6)
+                                // Bike leg
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\u{1F6B4} Bike")
+                                            .fontWeight(.semibold)
+                                        Text("\(split.bikeDuration) \u{2022} \(workout.zone)")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    let bikeMatch = findMatchingWorkout(type: "Bike", on: date)
+                                    if let bikeWorkout = bikeMatch {
+                                        Text("\u{2192} \(Int(bikeWorkout.duration / 60))min")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.caption)
+                                    }
+                                }
+                                .padding(.bottom, 6)
+                                Divider()
+                                // Run leg
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("\u{1F3C3} Run")
+                                            .fontWeight(.semibold)
+                                        Text("\(split.runDuration) \u{2022} \(split.runPace ?? workout.zone)")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    let runMatch = findMatchingWorkout(type: "Run", on: date)
+                                    if let runWorkout = runMatch {
+                                        Text("\u{2192} \(Int(runWorkout.duration / 60))min")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundColor(.green)
+                                            .font(.caption)
+                                    }
+                                }
+                                .padding(.top, 6)
+                            } else {
+                                // Standard workout card
+                                HStack(spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack(spacing: 6) {
+                                            if isMultiWorkoutDay && !workout.type.contains("Rest") {
+                                                Text(index == 0 ? "AM" : "PM")
+                                                    .font(.caption2)
+                                                    .fontWeight(.bold)
+                                                    .foregroundColor(.white)
+                                                    .padding(.horizontal, 5)
+                                                    .padding(.vertical, 1)
+                                                    .background(Color.secondary.opacity(0.6))
+                                                    .cornerRadius(4)
+                                            }
+                                            Text(workout.type)
+                                                .fontWeight(.semibold)
+                                        }
+                                        Text("\(workout.duration) \u{2022} \(workout.zone)")
+                                            .font(.caption)
+                                            .foregroundColor(.gray)
+                                    }
+                                    Spacer()
+                                    let compliance = calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts)
+                                    if let actualMin = compliance.actualDurationMinutes {
+                                        Text("\u{2192} \(Int(actualMin))min")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    Image(systemName: compliance.level.iconName)
+                                        .foregroundColor(compliance.level.color)
+                                        .font(.title3)
+                                }
                             }
-
-                            Spacer()
-
-                            let compliance = calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts)
-
-                            if let actualMin = compliance.actualDurationMinutes {
-                                Text("\u{2192} \(Int(actualMin))min")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-
-                            Image(systemName: compliance.level.iconName)
-                                .foregroundColor(compliance.level.color)
-                                .font(.title3)
                         }
                         .foregroundColor(.primary)
                     }
@@ -1050,5 +1271,57 @@ struct WorkoutDayRows: View {
                 print("[DROP] Drag state cleared")
             }
         ))
+    }
+
+    struct BrickSplit {
+        let bikeDuration: String
+        let runDuration: String
+        let runPace: String?
+    }
+
+    func parseBrickComponents(from notes: String) -> BrickSplit? {
+        let pattern = #"[Bb]ike\s+([\d:]+\s*(?:min)?)\s*(?:\([^)]*\))?\s*(?:[@Z][\w\s\-]*)?\s*\+\s*(?:[Bb]rick\s+)?(?:mini-brick\s+)?[Rr]un\s+([\d:]+\s*(?:min)?)\s*(?:[@(]\s*([\d:]+(?:-[\d:]+)?\s*pace))?"#
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)) {
+            let bikeTime = String(notes[Range(match.range(at: 1), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            let runTime = String(notes[Range(match.range(at: 2), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            var runPace: String? = nil
+            if match.range(at: 3).location != NSNotFound,
+               let paceRange = Range(match.range(at: 3), in: notes) {
+                runPace = String(notes[paceRange]).trimmingCharacters(in: .whitespaces)
+            }
+            return BrickSplit(bikeDuration: bikeTime, runDuration: runTime, runPace: runPace)
+        }
+        return nil
+    }
+
+    func extractBrickSplit(from notes: String) -> String? {
+        guard let split = parseBrickComponents(from: notes) else { return nil }
+        return "Bike \(split.bikeDuration) + Run \(split.runDuration)"
+    }
+
+    func findMatchingWorkout(type: String, on date: Date) -> HKWorkout? {
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: date)
+        let hkType: HKWorkoutActivityType = type == "Bike" ? .cycling : .running
+        return parent.healthKit.workouts.first { hkWorkout in
+            calendar.startOfDay(for: hkWorkout.startDate) == targetDay &&
+            hkWorkout.workoutActivityType == hkType
+        }
+    }
+
+    func brickComplianceLevel(for workout: DayWorkout, on date: Date) -> ComplianceLevel {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let targetDay = calendar.startOfDay(for: date)
+        if targetDay > today { return .future }
+
+        let hasBike = findMatchingWorkout(type: "Bike", on: date) != nil
+        let hasRun = findMatchingWorkout(type: "Run", on: date) != nil
+
+        if hasBike && hasRun { return .green }
+        if targetDay == today { return .future }
+        if hasBike || hasRun { return .yellow }
+        return .red
     }
 }

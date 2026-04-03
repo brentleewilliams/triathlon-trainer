@@ -153,6 +153,8 @@ class TrainingPlanManager: ObservableObject {
         setupTrainingPlan()
         calculateCurrentWeek()
         loadPlanVersions()
+        // Sync to widget on every launch so it always has current data
+        AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
     func calculateCurrentWeek() {
@@ -174,6 +176,7 @@ class TrainingPlanManager: ObservableObject {
     func restoreHardcodedPlan() {
         weeks = []
         setupTrainingPlan()
+        AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
     private func setupTrainingPlan() {
@@ -216,10 +219,10 @@ class TrainingPlanManager: ObservableObject {
                 DayWorkout(day: "Tue", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min"),
                 DayWorkout(day: "Tue", type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set A (4x50 Catch-Up, 4x50 Fingertip Drag) + 8x100 Z2 (15s rest) + 200 CD"),
                 DayWorkout(day: "Wed", type: "\u{1F3C3} Run", duration: "45min", zone: "Z2", status: nil, nutritionTarget: nil),
-                DayWorkout(day: "Thu", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Shoulder prehab after ride"),
+                DayWorkout(day: "Thu", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:15", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:00 Z2 + Brick Run 15min @ 9:15 pace. First brick. Practice T2."),
                 DayWorkout(day: "Fri", type: "\u{1F3CA} Swim", duration: "2,000yd", zone: "Z2", status: nil, nutritionTarget: nil, notes: "300 WU + Drill Set B (4x50 6-Kick Switch, 4x50 Side Kick) + 1000 continuous Z2 + 300 CD"),
                 DayWorkout(day: "Fri", type: "\u{1F3C3} Run", duration: "30min", zone: "Z2", status: nil, nutritionTarget: nil, notes: "Double day — easy effort"),
-                DayWorkout(day: "Sat", type: "\u{1F6B4}+\u{1F3C3} Brick", duration: "2:15", zone: "Z2", status: nil, nutritionTarget: "Bike: 60g carbs/hr, Run: 30-45g/hr. Practice T2 nutrition handoff", notes: "Bike 2:00 Z2 + Brick Run 15min @ 9:15 pace. First brick. Practice T2."),
+                DayWorkout(day: "Sat", type: "\u{1F6B4} Bike", duration: "1:15", zone: "Z2", status: nil, nutritionTarget: "60g carbs/hr: 1 gel + sport drink per 30min", notes: "Shoulder prehab after ride"),
                 DayWorkout(day: "Sun", type: "\u{1F3C3} Long Run", duration: "55min", zone: "Z2", status: nil, nutritionTarget: nil)
             ],
             // Week 3 — Apr 6 (~8.5 hrs) — Add 3rd bike

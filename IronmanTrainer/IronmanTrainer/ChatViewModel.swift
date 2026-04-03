@@ -176,9 +176,9 @@ class ChatViewModel: ObservableObject {
         // Swap days
         newWorkouts = newWorkouts.map { workout in
             if workout.day == command.fromDay {
-                return DayWorkout(day: command.toDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
+                return DayWorkout(day: command.toDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
             } else if workout.day == command.toDay {
-                return DayWorkout(day: command.fromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget)
+                return DayWorkout(day: command.fromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
             }
             return workout
         }
