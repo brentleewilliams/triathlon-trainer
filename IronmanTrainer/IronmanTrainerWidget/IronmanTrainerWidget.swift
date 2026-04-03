@@ -9,6 +9,7 @@ struct SharedDayWorkout: Codable {
     let zone: String
     let status: String?
     let nutritionTarget: String?
+    let notes: String?
 }
 
 struct SharedTrainingWeek: Codable {
@@ -52,11 +53,15 @@ struct WidgetTrainingPlan {
     /// Try to load swapped weeks from App Group shared UserDefaults
     static func sharedWeeks() -> [SharedTrainingWeek]? {
         guard let defaults = UserDefaults(suiteName: appGroupSuite),
-              let data = defaults.data(forKey: "swapped_weeks"),
-              let weeks = try? JSONDecoder().decode([SharedTrainingWeek].self, from: data) else {
+              let data = defaults.data(forKey: "swapped_weeks") else {
             return nil
         }
-        return weeks
+        do {
+            return try JSONDecoder().decode([SharedTrainingWeek].self, from: data)
+        } catch {
+            // If decode fails, fall back to hardcoded data
+            return nil
+        }
     }
 
     static func workoutsForToday() -> [WidgetWorkout] {
