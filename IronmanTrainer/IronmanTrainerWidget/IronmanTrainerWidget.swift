@@ -178,7 +178,23 @@ struct WorkoutTimelineProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WorkoutEntry) -> Void) {
-        completion(makeEntry())
+        if context.isPreview {
+            // Show realistic preview data in widget gallery
+            completion(WorkoutEntry(
+                date: Date(),
+                weekNumber: 2,
+                phase: "Ramp Up",
+                dayName: "Tue",
+                workouts: [
+                    WidgetWorkout(type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2"),
+                    WidgetWorkout(type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2")
+                ],
+                daysUntilRace: 108,
+                weather: WidgetWeather(icon: "\u{2600}\u{FE0F}", highTemp: 62)
+            ))
+        } else {
+            completion(makeEntry())
+        }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WorkoutEntry>) -> Void) {
@@ -284,6 +300,14 @@ struct IronmanTrainerWidgetView: View {
             Spacer(minLength: 0)
         }
         .padding(10)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(
+            LinearGradient(
+                colors: [Color(red: 0.05, green: 0.15, blue: 0.25), Color(red: 0.02, green: 0.08, blue: 0.15)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [Color(red: 0.05, green: 0.15, blue: 0.25), Color(red: 0.02, green: 0.08, blue: 0.15)],

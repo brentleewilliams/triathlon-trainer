@@ -270,6 +270,19 @@ struct HomeView: View {
                     Text("Week \(selectedWeek) \u{00B7} \(currentPhase)")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                    Button {
+                        Task { await healthKit.syncWorkouts() }
+                    } label: {
+                        if healthKit.isSyncing {
+                            ProgressView()
+                                .scaleEffect(0.7)
+                        } else {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.caption)
+                                .foregroundColor(.blue)
+                        }
+                    }
+                    .disabled(healthKit.isSyncing)
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)

@@ -58,13 +58,15 @@ struct SignInView: View {
                             do {
                                 try await authService.signInWithApple(credential: appleIDCredential, nonce: nonce)
                             } catch {
-                                errorMessage = error.localizedDescription
+                                print("[AUTH] Apple Sign In failed: \(error)")
+                                errorMessage = "\(error)"
                                 showError = true
                             }
                         }
                     case .failure(let error):
+                        print("[AUTH] Apple authorization failed: \(error)")
                         if (error as? ASAuthorizationError)?.code != .canceled {
-                            errorMessage = error.localizedDescription
+                            errorMessage = "\(error)"
                             showError = true
                         }
                     }

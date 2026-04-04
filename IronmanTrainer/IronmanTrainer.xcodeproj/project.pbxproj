@@ -277,6 +277,7 @@
 				1A0000081F1A0001 /* Resources */,
 				1AA000100A0A0001 /* Embed Foundation Extensions */,
 				BA000001000000001 /* Increment Build Number */,
+				BA000003000000001 /* Inject API Keys */,
 			);
 			buildRules = (
 			);
@@ -317,6 +318,7 @@
 				1AA0000E0A0A0001 /* Sources */,
 				1AA000090A0A0001 /* Frameworks */,
 				1AA0000F0A0A0001 /* Resources */,
+				BA000002000000001 /* Increment Build Number */,
 			);
 			buildRules = (
 			);
@@ -407,6 +409,42 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "# Auto-increment build number\nif [ \"$CI\" = \"TRUE\" ]; then\n  # Xcode Cloud: use CI build number\n  BUILD_NUM=${CI_BUILD_NUMBER:-1}\nelse\n  # Local: use git commit count\n  BUILD_NUM=$(git rev-list --count HEAD 2>/dev/null || echo 1)\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUM\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\necho \"Build number set to $BUILD_NUM\"\n";
+		};
+		BA000002000000001 /* Increment Build Number */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Increment Build Number";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Auto-increment build number (must match host app)\nif [ \"$CI\" = \"TRUE\" ]; then\n  BUILD_NUM=${CI_BUILD_NUMBER:-1}\nelse\n  BUILD_NUM=$(git rev-list --count HEAD 2>/dev/null || echo 1)\nfi\n/usr/libexec/PlistBuddy -c \"Set :CFBundleVersion $BUILD_NUM\" \"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\necho \"Widget build number set to $BUILD_NUM\"\n";
+		};
+		BA000003000000001 /* Inject API Keys */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Inject API Keys";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Inject all API keys into plists in built bundle\nBUNDLE=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n\n# Firebase\nGS_PLIST=\"$BUNDLE/GoogleService-Info.plist\"\nif [ -f \"$GS_PLIST\" ] && [ -n \"$FIREBASE_API_KEY\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :API_KEY $FIREBASE_API_KEY\" \"$GS_PLIST\"\n  echo \"Injected Firebase API key\"\nfi\n\n# Anthropic + LangSmith\nCONFIG_PLIST=\"$BUNDLE/Config.plist\"\nif [ -f \"$CONFIG_PLIST\" ]; then\n  if [ -n \"$ANTHROPIC_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :ANTHROPIC_API_KEY $ANTHROPIC_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected Anthropic API key\"\n  fi\n  if [ -n \"$LANGSMITH_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :LANGSMITH_API_KEY $LANGSMITH_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected LangSmith API key\"\n  fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

@@ -3,8 +3,8 @@
 <plist version="1.0">
 <dict>
 	<key>ANTHROPIC_API_KEY</key>
-	<string></string>
+	<string>PLACEHOLDER</string>
 	<key>LANGSMITH_API_KEY</key>
-	<string></string>
+	<string>PLACEHOLDER</string>
 </dict>
 </plist>

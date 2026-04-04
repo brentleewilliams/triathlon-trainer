@@ -1,9 +1,11 @@
 // API Configuration
-// Override these values locally by creating Config.local.xcconfig (gitignored)
+// All keys live in Config.local.xcconfig (gitignored) for local builds.
+// Xcode Cloud injects via ci_post_clone.sh from environment variables.
+// The "Inject API Keys" build script patches plists in the built bundle.
 
-// Import local overrides if they exist
 #include? "Config.local.xcconfig"
 
-// Embed API keys in Info.plist (values come from Config.local.xcconfig)
-INFOPLIST_KEY_ANTHROPIC_API_KEY = $(ANTHROPIC_API_KEY)
-INFOPLIST_KEY_LANGSMITH_API_KEY = $(LANGSMITH_API_KEY)
+// These build settings are read by the "Inject API Keys" run script phase
+ANTHROPIC_API_KEY = $(ANTHROPIC_API_KEY)
+LANGSMITH_API_KEY = $(LANGSMITH_API_KEY)
+FIREBASE_API_KEY = $(FIREBASE_API_KEY)
