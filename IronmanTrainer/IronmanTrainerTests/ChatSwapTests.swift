@@ -603,4 +603,102 @@ final class ChatSwapTests: XCTestCase {
         XCTAssertEqual(percentages["Z4"]!, 15.0, accuracy: 0.01)
         XCTAssertEqual(percentages["Z5"]!, 5.0, accuracy: 0.01)
     }
+
+    // MARK: - Plan Change Parsing Tests
+
+    func testParsePlanChanges_ValidJSON() {
+        let response = """
+        Here is my suggestion: [PLAN_CHANGES]{"id":"00000000-0000-0000-0000-000000000001","summary":"Test","changes":[{"action":"add","week":1,"day":"Mon","type":"\u{1F3C3} Run","duration":"30min","zone":"Z2"}]}[/PLAN_CHANGES] Let me know!
+        """
+        let proposal = viewModel.parsePlanChanges(from: response)
+
+        XCTAssertNotNil(proposal, "Should parse valid plan changes JSON")
+        XCTAssertEqual(proposal?.summary, "Test")
+        XCTAssertEqual(proposal?.changes.count, 1)
+        XCTAssertEqual(proposal?.changes.first?.action, .add)
+    }
+
+    func testParsePlanChanges_NoTag() {
+        let response = "I think your plan looks great as-is. Keep up the good work!"
+        let proposal = viewModel.parsePlanChanges(from: response)
+
+        XCTAssertNil(proposal, "Should return nil when no PLAN_CHANGES tag is present")
+    }
+
+    func testStripPlanChangesBlock() {
+        let response = "Here are changes [PLAN_CHANGES]{\"id\":\"00000000-0000-0000-0000-000000000001\",\"summary\":\"Test\",\"changes\":[]}[/PLAN_CHANGES] enjoy"
+        let stripped = viewModel.stripPlanChangesBlock(from: response)
+
+        XCTAssertTrue(stripped.contains("Here are changes"), "Should keep text before the tag")
+        XCTAssertTrue(stripped.contains("enjoy"), "Should keep text after the tag")
+        XCTAssertFalse(stripped.contains("[PLAN_CHANGES]"), "Should remove the PLAN_CHANGES block")
+    }
+
+    // MARK: - Plan Change Execution Tests
+
+    func testExecutePlanChanges_Add() {
+        let change = PlanChange(action: .add, week: 1, day: "Mon", type: "\u{1F3C3} Test Run", duration: "30min", zone: "Z2")
+        let proposal = PlanChangeProposal(id: UUID(), summary: "Add a test run", changes: [change])
+
+        viewModel.executePlanChanges(proposal)
+
+        let week1 = viewModel.trainingPlan!.getWeek(1)!
+        let testRun = week1.workouts.first { $0.type == "\u{1F3C3} Test Run" }
+        XCTAssertNotNil(testRun, "Added workout should appear in week 1")
+        XCTAssertEqual(testRun?.day, "Mon")
+        XCTAssertEqual(testRun?.duration, "30min")
+        XCTAssertEqual(testRun?.zone, "Z2")
+    }
+
+    func testExecutePlanChanges_Drop() {
+        // Week 1 Wed has a run: "\u{1F3C3} Run" 40min Z2
+        let week1Before = viewModel.trainingPlan!.getWeek(1)!
+        let wedRunBefore = week1Before.workouts.first { $0.day == "Wed" && $0.type == "\u{1F3C3} Run" }
+        XCTAssertNotNil(wedRunBefore, "Precondition: Wed should have a run workout")
+
+        let change = PlanChange(action: .drop, week: 1, day: "Wed", type: "\u{1F3C3} Run")
+        let proposal = PlanChangeProposal(id: UUID(), summary: "Drop Wednesday run", changes: [change])
+
+        viewModel.executePlanChanges(proposal)
+
+        let week1After = viewModel.trainingPlan!.getWeek(1)!
+        let wedRunAfter = week1After.workouts.first { $0.day == "Wed" && $0.type == "\u{1F3C3} Run" }
+        XCTAssertNil(wedRunAfter, "Wednesday run should be removed after drop")
+    }
+
+    func testExecutePlanChanges_Modify() {
+        // Week 1 Tue has a bike: "\u{1F6B4} Bike" 1:00 Z2
+        let week1Before = viewModel.trainingPlan!.getWeek(1)!
+        let tueBikeBefore = week1Before.workouts.first { $0.day == "Tue" && $0.type == "\u{1F6B4} Bike" }
+        XCTAssertNotNil(tueBikeBefore, "Precondition: Tue should have a bike workout")
+        XCTAssertEqual(tueBikeBefore?.duration, "1:00")
+
+        let change = PlanChange(action: .modify, week: 1, day: "Tue", type: "\u{1F6B4} Bike", field: "duration", from: "1:00", to: "1:30")
+        let proposal = PlanChangeProposal(id: UUID(), summary: "Extend Tuesday bike", changes: [change])
+
+        viewModel.executePlanChanges(proposal)
+
+        let week1After = viewModel.trainingPlan!.getWeek(1)!
+        let tueBikeAfter = week1After.workouts.first { $0.day == "Tue" && $0.type == "\u{1F6B4} Bike" }
+        XCTAssertNotNil(tueBikeAfter, "Bike workout should still exist after modify")
+        XCTAssertEqual(tueBikeAfter?.duration, "1:30", "Bike duration should be updated to 1:30")
+    }
+
+    func testExecutePlanChanges_InvalidWeekSkipped() {
+        let validChange = PlanChange(action: .add, week: 1, day: "Mon", type: "\u{1F3C3} Extra Run", duration: "20min", zone: "Z1")
+        let invalidChange = PlanChange(action: .add, week: 99, day: "Mon", type: "\u{1F3C3} Ghost Run", duration: "20min", zone: "Z1")
+        let proposal = PlanChangeProposal(id: UUID(), summary: "Mixed changes", changes: [validChange, invalidChange])
+
+        viewModel.executePlanChanges(proposal)
+
+        // Valid change should be applied
+        let week1 = viewModel.trainingPlan!.getWeek(1)!
+        let extraRun = week1.workouts.first { $0.type == "\u{1F3C3} Extra Run" }
+        XCTAssertNotNil(extraRun, "Valid add to week 1 should be applied")
+
+        // Confirmation message should mention skipped
+        let lastMessage = viewModel.messages.last
+        XCTAssertNotNil(lastMessage, "Should have a confirmation message")
+        XCTAssertTrue(lastMessage!.text.contains("Skipped"), "Confirmation should mention skipped changes")
+    }
 }
