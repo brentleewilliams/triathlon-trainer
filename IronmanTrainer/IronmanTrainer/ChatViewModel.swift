@@ -20,6 +20,7 @@ class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false
     @Published var error: String?
+    @Published var pendingProposal: PlanChangeProposal?
 
     private let claudeService = ClaudeService.shared
     private(set) var lastSwap: SwapCommand? {
@@ -49,6 +50,139 @@ class ChatViewModel: ObservableObject {
         lastSwap = swap
     }
 
+    // MARK: - Plan Change Parsing
+
+    func parsePlanChanges(from response: String) -> PlanChangeProposal? {
+        guard let startRange = response.range(of: "[PLAN_CHANGES]"),
+              let endRange = response.range(of: "[/PLAN_CHANGES]") else { return nil }
+
+        let jsonStart = startRange.upperBound
+        let jsonEnd = endRange.lowerBound
+        guard jsonStart < jsonEnd else { return nil }
+
+        let jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let data = jsonString.data(using: .utf8) else { return nil }
+
+        return try? JSONDecoder().decode(PlanChangeProposal.self, from: data)
+    }
+
+    func stripPlanChangesBlock(from response: String) -> String {
+        guard let startRange = response.range(of: "[PLAN_CHANGES]"),
+              let endRange = response.range(of: "[/PLAN_CHANGES]") else { return response }
+
+        var result = response
+        result.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+        return result.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    func executePlanChanges(_ proposal: PlanChangeProposal) {
+        guard let trainingPlan = trainingPlan else { return }
+
+        var updatedWeeks = trainingPlan.weeks
+        var applied = 0
+        var skipped: [String] = []
+
+        for change in proposal.changes {
+            guard let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == change.week }) else {
+                skipped.append("Week \(change.week) not found for \(change.action.rawValue) \(change.type ?? "")")
+                continue
+            }
+
+            var workouts = updatedWeeks[weekIdx].workouts
+
+            switch change.action {
+            case .add:
+                guard let type = change.type else {
+                    skipped.append("Missing type for add in week \(change.week)")
+                    continue
+                }
+                let newWorkout = DayWorkout(
+                    day: change.day,
+                    type: type,
+                    duration: change.duration ?? "-",
+                    zone: change.zone ?? "-",
+                    status: nil,
+                    nutritionTarget: change.nutritionTarget,
+                    notes: change.notes
+                )
+                workouts.append(newWorkout)
+                applied += 1
+
+            case .drop:
+                guard let type = change.type else {
+                    skipped.append("Missing type for drop in week \(change.week)")
+                    continue
+                }
+                let before = workouts.count
+                workouts.removeAll { $0.day == change.day && $0.type == type }
+                if workouts.count < before {
+                    applied += 1
+                } else {
+                    skipped.append("No \(type) on \(change.day) in week \(change.week) to drop")
+                }
+
+            case .modify:
+                guard let type = change.type,
+                      let field = change.field,
+                      let toValue = change.to else {
+                    skipped.append("Missing type/field/to for modify in week \(change.week)")
+                    continue
+                }
+                guard let workoutIdx = workouts.firstIndex(where: { $0.day == change.day && $0.type == type }) else {
+                    skipped.append("No \(type) on \(change.day) in week \(change.week) to modify")
+                    continue
+                }
+                let old = workouts[workoutIdx]
+                let modified: DayWorkout
+                switch field {
+                case "duration":
+                    modified = DayWorkout(day: old.day, type: old.type, duration: toValue, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
+                case "zone":
+                    modified = DayWorkout(day: old.day, type: old.type, duration: old.duration, zone: toValue, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
+                case "type":
+                    modified = DayWorkout(day: old.day, type: toValue, duration: old.duration, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
+                case "notes":
+                    modified = DayWorkout(day: old.day, type: old.type, duration: old.duration, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: toValue)
+                default:
+                    skipped.append("Unknown field '\(field)' for modify in week \(change.week)")
+                    continue
+                }
+                workouts[workoutIdx] = modified
+                applied += 1
+            }
+
+            updatedWeeks[weekIdx] = TrainingWeek(
+                weekNumber: updatedWeeks[weekIdx].weekNumber,
+                phase: updatedWeeks[weekIdx].phase,
+                startDate: updatedWeeks[weekIdx].startDate,
+                endDate: updatedWeeks[weekIdx].endDate,
+                workouts: workouts
+            )
+        }
+
+        if applied > 0 {
+            trainingPlan.applyRescheduledPlan(updatedWeeks, source: "chat", description: proposal.summary)
+        }
+
+        var confirmText = "\u{2705} Applied \(applied) change\(applied == 1 ? "" : "s") to your training plan."
+        if !skipped.isEmpty {
+            confirmText += "\n\u{26A0}\u{FE0F} Skipped \(skipped.count): \(skipped.joined(separator: "; "))"
+        }
+        messages.append(ChatMessage(isUser: false, text: confirmText))
+        saveChatHistory()
+        pendingProposal = nil
+    }
+
+    func dismissPlanChanges() {
+        pendingProposal = nil
+        let feedbackMsg = "I dismissed the proposed changes. Can you revise the plan?"
+        messages.append(ChatMessage(isUser: true, text: feedbackMsg))
+        saveChatHistory()
+        Task {
+            await sendMessage(feedbackMsg)
+        }
+    }
+
     func sendMessage(_ text: String) async {
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
 
@@ -75,26 +209,34 @@ class ChatViewModel: ObservableObject {
             let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory)
 
             await MainActor.run {
-                messages.append(ChatMessage(isUser: false, text: response))
-                saveChatHistory()
+                // Check for plan changes proposal first
+                if response.contains("[PLAN_CHANGES]") {
+                    let displayText = stripPlanChangesBlock(from: response)
+                    messages.append(ChatMessage(isUser: false, text: displayText))
+                    saveChatHistory()
+                    pendingProposal = parsePlanChanges(from: response)
+                } else {
+                    messages.append(ChatMessage(isUser: false, text: response))
+                    saveChatHistory()
 
-                // Check for undo swap command
-                if response.contains("[UNDO_SWAP]"), let prev = lastSwap {
-                    let undoCommand = SwapCommand(weekNumber: prev.weekNumber, fromDay: prev.toDay, toDay: prev.fromDay)
-                    if let result = executeSwap(undoCommand) {
-                        lastSwap = nil
-                        let confirmMsg = ChatMessage(isUser: false, text: "\u{21A9}\u{FE0F} Undid previous swap: \(result). Your training plan has been restored!")
+                    // Check for undo swap command
+                    if response.contains("[UNDO_SWAP]"), let prev = lastSwap {
+                        let undoCommand = SwapCommand(weekNumber: prev.weekNumber, fromDay: prev.toDay, toDay: prev.fromDay)
+                        if let result = executeSwap(undoCommand) {
+                            lastSwap = nil
+                            let confirmMsg = ChatMessage(isUser: false, text: "\u{21A9}\u{FE0F} Undid previous swap: \(result). Your training plan has been restored!")
+                            messages.append(confirmMsg)
+                            saveChatHistory()
+                        }
+                    }
+                    // Check for swap command in response and execute it
+                    else if let command = parseSwapCommand(from: response),
+                       let result = executeSwap(command) {
+                        lastSwap = command
+                        let confirmMsg = ChatMessage(isUser: false, text: "\u{2705} \(result). Your training plan has been updated!")
                         messages.append(confirmMsg)
                         saveChatHistory()
                     }
-                }
-                // Check for swap command in response and execute it
-                else if let command = parseSwapCommand(from: response),
-                   let result = executeSwap(command) {
-                    lastSwap = command
-                    let confirmMsg = ChatMessage(isUser: false, text: "\u{2705} \(result). Your training plan has been updated!")
-                    messages.append(confirmMsg)
-                    saveChatHistory()
                 }
 
                 isLoading = false
@@ -134,6 +276,24 @@ class ChatViewModel: ObservableObject {
         - You can include the tag along with your coaching explanation
         - If the user asks to undo the last swap, include this exact tag: [UNDO_SWAP]
         \(lastSwap != nil ? "- LAST SWAP: Swapped \(lastSwap!.fromDay) and \(lastSwap!.toDay) in week \(lastSwap!.weekNumber). User can ask to undo this." : "- No recent swap to undo.")
+
+        FOR CHANGES BEYOND SIMPLE DAY SWAPS (adding, dropping, or modifying workouts):
+        Include a JSON block between [PLAN_CHANGES] and [/PLAN_CHANGES] tags.
+        Format:
+        [PLAN_CHANGES]
+        {"id":"<generate-a-uuid>","summary":"<1-line description>","changes":[
+          {"action":"add","week":5,"day":"Tue","type":"🏃 Interval Run","duration":"45min","zone":"Z4","notes":"6x800m intervals"},
+          {"action":"drop","week":5,"day":"Wed","type":"🏃 Run"},
+          {"action":"modify","week":6,"day":"Thu","type":"🚴 Bike","field":"duration","from":"1:00","to":"1:15"}
+        ]}
+        [/PLAN_CHANGES]
+        Rules:
+        - add: requires type, duration, zone. notes/nutritionTarget optional.
+        - drop: requires type to identify which workout to remove.
+        - modify: requires type (to find workout), field, from, to. field can be "duration", "zone", "type", or "notes".
+        - Simple same-week day swaps → use [SWAP_DAYS] (auto-applied).
+        - Everything else (add/drop/modify, multi-week changes) → use [PLAN_CHANGES] (requires user confirmation).
+        - Always explain your reasoning in natural language OUTSIDE the tags.
         """
     }
 

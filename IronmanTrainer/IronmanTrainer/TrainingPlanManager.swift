@@ -41,6 +41,66 @@ struct SwapCommand: Codable {
     let toDay: String
 }
 
+// MARK: - Plan Change Models (add/drop/modify with user confirmation)
+
+enum PlanChangeAction: String, Codable { case add, drop, modify }
+
+struct PlanChange: Codable, Identifiable {
+    let id: UUID
+    let action: PlanChangeAction
+    let week: Int
+    let day: String
+    let type: String?
+    let duration: String?
+    let zone: String?
+    let notes: String?
+    let nutritionTarget: String?
+    let field: String?   // for modify: "duration", "zone", "type", "notes"
+    let from: String?    // for modify: current value
+    let to: String?      // for modify: new value
+
+    enum CodingKeys: String, CodingKey {
+        case action, week, day, type, duration, zone, notes, nutritionTarget, field, from, to
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = UUID()
+        self.action = try container.decode(PlanChangeAction.self, forKey: .action)
+        self.week = try container.decode(Int.self, forKey: .week)
+        self.day = try container.decode(String.self, forKey: .day)
+        self.type = try container.decodeIfPresent(String.self, forKey: .type)
+        self.duration = try container.decodeIfPresent(String.self, forKey: .duration)
+        self.zone = try container.decodeIfPresent(String.self, forKey: .zone)
+        self.notes = try container.decodeIfPresent(String.self, forKey: .notes)
+        self.nutritionTarget = try container.decodeIfPresent(String.self, forKey: .nutritionTarget)
+        self.field = try container.decodeIfPresent(String.self, forKey: .field)
+        self.from = try container.decodeIfPresent(String.self, forKey: .from)
+        self.to = try container.decodeIfPresent(String.self, forKey: .to)
+    }
+
+    init(action: PlanChangeAction, week: Int, day: String, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, nutritionTarget: String? = nil, field: String? = nil, from: String? = nil, to: String? = nil) {
+        self.id = UUID()
+        self.action = action
+        self.week = week
+        self.day = day
+        self.type = type
+        self.duration = duration
+        self.zone = zone
+        self.notes = notes
+        self.nutritionTarget = nutritionTarget
+        self.field = field
+        self.from = from
+        self.to = to
+    }
+}
+
+struct PlanChangeProposal: Codable, Identifiable {
+    let id: UUID
+    let summary: String
+    let changes: [PlanChange]
+}
+
 struct WeatherForecast {
     let highTemp: Int // °F
     let lowTemp: Int

@@ -16,6 +16,11 @@ struct ChatView: View {
                                 .id(message.id)
                         }
 
+                        if let proposal = viewModel.pendingProposal {
+                            PlanChangeCard(viewModel: viewModel, proposal: proposal)
+                                .id("proposal-card")
+                        }
+
                         if viewModel.isLoading {
                             HStack(spacing: 4) {
                                 ForEach(0..<3, id: \.self) { i in
@@ -103,6 +108,104 @@ struct ChatInputBar: View {
         Task {
             await viewModel.sendMessage(message)
         }
+    }
+}
+
+// MARK: - Plan Change Confirmation UI
+
+struct PlanChangeRow: View {
+    let change: PlanChange
+
+    private var icon: String {
+        switch change.action {
+        case .add: return "plus.circle.fill"
+        case .drop: return "minus.circle.fill"
+        case .modify: return "pencil.circle.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch change.action {
+        case .add: return .green
+        case .drop: return .red
+        case .modify: return .orange
+        }
+    }
+
+    private var label: String {
+        let type = change.type ?? "workout"
+        switch change.action {
+        case .add:
+            return "Add \(type) on \(change.day), Week \(change.week)"
+        case .drop:
+            return "Drop \(type) on \(change.day), Week \(change.week)"
+        case .modify:
+            let field = change.field ?? ""
+            let from = change.from ?? ""
+            let to = change.to ?? ""
+            return "Modify \(type) on \(change.day), Week \(change.week): \(field) \(from) → \(to)"
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 8) {
+            Image(systemName: icon)
+                .foregroundColor(iconColor)
+                .font(.body)
+            Text(label)
+                .font(.subheadline)
+                .foregroundColor(.primary)
+        }
+    }
+}
+
+struct PlanChangeCard: View {
+    @ObservedObject var viewModel: ChatViewModel
+    let proposal: PlanChangeProposal
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(proposal.summary)
+                .font(.body)
+                .bold()
+
+            ForEach(proposal.changes) { change in
+                PlanChangeRow(change: change)
+            }
+
+            HStack(spacing: 12) {
+                Button {
+                    viewModel.executePlanChanges(proposal)
+                } label: {
+                    Text("Apply Changes")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+
+                Button {
+                    viewModel.dismissPlanChanges()
+                } label: {
+                    Text("Dismiss")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Color.gray)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+            }
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color(.systemGray6))
+        )
     }
 }
 
