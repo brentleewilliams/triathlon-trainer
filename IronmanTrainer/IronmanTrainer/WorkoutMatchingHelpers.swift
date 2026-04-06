@@ -49,11 +49,15 @@ func parseWorkoutDuration(_ durationStr: String) -> Int? {
 
 /// Extract the base workout type from a type string that may include emojis.
 /// - "🚴 Bike" -> "Bike", "🏊 Swim" -> "Swim", "🏃 Run" -> "Run", "🏁 RACE DAY" -> "Run"
+/// - "🏋️ Strength" -> "Strength", "🥾 Hike" -> "Hike"
 func extractWorkoutTypeFromString(_ typeString: String) -> String {
     if typeString.contains("\u{1F6B4}") { return "Bike" }  // 🚴
     if typeString.contains("\u{1F3CA}") { return "Swim" }  // 🏊
     if typeString.contains("\u{1F3C3}") { return "Run" }   // 🏃
     if typeString.contains("\u{1F3C1}") { return "Run" }   // 🏁
+    let lower = typeString.lowercased()
+    if lower.contains("strength") { return "Strength" }
+    if lower.contains("hike") || lower.contains("hiking") { return "Hike" }
     return typeString
 }
 
@@ -69,6 +73,10 @@ func workoutTypeMatchesActivityType(plannedType: String, healthKitType: HKWorkou
         return planned == "run"
     case .walking:
         return planned == "walk"
+    case .traditionalStrengthTraining, .functionalStrengthTraining:
+        return planned == "strength"
+    case .hiking:
+        return planned == "hike"
     default:
         return false
     }

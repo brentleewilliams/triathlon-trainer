@@ -680,9 +680,186 @@ struct GoalSettingStep: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
+                // Per-sport skill levels
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider().padding(.vertical, 4)
+
+                    Text("Skill Level by Sport")
+                        .font(.headline)
+
+                    Text("This helps tailor workout difficulty and progression for each discipline.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    SkillLevelPicker(icon: "figure.pool.swim", sport: "Swim", level: $viewModel.swimLevel)
+                    SkillLevelPicker(icon: "figure.outdoor.cycle", sport: "Bike", level: $viewModel.bikeLevel)
+                    SkillLevelPicker(icon: "figure.run", sport: "Run", level: $viewModel.runLevel)
+                }
+                .padding(.horizontal, 16)
+
+                // Prep races section
+                PrepRacesOnboardingSection()
+
                 Spacer()
             }
             .padding(.horizontal, 16)
+        }
+        .scrollDismissesKeyboard(.immediately)
+    }
+}
+
+// MARK: - Prep Races Onboarding Section
+
+struct PrepRacesOnboardingSection: View {
+    @ObservedObject private var prepRaces = PrepRacesManager.shared
+    @State private var showAddSheet = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Divider().padding(.vertical, 4)
+
+            HStack {
+                Image(systemName: "flag.2.crossed.fill")
+                    .foregroundStyle(.orange)
+                Text("Tune-up Races")
+                    .font(.headline)
+                Spacer()
+                Button {
+                    showAddSheet = true
+                } label: {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.title3)
+                        .foregroundStyle(.blue)
+                }
+            }
+
+            Text("Add any prep races along the way. These help structure your training peaks and tapers.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            if prepRaces.races.isEmpty {
+                Text("No prep races added yet")
+                    .font(.subheadline)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+            } else {
+                ForEach(prepRaces.races) { race in
+                    PrepRaceRow(race: race) {
+                        prepRaces.removeByID(race.id)
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddPrepRaceSheet { race in
+                prepRaces.add(race)
+            }
+        }
+    }
+}
+
+struct PrepRaceRow: View {
+    let race: PrepRace
+    let onDelete: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(race.name)
+                    .font(.subheadline.weight(.medium))
+                HStack(spacing: 8) {
+                    Text(race.distance)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(Formatters.fullDate.string(from: race.date))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button(role: .destructive, action: onDelete) {
+                Image(systemName: "trash")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
+        }
+        .padding(10)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct AddPrepRaceSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var name = ""
+    @State private var date = Date()
+    @State private var distance = "5K"
+    @State private var notes = ""
+
+    let onAdd: (PrepRace) -> Void
+
+    private let distanceOptions = ["5K", "10K", "Half Marathon", "Marathon", "Sprint Tri", "Olympic Tri", "Century Ride", "Other"]
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Race Details")) {
+                    TextField("Race Name", text: $name)
+                    DatePicker("Date", selection: $date, displayedComponents: .date)
+                    Picker("Distance", selection: $distance) {
+                        ForEach(distanceOptions, id: \.self) { Text($0) }
+                    }
+                }
+                Section(header: Text("Notes (optional)")) {
+                    TextField("e.g. Goal pace, strategy", text: $notes)
+                }
+            }
+            .navigationTitle("Add Prep Race")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        let race = PrepRace(
+                            name: name,
+                            date: date,
+                            distance: distance,
+                            notes: notes.isEmpty ? nil : notes
+                        )
+                        onAdd(race)
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium])
+    }
+}
+
+struct SkillLevelPicker: View {
+    let icon: String
+    let sport: String
+    @Binding var level: SkillLevel
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                    .foregroundStyle(.blue)
+                    .frame(width: 24)
+                Text(sport)
+                    .font(.subheadline.weight(.medium))
+            }
+            Picker("", selection: $level) {
+                ForEach(SkillLevel.allCases, id: \.self) { lvl in
+                    Text(lvl.rawValue).tag(lvl)
+                }
+            }
+            .pickerStyle(.segmented)
         }
     }
 }
@@ -846,7 +1023,8 @@ struct FitnessChatStep: View {
                     profile: viewModel.hkProfile,
                     userName: viewModel.userName,
                     race: viewModel.buildRace(),
-                    goal: goalTypeFromSelection()
+                    goal: goalTypeFromSelection(),
+                    skillLevels: (swim: viewModel.swimLevel, bike: viewModel.bikeLevel, run: viewModel.runLevel)
                 )
                 let name = viewModel.userName.isEmpty ? "there" : viewModel.userName
                 let greeting = ChatMessage(

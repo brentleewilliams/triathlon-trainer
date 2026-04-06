@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 // MARK: - Chat View
 struct ChatView: View {
@@ -75,20 +76,59 @@ struct ChatInputBar: View {
     @ObservedObject var viewModel: ChatViewModel
     @FocusState private var isFocused: Bool
     @State private var text: String = ""
+    @State private var selectedPhoto: PhotosPickerItem?
+    @State private var pendingImageData: Data?
 
     private var canSend: Bool {
-        !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !viewModel.isLoading
+        let hasText = !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        return (hasText || pendingImageData != nil) && !viewModel.isLoading
     }
 
     var body: some View {
         VStack(spacing: 0) {
             Divider()
-            HStack(alignment: .bottom, spacing: 0) {
+
+            // Image preview
+            if let imageData = pendingImageData, let uiImage = UIImage(data: imageData) {
+                HStack {
+                    ZStack(alignment: .topTrailing) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 80, height: 80)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+
+                        Button {
+                            pendingImageData = nil
+                            selectedPhoto = nil
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 20))
+                                .foregroundStyle(.white, .black.opacity(0.6))
+                        }
+                        .offset(x: 6, y: -6)
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+
+            HStack(alignment: .bottom, spacing: 8) {
+                PhotosPicker(selection: $selectedPhoto, matching: .images) {
+                    Image(systemName: "photo")
+                        .font(.system(size: 20))
+                        .foregroundColor(.blue)
+                }
+                .disabled(viewModel.isLoading)
+                .padding(.leading, 12)
+                .padding(.bottom, 10)
+
                 TextField("Message your coach...", text: $text)
                     .autocorrectionDisabled()
                     .submitLabel(.send)
-                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
+                    .padding(.trailing, 16)
                     .focused($isFocused)
                     .disabled(viewModel.isLoading)
                     .onSubmit { if canSend { send() } }
@@ -99,14 +139,30 @@ struct ChatInputBar: View {
             .padding(.vertical, 8)
         }
         .background(.bar)
+        .onChange(of: selectedPhoto) {
+            Task {
+                guard let item = selectedPhoto,
+                      let data = try? await item.loadTransferable(type: Data.self) else { return }
+                // Compress to JPEG for API efficiency
+                if let uiImage = UIImage(data: data),
+                   let jpeg = uiImage.jpegData(compressionQuality: 0.7) {
+                    pendingImageData = jpeg
+                } else {
+                    pendingImageData = data
+                }
+            }
+        }
     }
 
     private func send() {
         let message = text
+        let image = pendingImageData
         text = ""
+        pendingImageData = nil
+        selectedPhoto = nil
         isFocused = false
         Task {
-            await viewModel.sendMessage(message)
+            await viewModel.sendMessage(message, imageData: image)
         }
     }
 }
@@ -217,13 +273,24 @@ struct ChatBubble: View {
             if message.isUser {
                 Spacer()
 
-                Text(message.text)
-                    .font(.body)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 12)
-                    .background(Color.blue)
-                    .foregroundColor(.white)
-                    .cornerRadius(16)
+                VStack(alignment: .trailing, spacing: 8) {
+                    if let imageData = message.imageData, let uiImage = UIImage(data: imageData) {
+                        Image(uiImage: uiImage)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: 200, maxHeight: 200)
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                    }
+                    if !message.text.isEmpty && message.text != "Sent a photo" {
+                        Text(message.text)
+                            .font(.body)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(16)
             } else {
                 Text(message.text)
                     .font(.body)

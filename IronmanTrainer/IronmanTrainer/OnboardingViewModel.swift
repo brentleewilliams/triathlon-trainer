@@ -46,6 +46,11 @@ class OnboardingViewModel: ObservableObject {
     @Published var targetHours: Int = 6
     @Published var targetMinutes: Int = 0
 
+    // Per-sport skill levels (step 4, part of goal setting)
+    @Published var swimLevel: SkillLevel = .beginner
+    @Published var bikeLevel: SkillLevel = .intermediate
+    @Published var runLevel: SkillLevel = .intermediate
+
     // Fitness chat answers (step 5)
     @Published var fitnessHours: String = ""
     @Published var fitnessExperience: String = ""
@@ -269,6 +274,20 @@ class OnboardingViewModel: ObservableObject {
 }
 
 // MARK: - Supporting Types
+
+enum SkillLevel: String, CaseIterable, Codable {
+    case beginner = "Beginner"
+    case intermediate = "Intermediate"
+    case advanced = "Advanced"
+
+    var description: String {
+        switch self {
+        case .beginner: return "New or limited experience"
+        case .intermediate: return "Regular training, comfortable"
+        case .advanced: return "Competitive, years of experience"
+        }
+    }
+}
 
 enum GoalSelection {
     case timeTarget

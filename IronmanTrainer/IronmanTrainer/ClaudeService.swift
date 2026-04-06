@@ -5,7 +5,7 @@ class ClaudeService: NSObject, ObservableObject {
     static let shared = ClaudeService()
 
     private let apiKey: String
-    private let model = "claude-opus-4-6"
+    private let model = "claude-sonnet-4-6"
     private let baseURL = "https://api.anthropic.com/v1/messages"
 
     override init() {
@@ -14,19 +14,40 @@ class ClaudeService: NSObject, ObservableObject {
         super.init()
     }
 
-    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil, conversationHistory: [[String: String]] = []) async throws -> String {
+    func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil, conversationHistory: [[String: Any]] = [], imageData: Data? = nil) async throws -> String {
         let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory, zoneBoundaries: zoneBoundaries)
 
         // Start LangSmith run
         let runID = LangSmithTracer.shared.startRun(systemPrompt: systemPrompt, userMessage: userMessage)
 
         // Build messages array with conversation history + current message
-        var messages: [[String: String]] = conversationHistory
-        messages.append(["role": "user", "content": userMessage])
+        var messages: [[String: Any]] = conversationHistory
+
+        // Build current message content (multimodal if image attached)
+        if let imageData = imageData {
+            let base64 = imageData.base64EncodedString()
+            var contentBlocks: [[String: Any]] = [
+                [
+                    "type": "image",
+                    "source": [
+                        "type": "base64",
+                        "media_type": "image/jpeg",
+                        "data": base64
+                    ]
+                ]
+            ]
+            contentBlocks.append([
+                "type": "text",
+                "text": userMessage
+            ])
+            messages.append(["role": "user", "content": contentBlocks])
+        } else {
+            messages.append(["role": "user", "content": userMessage])
+        }
 
         let requestBody: [String: Any] = [
             "model": model,
-            "max_tokens": 1024,
+            "max_tokens": 4096,
             "system": systemPrompt,
             "messages": messages
         ]

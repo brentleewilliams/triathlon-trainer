@@ -7,12 +7,14 @@ struct ChatMessage: Identifiable, Codable {
     let isUser: Bool
     let text: String
     let timestamp: Date
+    let imageData: Data?
 
-    init(id: UUID = UUID(), isUser: Bool, text: String, timestamp: Date = Date()) {
+    init(id: UUID = UUID(), isUser: Bool, text: String, timestamp: Date = Date(), imageData: Data? = nil) {
         self.id = id
         self.isUser = isUser
         self.text = text
         self.timestamp = timestamp
+        self.imageData = imageData
     }
 }
 
@@ -67,11 +69,47 @@ class ChatViewModel: ObservableObject {
     }
 
     func stripPlanChangesBlock(from response: String) -> String {
-        guard let startRange = response.range(of: "[PLAN_CHANGES]"),
-              let endRange = response.range(of: "[/PLAN_CHANGES]") else { return response }
-
         var result = response
-        result.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+
+        // Remove [PLAN_CHANGES]...[/PLAN_CHANGES] block (or everything after [PLAN_CHANGES] if closing tag is missing/truncated)
+        if let startRange = result.range(of: "[PLAN_CHANGES]") {
+            if let endRange = result.range(of: "[/PLAN_CHANGES]") {
+                result.removeSubrange(startRange.lowerBound..<endRange.upperBound)
+            } else {
+                // Closing tag missing (likely truncated response) — strip everything from [PLAN_CHANGES] onward
+                result.removeSubrange(startRange.lowerBound..<result.endIndex)
+            }
+        }
+
+        // Remove stray JSON change objects the LLM may echo outside the tags
+        if let regex = try? NSRegularExpression(
+            pattern: #"\{"action"\s*:\s*"(?:add|drop|modify)"[^}]*\}\s*,?"#,
+            options: []
+        ) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+        }
+
+        // Remove stray JSON wrapper fragments ({"id":...,"summary":...,"changes":[ etc.)
+        if let regex = try? NSRegularExpression(
+            pattern: #"\{["\s]*id["\s]*:.*?"changes"\s*:\s*\["#,
+            options: [.dotMatchesLineSeparators]
+        ) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+        }
+
+        // Remove stray closing brackets/braces from truncated JSON
+        if let regex = try? NSRegularExpression(pattern: #"^\s*[\]\}]\s*$"#, options: [.anchorsMatchLines]) {
+            let range = NSRange(result.startIndex..., in: result)
+            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
+        }
+
+        // Clean up leftover blank lines
+        while result.contains("\n\n\n") {
+            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
+        }
+
         return result.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
@@ -183,11 +221,12 @@ class ChatViewModel: ObservableObject {
         }
     }
 
-    func sendMessage(_ text: String) async {
-        guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+    func sendMessage(_ text: String, imageData: Data? = nil) async {
+        let hasText = !text.trimmingCharacters(in: .whitespaces).isEmpty
+        guard hasText || imageData != nil else { return }
 
         await MainActor.run {
-            messages.append(ChatMessage(isUser: true, text: text))
+            messages.append(ChatMessage(isUser: true, text: hasText ? text : "Sent a photo", imageData: imageData))
             saveChatHistory()
             isLoading = true
             error = nil
@@ -202,11 +241,12 @@ class ChatViewModel: ObservableObject {
 
             // Build conversation history from prior messages (exclude the message we just added)
             let priorMessages = messages.dropLast()
-            let conversationHistory: [[String: String]] = priorMessages.map { msg in
-                ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
+            let conversationHistory: [[String: Any]] = priorMessages.map { msg in
+                // For history, only send text (don't re-send images)
+                return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            let response = try await claudeService.sendMessage(userMessage: text, trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory)
+            let response = try await claudeService.sendMessage(userMessage: hasText ? text : "What do you see in this image?", trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory, imageData: imageData)
 
             await MainActor.run {
                 // Check for plan changes proposal first
@@ -216,7 +256,9 @@ class ChatViewModel: ObservableObject {
                     saveChatHistory()
                     pendingProposal = parsePlanChanges(from: response)
                 } else {
-                    messages.append(ChatMessage(isUser: false, text: response))
+                    // Strip any stray JSON even when no [PLAN_CHANGES] tag is present
+                    let cleanResponse = stripPlanChangesBlock(from: response)
+                    messages.append(ChatMessage(isUser: false, text: cleanResponse))
                     saveChatHistory()
 
                     // Check for undo swap command
@@ -294,6 +336,7 @@ class ChatViewModel: ObservableObject {
         - Simple same-week day swaps → use [SWAP_DAYS] (auto-applied).
         - Everything else (add/drop/modify, multi-week changes) → use [PLAN_CHANGES] (requires user confirmation).
         - Always explain your reasoning in natural language OUTSIDE the tags.
+        - IMPORTANT: Do NOT echo or repeat the raw JSON change objects in your natural language text. The app will render them in a nice UI card. Just describe the changes conversationally (e.g. "I'd suggest adding a strength session on Thursday and swapping your Tuesday bike for swim intervals").
         """
     }
 
@@ -410,6 +453,11 @@ class ChatViewModel: ObservableObject {
             }
         }
 
+        // Include prep races context
+        if let prepContext = PrepRacesManager.shared.contextString() {
+            context += "\n\(prepContext)\n"
+        }
+
         return context
     }
 
@@ -423,8 +471,9 @@ class ChatViewModel: ObservableObject {
         let historyStart = calendar.date(from: DateComponents(year: 2026, month: 2, day: 1)) ?? Date()
 
         // --- Accumulate summary stats ---
-        var swimCount = 0, bikeCount = 0, runCount = 0
+        var swimCount = 0, bikeCount = 0, runCount = 0, strengthCount = 0, hikeCount = 0
         var totalSwimYards = 0.0, totalBikeHours = 0.0, totalRunMinutes = 0.0
+        var totalStrengthMinutes = 0.0, totalHikeMinutes = 0.0
         var totalCalories = 0.0
 
         for workout in healthKit.workouts {
@@ -451,6 +500,12 @@ class ChatViewModel: ObservableObject {
             case .running:
                 runCount += 1
                 totalRunMinutes += durationMinutes
+            case .traditionalStrengthTraining, .functionalStrengthTraining:
+                strengthCount += 1
+                totalStrengthMinutes += durationMinutes
+            case .hiking:
+                hikeCount += 1
+                totalHikeMinutes += durationMinutes
             default:
                 break
             }
@@ -468,6 +523,8 @@ class ChatViewModel: ObservableObject {
             if lower.contains("swim") { return .swimming }
             if lower.contains("bike") || lower.contains("cycling") { return .cycling }
             if lower.contains("run") { return .running }
+            if lower.contains("strength") { return .traditionalStrengthTraining }
+            if lower.contains("hike") || lower.contains("hiking") { return .hiking }
             return nil
         }
 
@@ -477,6 +534,8 @@ class ChatViewModel: ObservableObject {
             if lower.contains("swim") { return "\u{1F3CA}" } // swimmer emoji
             if lower.contains("bike") || lower.contains("cycling") { return "\u{1F6B4}" } // cyclist emoji
             if lower.contains("run") { return "\u{1F3C3}" } // runner emoji
+            if lower.contains("strength") { return "\u{1F3CB}" } // weight lifter emoji
+            if lower.contains("hike") || lower.contains("hiking") { return "\u{1F97E}" } // hiking boot emoji
             return ""
         }
 
@@ -486,6 +545,8 @@ class ChatViewModel: ObservableObject {
             case .swimming: return "Swimming"
             case .cycling: return "Cycling"
             case .running: return "Running"
+            case .traditionalStrengthTraining, .functionalStrengthTraining: return "Strength"
+            case .hiking: return "Hiking"
             default: return "Other"
             }
         }
@@ -568,8 +629,8 @@ class ChatViewModel: ObservableObject {
                     let complianceEmoji: String
                     switch compliance.level {
                     case .green: complianceEmoji = "\u{2705}"  // ✅
-                    case .yellow: complianceEmoji = "\u{26A0}\u{FE0F}"  // ⚠️
-                    case .red: complianceEmoji = "\u{274C}"  // ❌
+                    case .yellow: complianceEmoji = "\u{26A0}\u{FE0F} OVER"  // ⚠️ overtraining
+                    case .red: complianceEmoji = "\u{274C} UNDER"  // ❌ undertraining
                     case .future: complianceEmoji = "\u{23F3}"  // ⏳
                     }
 
@@ -593,6 +654,12 @@ class ChatViewModel: ObservableObject {
         history += "- Swimming: \(swimCount) sessions (\(Int(totalSwimYards)) total yards)\n"
         history += "- Cycling: \(bikeCount) sessions (\(String(format: "%.1f", totalBikeHours)) total hours)\n"
         history += "- Running: \(runCount) sessions (\(Int(totalRunMinutes)) total minutes)\n"
+        if strengthCount > 0 {
+            history += "- Strength: \(strengthCount) sessions (\(Int(totalStrengthMinutes)) total minutes)\n"
+        }
+        if hikeCount > 0 {
+            history += "- Hiking: \(hikeCount) sessions (\(Int(totalHikeMinutes)) total minutes)\n"
+        }
         history += "- Total Calories: \(Int(totalCalories)) kcal\n"
         history += "- TOTAL: \(healthKit.workouts.filter { $0.startDate >= historyStart }.count) completed workouts"
 

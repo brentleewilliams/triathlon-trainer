@@ -14,7 +14,8 @@ struct OnboardingChatHelper {
         profile: HealthKitOnboardingProfile?,
         userName: String,
         race: Race?,
-        goal: GoalType?
+        goal: GoalType?,
+        skillLevels: (swim: SkillLevel, bike: SkillLevel, run: SkillLevel)? = nil
     ) -> String {
         var sections: [String] = []
 
@@ -68,6 +69,22 @@ struct OnboardingChatHelper {
             case .justComplete:
                 sections.append("GOAL: Complete the race (no specific time target)")
             }
+        }
+
+        // Per-sport skill levels
+        if let skills = skillLevels {
+            sections.append("""
+            SELF-ASSESSED SKILL LEVELS:
+            - Swim: \(skills.swim.rawValue) (\(skills.swim.description))
+            - Bike: \(skills.bike.rawValue) (\(skills.bike.description))
+            - Run: \(skills.run.rawValue) (\(skills.run.description))
+            Use these to calibrate workout difficulty: beginners need more technique work and lower volume, advanced athletes can handle higher intensity and specificity.
+            """)
+        }
+
+        // Prep races
+        if let prepContext = PrepRacesManager.shared.contextString() {
+            sections.append(prepContext + "\nUse these to structure training peaks and mini-tapers around prep races.")
         }
 
         // HealthKit training history
@@ -168,7 +185,8 @@ struct OnboardingChatHelper {
     static func buildPlanConversionPrompt(
         chatHistory: [ChatMessage],
         race: Race,
-        profile: UserProfile
+        profile: UserProfile,
+        skillLevels: (swim: SkillLevel, bike: SkillLevel, run: SkillLevel)? = nil
     ) -> String {
         // Summarize chat history
         let chatSummary = chatHistory.map { msg in
@@ -199,6 +217,7 @@ struct OnboardingChatHelper {
         \(profile.weightKg.map { "- Weight: \(String(format: "%.1f", $0)) kg" } ?? "")
         \(profile.restingHR.map { "- Resting HR: \($0) bpm" } ?? "")
         \(profile.vo2Max.map { "- VO2 Max: \(String(format: "%.1f", $0))" } ?? "")
+        \(skillLevels.map { "- Swim Skill: \($0.swim.rawValue)\n- Bike Skill: \($0.bike.rawValue)\n- Run Skill: \($0.run.rawValue)" } ?? "")
 
         GOAL: \({
             switch race.userGoal {

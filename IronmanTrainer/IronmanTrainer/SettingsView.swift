@@ -200,6 +200,10 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
+                Section(header: Text("Tune-up Races")) {
+                    PrepRacesSettingsSection()
+                }
+
                 Section(header: Text("Swim Drills")) {
                     NavigationLink {
                         DrillsDetailView()
@@ -341,5 +345,67 @@ struct DrillsDetailView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
         }
+    }
+}
+
+// MARK: - Prep Races Settings Section
+
+struct PrepRacesSettingsSection: View {
+    @ObservedObject private var prepRaces = PrepRacesManager.shared
+    @State private var showAddSheet = false
+
+    var body: some View {
+        if prepRaces.races.isEmpty {
+            Button {
+                showAddSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "flag.2.crossed")
+                        .foregroundColor(.orange)
+                    Text("Add a Tune-up Race")
+                }
+            }
+        } else {
+            ForEach(prepRaces.races) { race in
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(race.name)
+                            .font(.subheadline.weight(.medium))
+                        HStack(spacing: 6) {
+                            Text(race.distance)
+                            Text(Formatters.fullDate.string(from: race.date))
+                        }
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    }
+                    Spacer()
+                    if race.isPast {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+            }
+            .onDelete { offsets in
+                prepRaces.remove(at: offsets)
+            }
+
+            Button {
+                showAddSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "plus.circle")
+                    Text("Add Another")
+                }
+                .font(.subheadline)
+            }
+        }
+
+        EmptyView()
+            .sheet(isPresented: $showAddSheet) {
+                AddPrepRaceSheet { race in
+                    prepRaces.add(race)
+                }
+            }
     }
 }

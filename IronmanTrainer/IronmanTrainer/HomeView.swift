@@ -187,6 +187,10 @@ struct HomeView: View {
             return planned == "run"
         case .walking:
             return planned == "walk"
+        case .traditionalStrengthTraining, .functionalStrengthTraining:
+            return planned == "strength"
+        case .hiking:
+            return planned == "hike"
         default:
             return false
         }
@@ -197,6 +201,9 @@ struct HomeView: View {
         if typeString.contains("\u{1F3CA}") { return "Swim" }
         if typeString.contains("\u{1F3C3}") { return "Run" }
         if typeString.contains("\u{1F3C1}") { return "Run" }
+        let lower = typeString.lowercased()
+        if lower.contains("strength") { return "Strength" }
+        if lower.contains("hike") || lower.contains("hiking") { return "Hike" }
         return typeString
     }
 
@@ -471,6 +478,10 @@ struct DayDetailView: View {
             return planned == "run"
         case .walking:
             return planned == "walk"
+        case .traditionalStrengthTraining, .functionalStrengthTraining:
+            return planned == "strength"
+        case .hiking:
+            return planned == "hike"
         default:
             return false
         }
@@ -486,6 +497,10 @@ struct DayDetailView: View {
             return "Running"
         case .walking:
             return "Walking"
+        case .traditionalStrengthTraining, .functionalStrengthTraining:
+            return "Strength"
+        case .hiking:
+            return "Hiking"
         default:
             return "Workout"
         }
@@ -496,6 +511,9 @@ struct DayDetailView: View {
         if typeString.contains("\u{1F3CA}") { return "Swim" }
         if typeString.contains("\u{1F3C3}") { return "Run" }
         if typeString.contains("\u{1F3C1}") { return "Run" }
+        let lower = typeString.lowercased()
+        if lower.contains("strength") { return "Strength" }
+        if lower.contains("hike") || lower.contains("hiking") { return "Hike" }
         return typeString
     }
 

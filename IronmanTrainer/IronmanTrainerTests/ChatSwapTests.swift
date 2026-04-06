@@ -684,6 +684,70 @@ final class ChatSwapTests: XCTestCase {
         XCTAssertEqual(tueBikeAfter?.duration, "1:30", "Bike duration should be updated to 1:30")
     }
 
+    // MARK: - Strip Plan Changes (Stray JSON) Tests
+
+    func testStripPlanChangesBlock_StrayJSON() {
+        // LLM echoes raw JSON change objects outside the tags
+        let response = """
+        Here are the changes I'd suggest:
+
+        {"action":"modify","week":5,"day":"Tue","type":"🚴 Bike Intervals","field":"zone","from":"Z4","to":"Z4-Z5"},
+
+        {"action":"add","week":5,"day":"Thu","type":"🏋️ Strength","duration":"40min","zone":"--","notes":"Heavy: Back squat 3x6"},
+
+        Let me know if you'd like to apply these!
+        """
+        let stripped = viewModel.stripPlanChangesBlock(from: response)
+
+        XCTAssertFalse(stripped.contains("\"action\""), "Should remove stray JSON change objects")
+        XCTAssertFalse(stripped.contains("\"modify\""), "Should remove modify JSON")
+        XCTAssertFalse(stripped.contains("\"add\""), "Should remove add JSON")
+        XCTAssertTrue(stripped.contains("Here are the changes"), "Should keep natural language text before")
+        XCTAssertTrue(stripped.contains("Let me know"), "Should keep natural language text after")
+    }
+
+    func testStripPlanChangesBlock_StrayJSONWithTags() {
+        // LLM puts JSON in tags AND echoes it outside
+        let response = """
+        I'd suggest these changes:
+
+        {"action":"drop","week":6,"day":"Wed","type":"🏃 Run"},
+
+        [PLAN_CHANGES]{"id":"test-id","summary":"Drop Wed run","changes":[{"action":"drop","week":6,"day":"Wed","type":"🏃 Run"}]}[/PLAN_CHANGES]
+
+        Sound good?
+        """
+        let stripped = viewModel.stripPlanChangesBlock(from: response)
+
+        XCTAssertFalse(stripped.contains("[PLAN_CHANGES]"), "Should remove tags")
+        XCTAssertFalse(stripped.contains("\"action\""), "Should remove stray JSON outside tags")
+        XCTAssertTrue(stripped.contains("I'd suggest these changes"), "Should keep text before")
+        XCTAssertTrue(stripped.contains("Sound good?"), "Should keep text after")
+    }
+
+    func testStripPlanChangesBlock_NoStrayJSON() {
+        // Clean response with no JSON — should be unchanged
+        let response = "Great workout today! Keep up the Z2 base building on your Tuesday bike."
+        let stripped = viewModel.stripPlanChangesBlock(from: response)
+
+        XCTAssertEqual(stripped, response, "Clean response should be unchanged")
+    }
+
+    func testStripPlanChangesBlock_NoExcessiveBlankLines() {
+        let response = """
+        Changes:
+
+        {"action":"modify","week":5,"day":"Tue","type":"🚴 Bike","field":"duration","from":"1:00","to":"1:15"},
+
+        {"action":"modify","week":5,"day":"Thu","type":"🏃 Run","field":"zone","from":"Z2","to":"Z3"},
+
+        Done!
+        """
+        let stripped = viewModel.stripPlanChangesBlock(from: response)
+
+        XCTAssertFalse(stripped.contains("\n\n\n"), "Should not have triple blank lines after stripping")
+    }
+
     func testExecutePlanChanges_InvalidWeekSkipped() {
         let validChange = PlanChange(action: .add, week: 1, day: "Mon", type: "\u{1F3C3} Extra Run", duration: "20min", zone: "Z1")
         let invalidChange = PlanChange(action: .add, week: 99, day: "Mon", type: "\u{1F3C3} Ghost Run", duration: "20min", zone: "Z1")

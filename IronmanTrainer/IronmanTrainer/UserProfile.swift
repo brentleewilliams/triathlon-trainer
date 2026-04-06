@@ -87,6 +87,76 @@ struct UserProfile: Codable {
     }
 }
 
+// MARK: - Preparatory Race
+
+struct PrepRace: Codable, Identifiable, Equatable {
+    var id: UUID = UUID()
+    var name: String
+    var date: Date
+    var distance: String  // e.g. "Sprint Tri", "10K", "Half Marathon", "Olympic Tri"
+    var notes: String?
+
+    var isPast: Bool {
+        date < Date()
+    }
+}
+
+// MARK: - Prep Races Manager
+
+class PrepRacesManager: ObservableObject {
+    static let shared = PrepRacesManager()
+
+    @Published var races: [PrepRace] = []
+
+    private let storageKey = "prep_races"
+
+    init() {
+        load()
+    }
+
+    func add(_ race: PrepRace) {
+        races.append(race)
+        races.sort { $0.date < $1.date }
+        save()
+    }
+
+    func remove(at offsets: IndexSet) {
+        races.remove(atOffsets: offsets)
+        save()
+    }
+
+    func removeByID(_ id: UUID) {
+        races.removeAll { $0.id == id }
+        save()
+    }
+
+    private func save() {
+        if let data = try? JSONEncoder().encode(races) {
+            UserDefaults.standard.set(data, forKey: storageKey)
+        }
+    }
+
+    private func load() {
+        guard let data = UserDefaults.standard.data(forKey: storageKey),
+              let saved = try? JSONDecoder().decode([PrepRace].self, from: data) else { return }
+        races = saved
+    }
+
+    /// Format for Claude coaching context
+    func contextString() -> String? {
+        guard !races.isEmpty else { return nil }
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        let lines = races.map { race in
+            var line = "- \(race.name) (\(race.distance)) on \(formatter.string(from: race.date))"
+            if let notes = race.notes, !notes.isEmpty { line += " — \(notes)" }
+            if race.isPast { line += " [COMPLETED]" }
+            return line
+        }
+        return "PREPARATORY RACES:\n" + lines.joined(separator: "\n")
+    }
+}
+
 // MARK: - Plan Metadata
 
 struct PlanMetadata: Codable {

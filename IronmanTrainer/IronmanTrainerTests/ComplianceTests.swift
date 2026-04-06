@@ -25,12 +25,28 @@ final class ComplianceTests: XCTestCase {
         XCTAssertEqual(complianceLevelFromDeviation(0.50), .yellow)
     }
 
-    func testDeviation_FiftyOnePercentIsRed() {
-        XCTAssertEqual(complianceLevelFromDeviation(0.51), .red)
+    func testDeviation_FiftyOnePercentIsYellow() {
+        // Legacy deviation function can't determine direction, returns yellow
+        XCTAssertEqual(complianceLevelFromDeviation(0.51), .yellow)
     }
 
-    func testDeviation_OneHundredPercentIsRed() {
-        XCTAssertEqual(complianceLevelFromDeviation(1.0), .red)
+    func testDeviation_OneHundredPercentIsYellow() {
+        XCTAssertEqual(complianceLevelFromDeviation(1.0), .yellow)
+    }
+
+    // MARK: - Direction-Aware Compliance Tests
+
+    func testComplianceValues_Overtraining() {
+        XCTAssertEqual(complianceLevelFromValues(actual: 90, planned: 60), .yellow)
+    }
+
+    func testComplianceValues_Undertraining() {
+        XCTAssertEqual(complianceLevelFromValues(actual: 30, planned: 60), .red)
+    }
+
+    func testComplianceValues_OnTarget() {
+        XCTAssertEqual(complianceLevelFromValues(actual: 55, planned: 60), .green)
+        XCTAssertEqual(complianceLevelFromValues(actual: 70, planned: 60), .green)
     }
 
     // MARK: - parseYardDistance Tests
@@ -74,11 +90,11 @@ final class ComplianceTests: XCTestCase {
     }
 
     func testComplianceLevel_YellowIconName() {
-        XCTAssertEqual(ComplianceLevel.yellow.iconName, "exclamationmark.circle.fill")
+        XCTAssertEqual(ComplianceLevel.yellow.iconName, "arrow.up.circle.fill")
     }
 
     func testComplianceLevel_RedIconName() {
-        XCTAssertEqual(ComplianceLevel.red.iconName, "xmark.circle.fill")
+        XCTAssertEqual(ComplianceLevel.red.iconName, "arrow.down.circle.fill")
     }
 
     func testComplianceLevel_FutureIconName() {

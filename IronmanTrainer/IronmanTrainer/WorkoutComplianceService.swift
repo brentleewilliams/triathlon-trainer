@@ -5,16 +5,16 @@ import SwiftUI
 // MARK: - Compliance Model
 
 enum ComplianceLevel {
-    case green   // Within 20% of plan
-    case yellow  // 20-50% off plan
-    case red     // Missed or >50% off plan
-    case future  // Not yet evaluable
+    case green       // Within 20% of plan
+    case yellow      // Overtraining: did significantly more than planned
+    case red         // Undertraining: missed or did significantly less
+    case future      // Not yet evaluable
 
     var iconName: String {
         switch self {
         case .green: return "checkmark.circle.fill"
-        case .yellow: return "exclamationmark.circle.fill"
-        case .red: return "xmark.circle.fill"
+        case .yellow: return "arrow.up.circle.fill"
+        case .red: return "arrow.down.circle.fill"
         case .future: return "circle"
         }
     }
@@ -39,10 +39,23 @@ struct ComplianceResult {
 
 // MARK: - Pure Threshold Function (testable without HKWorkout)
 
+/// Determines compliance level from actual vs planned values.
+/// - Parameters:
+///   - actual: The actual value (duration in minutes or distance in yards)
+///   - planned: The planned value
+/// - Returns: green if within 20%, yellow if overtraining (>20% over), red if undertraining (>20% under)
+func complianceLevelFromValues(actual: Double, planned: Double) -> ComplianceLevel {
+    guard planned > 0 else { return .green }
+    let ratio = actual / planned
+    if ratio >= 0.80 && ratio <= 1.20 { return .green }
+    if ratio > 1.20 { return .yellow }  // Overtraining
+    return .red                          // Undertraining
+}
+
+/// Legacy deviation-based function (kept for compatibility)
 func complianceLevelFromDeviation(_ deviation: Double) -> ComplianceLevel {
     if deviation <= 0.20 { return .green }
-    if deviation <= 0.50 { return .yellow }
-    return .red
+    return .yellow  // Can't determine direction from absolute deviation alone
 }
 
 // MARK: - Yard Distance Parser
@@ -108,7 +121,7 @@ func calculateCompliance(
             let actualYards = actualDistance.doubleValue(for: .yard())
             let deviation = plannedYards > 0 ? abs(actualYards - plannedYards) / plannedYards : 0
             return ComplianceResult(
-                level: complianceLevelFromDeviation(deviation),
+                level: complianceLevelFromValues(actual: actualYards, planned: plannedYards),
                 matchedWorkout: matchedWorkout,
                 actualDurationMinutes: actualMinutes,
                 plannedDurationMinutes: nil,
@@ -124,7 +137,7 @@ func calculateCompliance(
         let plannedDouble = Double(plannedMinutes)
         let deviation = plannedDouble > 0 ? abs(actualMinutes - plannedDouble) / plannedDouble : 0
         return ComplianceResult(
-            level: complianceLevelFromDeviation(deviation),
+            level: complianceLevelFromValues(actual: actualMinutes, planned: plannedDouble),
             matchedWorkout: matchedWorkout,
             actualDurationMinutes: actualMinutes,
             plannedDurationMinutes: plannedDouble,
