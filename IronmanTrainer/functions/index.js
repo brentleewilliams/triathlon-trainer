@@ -1,6 +1,9 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const { Client: LangSmithClient } = require("langsmith");
+const OpenAI = require("openai");
+const Anthropic = require("@anthropic-ai/sdk");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -23,8 +26,463 @@ function generateOTP() {
 function setCors(res) {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
 }
+
+// ---------------------------------------------------------------------------
+// LangSmith Prompt Cache
+// ---------------------------------------------------------------------------
+
+const PROMPT_NAMES = [
+  "coaching-chat",
+  "race-search",
+  "prep-race-search",
+  "plan-gen-summary",
+  "plan-gen-details",
+];
+
+// In-memory cache: { [name]: { prompt, model, temperature, maxTokens, fetchedAt } }
+let promptCache = {};
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+async function getPrompt(name) {
+  const cached = promptCache[name];
+  if (cached && Date.now() - cached.fetchedAt < CACHE_TTL_MS) {
+    return cached;
+  }
+  try {
+    const client = new LangSmithClient({ apiKey: process.env.LANGSMITH_API_KEY });
+    const commit = await client.pullPromptCommit(name, { includeModel: true });
+
+    // Extract model config from manifest (nested under ChatOpenAI/ChatAnthropic node)
+    let model = "gpt-4.1-mini";
+    let temperature = 0.7;
+    let maxTokens = 4096;
+
+    function findModelKwargs(obj) {
+      if (!obj || typeof obj !== "object") return null;
+      if (obj.id && Array.isArray(obj.id) && (obj.id.includes("ChatOpenAI") || obj.id.includes("ChatAnthropic"))) {
+        return obj.kwargs;
+      }
+      for (const v of Object.values(obj)) {
+        const found = findModelKwargs(v);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    const modelKwargs = findModelKwargs(commit.manifest);
+    if (modelKwargs) {
+      if (modelKwargs.model) model = modelKwargs.model;
+      if (modelKwargs.model_name) model = modelKwargs.model_name;
+      if (modelKwargs.temperature !== undefined) temperature = modelKwargs.temperature;
+      if (modelKwargs.max_tokens !== undefined) maxTokens = modelKwargs.max_tokens;
+    }
+
+    // Extract prompt messages from manifest.
+    // With includeModel, manifest is a RunnableSequence: { first: ChatPromptTemplate, last: ChatModel }
+    // Without includeModel, manifest is the ChatPromptTemplate directly.
+    const promptMessages = commit.manifest.kwargs?.first?.kwargs?.messages
+      || commit.manifest.kwargs?.messages
+      || [];
+
+    const entry = { promptMessages, model, temperature, maxTokens, fetchedAt: Date.now() };
+    promptCache[name] = entry;
+    return entry;
+  } catch (err) {
+    console.error(`Failed to pull prompt "${name}" from LangSmith:`, err.message);
+    if (cached) return cached;
+    throw new Error(`Prompt "${name}" unavailable`);
+  }
+}
+
+// Prompts are cached lazily on first request (Firebase .env not available at module load)
+
+// ---------------------------------------------------------------------------
+// Prompt formatting helper
+// ---------------------------------------------------------------------------
+
+async function formatPrompt(name, variables = {}) {
+  const entry = await getPrompt(name);
+
+  // Convert raw manifest messages to {role, content} and apply variable substitution
+  const messages = entry.promptMessages.map((m) => {
+    const id = m.id || [];
+    let role = "system";
+    if (id.includes("HumanMessage") || id.includes("HumanMessagePromptTemplate")) role = "user";
+    else if (id.includes("AIMessage") || id.includes("AIMessagePromptTemplate")) role = "assistant";
+
+    // Get content — either direct string or from template
+    let content = m.kwargs?.content || m.kwargs?.prompt?.kwargs?.template || "";
+
+    // Apply f-string variable substitution: {varName} -> value
+    for (const [key, val] of Object.entries(variables)) {
+      content = content.replace(new RegExp(`\\{${key}\\}`, "g"), String(val));
+    }
+
+    return { role, content };
+  });
+
+  return {
+    messages,
+    model: entry.model,
+    temperature: entry.temperature,
+    maxTokens: entry.maxTokens,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// LLM Providers
+// ---------------------------------------------------------------------------
+
+function getOpenAIClient() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
+
+function getAnthropicClient() {
+  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+}
+
+/**
+ * Non-streaming LLM call. Returns the full response text.
+ */
+async function callLLM({ messages, model, temperature, maxTokens }) {
+  if (model.startsWith("gpt-") || model.startsWith("o")) {
+    const client = getOpenAIClient();
+    const completion = await client.chat.completions.create({
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
+    });
+    return completion.choices[0].message.content;
+  } else if (model.startsWith("claude-")) {
+    const client = getAnthropicClient();
+    // Anthropic expects system as a top-level param, not in messages array
+    const systemMsg = messages.find((m) => m.role === "system");
+    const nonSystem = messages.filter((m) => m.role !== "system");
+    const resp = await client.messages.create({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemMsg ? systemMsg.content : undefined,
+      messages: nonSystem,
+    });
+    return resp.content.map((c) => c.text).join("");
+  } else {
+    throw new Error(`Unsupported model: ${model}`);
+  }
+}
+
+/**
+ * Streaming LLM call. Calls `onToken(text)` for each chunk, `onDone()` when finished.
+ */
+async function streamLLM({ messages, model, temperature, maxTokens, onToken, onDone }) {
+  if (model.startsWith("gpt-") || model.startsWith("o")) {
+    const client = getOpenAIClient();
+    const stream = await client.chat.completions.create({
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
+      stream: true,
+    });
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta?.content;
+      if (delta) onToken(delta);
+    }
+    onDone();
+  } else if (model.startsWith("claude-")) {
+    const client = getAnthropicClient();
+    const systemMsg = messages.find((m) => m.role === "system");
+    const nonSystem = messages.filter((m) => m.role !== "system");
+    const stream = await client.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemMsg ? systemMsg.content : undefined,
+      messages: nonSystem,
+    });
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta?.text) {
+        onToken(event.delta.text);
+      }
+    }
+    onDone();
+  } else {
+    throw new Error(`Unsupported model: ${model}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Input sanitization
+// ---------------------------------------------------------------------------
+
+function sanitizeQuery(input, maxLen = 200) {
+  if (typeof input !== "string") return "";
+  // Strip non-printable characters (keep newlines and tabs)
+  return input.replace(/[^\x20-\x7E\n\t]/g, "").slice(0, maxLen);
+}
+
+// ---------------------------------------------------------------------------
+// Auth helper
+// ---------------------------------------------------------------------------
+
+async function verifyAuth(req) {
+  const authHeader = req.headers.authorization || "";
+  if (!authHeader.startsWith("Bearer ")) return null;
+  const token = authHeader.split("Bearer ")[1];
+  try {
+    return await admin.auth().verifyIdToken(token);
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Retry helper with exponential backoff
+// ---------------------------------------------------------------------------
+
+async function withRetry(fn, maxAttempts = 3) {
+  let lastErr;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (attempt < maxAttempts - 1) {
+        const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+        await new Promise((r) => setTimeout(r, delay));
+      }
+    }
+  }
+  throw lastErr;
+}
+
+// ---------------------------------------------------------------------------
+// Request handlers
+// ---------------------------------------------------------------------------
+
+async function handleCoaching(req, res) {
+  const { userMessage, trainingContext, workoutHistory, zoneBoundaries, conversationHistory, imageData } = req.body;
+
+  if (!userMessage || typeof userMessage !== "string") {
+    res.status(400).json({ error: "userMessage is required" });
+    return;
+  }
+
+  // Build template variables for the coaching prompt.
+  // The iOS app sends everything (plan, date, prep races, swap info) combined in
+  // trainingContext, so we map it to {context} and blank out the other prompt vars.
+  const z = zoneBoundaries || {};
+  const variables = {
+    context: trainingContext || "",
+    history: workoutHistory || "",
+    z2: z.z2 || "",
+    z3: z.z3 || "",
+    z4: z.z4 || "",
+    z5: z.z5 || "",
+    full_plan: "",
+    current_date: "",
+    prep_races: "",
+    last_swap_info: "",
+  };
+
+  console.log(`[coaching] context length=${(trainingContext || "").length}, history length=${(workoutHistory || "").length}, zones=${JSON.stringify(z)}`);
+
+  const { messages: promptMessages, model, temperature, maxTokens } = await formatPrompt("coaching-chat", variables);
+
+  console.log(`[coaching] model=${model}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
+
+  // Append conversation history if provided
+  const allMessages = [...promptMessages];
+  if (Array.isArray(conversationHistory)) {
+    for (const msg of conversationHistory) {
+      if (msg.role && msg.content) {
+        allMessages.push({ role: msg.role, content: msg.content });
+      }
+    }
+  }
+
+  // Add the current user message (with optional image for vision models)
+  if (imageData && (model.startsWith("gpt-") || model.startsWith("claude-"))) {
+    if (model.startsWith("claude-")) {
+      // Anthropic image format
+      allMessages.push({
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageData } },
+          { type: "text", text: userMessage },
+        ],
+      });
+    } else {
+      // OpenAI image format
+      allMessages.push({
+        role: "user",
+        content: [
+          { type: "text", text: userMessage },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
+        ],
+      });
+    }
+  } else {
+    allMessages.push({ role: "user", content: userMessage });
+  }
+
+  // Set up SSE headers
+  res.set("Content-Type", "text/event-stream");
+  res.set("Cache-Control", "no-cache");
+  res.set("Connection", "keep-alive");
+
+  try {
+    await streamLLM({
+      messages: allMessages,
+      model,
+      temperature,
+      maxTokens,
+      onToken: (token) => {
+        res.write(`data: ${JSON.stringify(token)}\n\n`);
+      },
+      onDone: () => {
+        res.write("data: [DONE]\n\n");
+        res.end();
+      },
+    });
+  } catch (err) {
+    console.error("Coaching stream error:", err);
+    // If headers already sent, try to signal error in stream
+    res.write(`data: ${JSON.stringify("[ERROR]")}\n\n`);
+    res.end();
+  }
+}
+
+async function handleRaceSearch(req, res) {
+  const query = sanitizeQuery(req.body.query);
+  if (!query) {
+    res.status(400).json({ error: "query is required" });
+    return;
+  }
+
+  const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", {});
+  messages.push({ role: "user", content: `Race search query: ${query}` });
+
+  const result = await callLLM({ messages, model, temperature, maxTokens });
+  res.status(200).json({ result });
+}
+
+async function handlePrepRaceSearch(req, res) {
+  const query = sanitizeQuery(req.body.query);
+  if (!query) {
+    res.status(400).json({ error: "query is required" });
+    return;
+  }
+
+  const { messages, model, temperature, maxTokens } = await formatPrompt("prep-race-search", {});
+  messages.push({ role: "user", content: `Race search query: ${query}` });
+
+  const result = await callLLM({ messages, model, temperature, maxTokens });
+  res.status(200).json({ result });
+}
+
+async function handlePlanGeneration(req, res) {
+  const { input } = req.body;
+  if (!input || typeof input !== "object") {
+    res.status(400).json({ error: "input object is required" });
+    return;
+  }
+
+  // Flatten nested input into the template variable names the prompts expect
+  const race = input.race || {};
+  const profile = input.profile || {};
+  const distances = race.distances || {};
+  const distancesStr = Object.entries(distances).map(([k, v]) => `${k}: ${v} mi`).join(", ");
+  const weeksAvailable = (() => {
+    if (!race.date) return 12;
+    const raceDate = new Date(race.date);
+    const now = new Date();
+    return Math.max(1, Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000)));
+  })();
+  const planStartDate = new Date().toISOString().split("T")[0];
+
+  const goalStr = (() => {
+    const g = race.userGoal;
+    if (!g) return "Complete the race";
+    if (g.timeTarget) {
+      const t = typeof g.timeTarget === "number" ? g.timeTarget : 0;
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      return `Finish in ${h}h ${String(m).padStart(2, "0")}m`;
+    }
+    return "Complete the race (no specific time target)";
+  })();
+
+  const skillParts = [];
+  if (input.swimLevel) skillParts.push(`Swim: ${input.swimLevel}`);
+  if (input.bikeLevel) skillParts.push(`Bike: ${input.bikeLevel}`);
+  if (input.runLevel) skillParts.push(`Run: ${input.runLevel}`);
+
+  const pass1Vars = {
+    race_name: race.name || "Race",
+    race_date: race.date || "",
+    race_location: race.location || "",
+    race_type: race.type || "triathlon",
+    distances: distancesStr,
+    course_type: race.courseType || "road",
+    elevation_gain: race.elevationGainM ? `${Math.round(race.elevationGainM)}m` : "",
+    venue_elevation: race.elevationAtVenueM ? `${Math.round(race.elevationAtVenueM)}m` : "",
+    historical_weather: race.historicalWeather || "",
+    athlete_name: profile.name || "",
+    athlete_sex: profile.biologicalSex || "",
+    athlete_weight: profile.weightKg ? `${profile.weightKg} kg` : "",
+    resting_hr: profile.restingHR ? `${profile.restingHR} bpm` : "",
+    vo2_max: profile.vo2Max ? `${profile.vo2Max}` : "",
+    skill_levels: skillParts.join(", ") || "Not specified",
+    goal: goalStr,
+    weeks_available: String(weeksAvailable),
+    plan_start_date: planStartDate,
+    available_hours: input.fitnessHours || "Not specified",
+    schedule: input.fitnessSchedule || "Not specified",
+    injuries: input.fitnessInjuries || "None",
+    equipment: input.fitnessEquipment || "Standard",
+    hk_summary: input.hkSummary || "",
+    prep_races: input.chatSummary || "",
+    swim_level: input.swimLevel || "Not specified",
+    bike_level: input.bikeLevel || "Not specified",
+    run_level: input.runLevel || "Not specified",
+  };
+
+  // Pass 1: Generate plan structure
+  const pass1Result = await withRetry(async () => {
+    const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-summary", pass1Vars);
+    return callLLM({ messages, model, temperature, maxTokens });
+  });
+
+  // Pass 2: Expand with details/nutrition
+  const pass2Vars = {
+    swim_level: input.swimLevel || "Not specified",
+    bike_level: input.bikeLevel || "Not specified",
+    run_level: input.runLevel || "Not specified",
+    equipment: input.fitnessEquipment || "Standard",
+  };
+  const finalResult = await withRetry(async () => {
+    const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-details", pass2Vars);
+    // Append the plan summary as the user message
+    messages.push({ role: "user", content: `Add detailed notes and nutrition targets to this plan:\n${pass1Result}` });
+    return callLLM({ messages, model, temperature, maxTokens });
+  });
+
+  // Try to parse as JSON; return raw if not valid JSON
+  try {
+    const parsed = JSON.parse(finalResult);
+    res.status(200).json({ result: parsed });
+  } catch {
+    res.status(200).json({ result: finalResult });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// OTP Functions (existing)
+// ---------------------------------------------------------------------------
 
 // Request OTP — generates code, stores in Firestore, sends email
 exports.requestOTP = onRequest(async (req, res) => {
@@ -154,5 +612,52 @@ exports.verifyOTP = onRequest(async (req, res) => {
   } catch (err) {
     console.error("verifyOTP error:", err.message, err.code, err.stack);
     res.status(500).json({ error: err.message || "Internal error." });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// LLM Proxy (new)
+// ---------------------------------------------------------------------------
+
+exports.llmProxy = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+  if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
+
+  // Authenticate
+  const user = await verifyAuth(req);
+  if (!user) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  const { type } = req.body;
+  if (!type) {
+    res.status(400).json({ error: "type is required" });
+    return;
+  }
+
+  try {
+    switch (type) {
+      case "coaching":
+        await handleCoaching(req, res);
+        break;
+      case "raceSearch":
+        await handleRaceSearch(req, res);
+        break;
+      case "prepRaceSearch":
+        await handlePrepRaceSearch(req, res);
+        break;
+      case "planGeneration":
+        await handlePlanGeneration(req, res);
+        break;
+      default:
+        res.status(400).json({ error: `Unknown type: ${type}` });
+    }
+  } catch (err) {
+    console.error(`llmProxy error (type=${type}, uid=${user.uid}):`, err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Internal error" });
+    }
   }
 });

@@ -1055,7 +1055,7 @@ struct AddPrepRaceSheet: View {
         isSearching = true
         searchError = nil
         do {
-            let result = try await PrepRaceSearchHelper.search(query: searchQuery)
+            let result = try await LLMProxyService.shared.searchPrepRace(query: searchQuery)
             guard !Task.isCancelled else { return }
             name = result.name
             date = result.date

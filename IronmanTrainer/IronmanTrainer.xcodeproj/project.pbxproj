@@ -35,6 +35,7 @@
 		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */; };
 		84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */; };
 		84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */; };
+		84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */; };
 		84D0F0CF0A0B0002007D9BC7 /* PlanGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0002007D9BC7 /* PlanGenerationService.swift */; };
 		84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */; };
 		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
@@ -119,6 +120,7 @@
 		84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingHelpers.swift; sourceTree = "<group>"; };
 		84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
 		84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
+		84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProxyService.swift; sourceTree = "<group>"; };
 		84D0F0CE0A0B0002007D9BC7 /* PlanGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanGenerationService.swift; sourceTree = "<group>"; };
 		84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
@@ -210,6 +212,7 @@
 				84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */,
 				84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */,
 				84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */,
+				84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */,
 				84D0F0CE0A0B0002007D9BC7 /* PlanGenerationService.swift */,
 				84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */,
 				84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */,
@@ -471,6 +474,7 @@
 				84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
 				84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */,
 				84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */,
+				84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */,
 				84D0F0CF0A0B0002007D9BC7 /* PlanGenerationService.swift in Sources */,
 				84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */,
 				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,

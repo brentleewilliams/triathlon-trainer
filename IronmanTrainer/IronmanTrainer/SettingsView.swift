@@ -305,7 +305,7 @@ struct SettingsView: View {
         regenerateError = nil
         Task {
             do {
-                let plan = try await PlanGenerationService.shared.generateFullPlan(input: savedInput)
+                let plan = try await LLMProxyService.shared.generatePlan(input: savedInput)
                 await MainActor.run {
                     trainingPlan.loadPlan(plan)
                     if let uid = authService.currentUserID {
