@@ -67,27 +67,21 @@ class LangSmithTracer {
     private func logRunToLangSmith(_ body: [String: Any]) async {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return }
 
-        var request = URLRequest(url: URL(string: baseURL)!)
+        guard let url = URL(string: baseURL) else { return }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(langsmithAPIKey, forHTTPHeaderField: "x-api-key")
         request.httpBody = jsonData
 
         do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode == 200 || httpResponse.statusCode == 202 {
-                    print("\u{2705} LangSmith run logged")
-                } else {
-                    if let errorText = String(data: data, encoding: .utf8) {
-                        print("\u{26A0}\u{FE0F} LangSmith error \(httpResponse.statusCode): \(errorText)")
-                    } else {
-                        print("\u{26A0}\u{FE0F} LangSmith error: \(httpResponse.statusCode)")
-                    }
-                }
+            let (_, response) = try await URLSession.shared.data(for: request)
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode != 200 && httpResponse.statusCode != 202 {
+                print("[LANGSMITH] Log error: HTTP \(httpResponse.statusCode)")
             }
         } catch {
-            print("\u{274C} LangSmith logging failed: \(error)")
+            print("[LANGSMITH] Log failed: \(error.localizedDescription)")
         }
     }
 
@@ -95,7 +89,8 @@ class LangSmithTracer {
         guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else { return }
 
         let updateURL = "\(baseURL)/\(runID)"
-        var request = URLRequest(url: URL(string: updateURL)!)
+        guard let url = URL(string: updateURL) else { return }
+        var request = URLRequest(url: url)
         request.httpMethod = "PATCH"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(langsmithAPIKey, forHTTPHeaderField: "x-api-key")
@@ -103,15 +98,12 @@ class LangSmithTracer {
 
         do {
             let (_, response) = try await URLSession.shared.data(for: request)
-            if let httpResponse = response as? HTTPURLResponse {
-                if httpResponse.statusCode == 200 || httpResponse.statusCode == 202 {
-                    print("\u{2705} LangSmith run completed")
-                } else {
-                    print("\u{26A0}\u{FE0F} LangSmith update error: \(httpResponse.statusCode)")
-                }
+            if let httpResponse = response as? HTTPURLResponse,
+               httpResponse.statusCode != 200 && httpResponse.statusCode != 202 {
+                print("[LANGSMITH] Update error: HTTP \(httpResponse.statusCode)")
             }
         } catch {
-            print("\u{274C} LangSmith update failed: \(error)")
+            print("[LANGSMITH] Update failed: \(error.localizedDescription)")
         }
     }
 }

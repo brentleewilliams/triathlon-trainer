@@ -170,7 +170,10 @@ class OnboardingViewModel: ObservableObject {
             throw ClaudeServiceError.invalidRequest
         }
 
-        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+        guard let apiURL = URL(string: "https://api.anthropic.com/v1/messages") else {
+            throw ClaudeServiceError.invalidRequest
+        }
+        var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -184,9 +187,7 @@ class OnboardingViewModel: ObservableObject {
         }
 
         guard httpResponse.statusCode == 200 else {
-            if let errorBody = String(data: data, encoding: .utf8) {
-                print("[RACE SEARCH] API error \(httpResponse.statusCode): \(errorBody)")
-            }
+            print("[RACE SEARCH] API error: HTTP \(httpResponse.statusCode)")
             throw ClaudeServiceError.serverError
         }
 

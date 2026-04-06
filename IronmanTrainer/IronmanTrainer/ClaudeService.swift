@@ -56,7 +56,8 @@ class ClaudeService: NSObject, ObservableObject {
             throw ClaudeServiceError.invalidRequest
         }
 
-        var request = URLRequest(url: URL(string: baseURL)!)
+        guard let url = URL(string: baseURL) else { throw ClaudeServiceError.invalidRequest }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
@@ -84,10 +85,7 @@ class ClaudeService: NSObject, ObservableObject {
         case 429:
             throw ClaudeServiceError.rateLimitExceeded
         default:
-            // Return more detailed error info
-            if let errorData = String(data: data, encoding: .utf8) {
-                print("API Error: \(httpResponse.statusCode) - \(errorData)")
-            }
+            print("[CLAUDE] API error: HTTP \(httpResponse.statusCode)")
             throw ClaudeServiceError.serverError
         }
     }
