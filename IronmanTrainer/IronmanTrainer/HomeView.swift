@@ -1242,17 +1242,17 @@ struct WorkoutDayRows: View {
             }
             .padding(.horizontal, 12)
 
-            // Threshold warning for missed/significantly off workouts
-            let hasRedWorkout = dayGroup.workouts.contains { workout in
+            // Threshold warning for missed workouts
+            let hasMissedWorkout = dayGroup.workouts.contains { workout in
                 workout.type.lowercased() != "rest" &&
-                calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts).level == .red
+                calculateCompliance(for: workout, on: date, from: parent.healthKit.workouts).level == .missed
             }
-            if hasRedWorkout {
+            if hasMissedWorkout {
                 HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
+                    Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.red)
                         .font(.caption)
-                    Text("Missed or significantly under-trained")
+                    Text("Missed workout")
                         .font(.caption2)
                         .foregroundColor(.red)
                 }
@@ -1352,7 +1352,7 @@ struct WorkoutDayRows: View {
 
         if hasBike && hasRun { return .green }
         if targetDay == today { return .future }
-        if hasBike || hasRun { return .yellow }
-        return .red
+        if hasBike || hasRun { return .under }  // Did one leg but not both
+        return .missed
     }
 }

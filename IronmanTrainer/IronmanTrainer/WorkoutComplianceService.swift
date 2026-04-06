@@ -6,15 +6,17 @@ import SwiftUI
 
 enum ComplianceLevel {
     case green       // Within 20% of plan
-    case yellow      // Overtraining: did significantly more than planned
-    case red         // Undertraining: missed or did significantly less
+    case over        // Overtraining: did significantly more than planned
+    case under       // Undertraining: did the workout but significantly less
+    case missed      // No matching workout type found at all
     case future      // Not yet evaluable
 
     var iconName: String {
         switch self {
         case .green: return "checkmark.circle.fill"
-        case .yellow: return "arrow.up.circle.fill"
-        case .red: return "arrow.down.circle.fill"
+        case .over: return "arrow.up.circle.fill"
+        case .under: return "arrow.down.circle.fill"
+        case .missed: return "xmark.circle.fill"
         case .future: return "circle"
         }
     }
@@ -22,8 +24,9 @@ enum ComplianceLevel {
     var color: Color {
         switch self {
         case .green: return .green
-        case .yellow: return .yellow
-        case .red: return .red
+        case .over: return .yellow
+        case .under: return .yellow
+        case .missed: return .red
         case .future: return .gray
         }
     }
@@ -48,14 +51,14 @@ func complianceLevelFromValues(actual: Double, planned: Double) -> ComplianceLev
     guard planned > 0 else { return .green }
     let ratio = actual / planned
     if ratio >= 0.80 && ratio <= 1.20 { return .green }
-    if ratio > 1.20 { return .yellow }  // Overtraining
-    return .red                          // Undertraining
+    if ratio > 1.20 { return .over }   // Overtraining
+    return .under                       // Undertraining
 }
 
 /// Legacy deviation-based function (kept for compatibility)
 func complianceLevelFromDeviation(_ deviation: Double) -> ComplianceLevel {
     if deviation <= 0.20 { return .green }
-    return .yellow  // Can't determine direction from absolute deviation alone
+    return .over  // Can't determine direction from absolute deviation alone
 }
 
 // MARK: - Yard Distance Parser
@@ -109,8 +112,8 @@ func calculateCompliance(
         if calendar.isDateInToday(targetDate) {
             return ComplianceResult(level: .future, matchedWorkout: nil, actualDurationMinutes: nil, plannedDurationMinutes: nil, deviationPercent: nil)
         }
-        // Past day, no match: missed
-        return ComplianceResult(level: .red, matchedWorkout: nil, actualDurationMinutes: nil, plannedDurationMinutes: nil, deviationPercent: nil)
+        // Past day, no match: missed entirely
+        return ComplianceResult(level: .missed, matchedWorkout: nil, actualDurationMinutes: nil, plannedDurationMinutes: nil, deviationPercent: nil)
     }
 
     let actualMinutes = matchedWorkout.duration / 60.0

@@ -142,6 +142,34 @@ class PrepRacesManager: ObservableObject {
         races = saved
     }
 
+    /// Returns dates that should be blocked (race day + day before) for all prep races
+    func blockedDates() -> Set<Date> {
+        let calendar = Calendar.current
+        var dates = Set<Date>()
+        for race in races {
+            let raceDay = calendar.startOfDay(for: race.date)
+            dates.insert(raceDay)
+            if let dayBefore = calendar.date(byAdding: .day, value: -1, to: raceDay) {
+                dates.insert(dayBefore)
+            }
+        }
+        return dates
+    }
+
+    /// Check if a given date falls on a prep race day or the day before
+    func isBlockedDate(_ date: Date) -> Bool {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        return blockedDates().contains(startOfDay)
+    }
+
+    /// Returns the prep race name if the date is a race day
+    func raceOnDate(_ date: Date) -> PrepRace? {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: date)
+        return races.first { calendar.startOfDay(for: $0.date) == startOfDay }
+    }
+
     /// Format for Claude coaching context
     func contextString() -> String? {
         guard !races.isEmpty else { return nil }

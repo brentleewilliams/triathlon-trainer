@@ -252,9 +252,12 @@ struct OnboardingChatHelper {
         ]
         ```
 
+        \(PrepRacesManager.shared.contextString().map { "\nPREP RACES:\n\($0)\n" } ?? "")
+
         RULES:
         - Each week has 7 days (Mon-Sun)
         - Include at least 1 rest day per week
+        - Prep race day AND the day before must be Rest days (no training)
         - Nutrition targets for workouts >= 60 min: Bike 60-75min -> "60g carbs/hr", Bike >75min -> "60-80g carbs/hr", Run >=60min -> "30-45g carbs/hr"
         - Phase names: "Base" (first ~30%), "Build" (next ~35%), "Peak" (next ~20%), "Taper" (last ~15%)
         - Max 10% weekly volume increase from week to week

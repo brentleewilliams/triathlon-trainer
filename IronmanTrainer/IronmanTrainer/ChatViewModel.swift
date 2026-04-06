@@ -305,7 +305,10 @@ class ChatViewModel: ObservableObject {
 
         Current date: \(Formatters.fullDate.string(from: Date()))
 
+        \(PrepRacesManager.shared.contextString().map { "\n\($0)\n" } ?? "")
+
         RESCHEDULE GUIDELINES:
+        - PREP RACE DAYS: Never schedule training on prep race day or the day before (mark as Rest)
         - BUILD PHASE (weeks 5-9): Prioritize long/key workouts, drop short secondary runs
         - TAPER (weeks 10-12): Reduce volume but keep pace work
         - RACE PREP (weeks 13-15): Keep race-pace sessions, drop easy work
@@ -629,8 +632,9 @@ class ChatViewModel: ObservableObject {
                     let complianceEmoji: String
                     switch compliance.level {
                     case .green: complianceEmoji = "\u{2705}"  // ✅
-                    case .yellow: complianceEmoji = "\u{26A0}\u{FE0F} OVER"  // ⚠️ overtraining
-                    case .red: complianceEmoji = "\u{274C} UNDER"  // ❌ undertraining
+                    case .over: complianceEmoji = "\u{26A0}\u{FE0F} OVER"  // ⚠️ overtraining
+                    case .under: complianceEmoji = "\u{26A0}\u{FE0F} UNDER"  // ⚠️ undertraining
+                    case .missed: complianceEmoji = "\u{274C}"  // ❌ missed
                     case .future: complianceEmoji = "\u{23F3}"  // ⏳
                     }
 

@@ -17,31 +17,30 @@ final class ComplianceTests: XCTestCase {
         XCTAssertEqual(complianceLevelFromDeviation(0.20), .green)
     }
 
-    func testDeviation_TwentyOnePercentIsYellow() {
-        XCTAssertEqual(complianceLevelFromDeviation(0.21), .yellow)
+    func testDeviation_TwentyOnePercentIsOver() {
+        XCTAssertEqual(complianceLevelFromDeviation(0.21), .over)
     }
 
-    func testDeviation_FiftyPercentIsYellow() {
-        XCTAssertEqual(complianceLevelFromDeviation(0.50), .yellow)
+    func testDeviation_FiftyPercentIsOver() {
+        XCTAssertEqual(complianceLevelFromDeviation(0.50), .over)
     }
 
-    func testDeviation_FiftyOnePercentIsYellow() {
-        // Legacy deviation function can't determine direction, returns yellow
-        XCTAssertEqual(complianceLevelFromDeviation(0.51), .yellow)
+    func testDeviation_FiftyOnePercentIsOver() {
+        XCTAssertEqual(complianceLevelFromDeviation(0.51), .over)
     }
 
-    func testDeviation_OneHundredPercentIsYellow() {
-        XCTAssertEqual(complianceLevelFromDeviation(1.0), .yellow)
+    func testDeviation_OneHundredPercentIsOver() {
+        XCTAssertEqual(complianceLevelFromDeviation(1.0), .over)
     }
 
     // MARK: - Direction-Aware Compliance Tests
 
     func testComplianceValues_Overtraining() {
-        XCTAssertEqual(complianceLevelFromValues(actual: 90, planned: 60), .yellow)
+        XCTAssertEqual(complianceLevelFromValues(actual: 90, planned: 60), .over)
     }
 
     func testComplianceValues_Undertraining() {
-        XCTAssertEqual(complianceLevelFromValues(actual: 30, planned: 60), .red)
+        XCTAssertEqual(complianceLevelFromValues(actual: 30, planned: 60), .under)
     }
 
     func testComplianceValues_OnTarget() {
@@ -89,12 +88,28 @@ final class ComplianceTests: XCTestCase {
         XCTAssertEqual(ComplianceLevel.green.iconName, "checkmark.circle.fill")
     }
 
-    func testComplianceLevel_YellowIconName() {
-        XCTAssertEqual(ComplianceLevel.yellow.iconName, "arrow.up.circle.fill")
+    func testComplianceLevel_OverIconName() {
+        XCTAssertEqual(ComplianceLevel.over.iconName, "arrow.up.circle.fill")
     }
 
-    func testComplianceLevel_RedIconName() {
-        XCTAssertEqual(ComplianceLevel.red.iconName, "arrow.down.circle.fill")
+    func testComplianceLevel_UnderIconName() {
+        XCTAssertEqual(ComplianceLevel.under.iconName, "arrow.down.circle.fill")
+    }
+
+    func testComplianceLevel_MissedIconName() {
+        XCTAssertEqual(ComplianceLevel.missed.iconName, "xmark.circle.fill")
+    }
+
+    func testComplianceLevel_MissedColor() {
+        XCTAssertEqual(ComplianceLevel.missed.color, .red)
+    }
+
+    func testComplianceLevel_OverColor() {
+        XCTAssertEqual(ComplianceLevel.over.color, .yellow)
+    }
+
+    func testComplianceLevel_UnderColor() {
+        XCTAssertEqual(ComplianceLevel.under.color, .yellow)
     }
 
     func testComplianceLevel_FutureIconName() {
@@ -116,11 +131,11 @@ final class ComplianceTests: XCTestCase {
         XCTAssertEqual(result.level, .future)
     }
 
-    func testCompliance_PastDayNoMatch_ReturnsRed() {
+    func testCompliance_PastDayNoMatch_ReturnsMissed() {
         let pastDate = Calendar.current.date(byAdding: .day, value: -7, to: Date())!
         let workout = DayWorkout(day: "Mon", type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2", status: nil, nutritionTarget: nil)
         let result = calculateCompliance(for: workout, on: pastDate, from: [])
-        XCTAssertEqual(result.level, .red)
+        XCTAssertEqual(result.level, .missed)
     }
 
     func testCompliance_TodayNoMatch_ReturnsFuture() {
