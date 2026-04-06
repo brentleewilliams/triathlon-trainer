@@ -50,15 +50,20 @@ class AuthService: ObservableObject {
         checkingPlan = true
         defer { checkingPlan = false }
 
+        print("[AuthService] checkForExistingPlan called for uid: \(uid)")
+
         // First check local cache
         if UserDefaults.standard.bool(forKey: "onboarding_complete_\(uid)") {
+            print("[AuthService] Local cache hit — skipping onboarding")
             onboardingComplete = true
             return
         }
 
+        print("[AuthService] No local cache, checking Firestore...")
+
         // Then check Firestore (with timeout to avoid blocking on slow networks)
         do {
-            let result = try await withThrowingTaskGroup(of: Bool.self) { group in
+            let found = try await withThrowingTaskGroup(of: Bool.self) { group in
                 group.addTask { [weak self] in
                     if let result = try await FirestoreService.shared.getTrainingPlan(for: uid) {
                         await MainActor.run { self?.savedPlan = result.weeks }
@@ -67,19 +72,23 @@ class AuthService: ObservableObject {
                     return false
                 }
                 group.addTask {
-                    try await Task.sleep(nanoseconds: 2_000_000_000) // 2 second timeout
-                    throw CancellationError()
+                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5 second timeout
+                    return false
                 }
-                let first = try await group.next() ?? false
-                group.cancelAll()
-                return first
+                if let first = try await group.next() {
+                    group.cancelAll()
+                    return first
+                }
+                return false
             }
-            if result {
+            print("[AuthService] Firestore result: found=\(found)")
+            if found {
                 onboardingComplete = true
                 UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
             }
         } catch {
-            // Timeout or error — proceed to onboarding
+            // Network error — proceed to onboarding
+            print("[AuthService] Firestore check failed: \(error)")
             onboardingComplete = false
         }
     }

@@ -220,7 +220,7 @@ class OnboardingViewModel: ObservableObject {
     }
 
     private func searchRaceWithClaude(query: String) async throws -> RaceSearchResult {
-        let apiKey = Secrets.anthropicAPIKey
+        let apiKey = Secrets.openAIAPIKey
         guard !apiKey.isEmpty else { throw ClaudeServiceError.invalidAPIKey }
 
         // Sanitize user input: limit length, strip non-printable chars
@@ -232,7 +232,7 @@ class OnboardingViewModel: ObservableObject {
 
         let systemPrompt = """
         You are helping a user find details about a race they want to train for. \
-        Search the web for the race and return ONLY a JSON object with these fields:
+        Return ONLY a JSON object with these fields:
         {
             "name": "Official Race Name",
             "date": "YYYY-MM-DD",
@@ -252,17 +252,10 @@ class OnboardingViewModel: ObservableObject {
         """
 
         let requestBody: [String: Any] = [
-            "model": "claude-sonnet-4-20250514",
+            "model": "gpt-4.1-mini",
             "max_tokens": 1024,
-            "system": systemPrompt,
-            "tools": [
-                [
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 3
-                ]
-            ],
             "messages": [
+                ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": "Race search query: \(sanitized)"]
             ]
         ]
@@ -271,14 +264,13 @@ class OnboardingViewModel: ObservableObject {
             throw ClaudeServiceError.invalidRequest
         }
 
-        guard let apiURL = URL(string: "https://api.anthropic.com/v1/messages") else {
+        guard let apiURL = URL(string: "https://api.openai.com/v1/chat/completions") else {
             throw ClaudeServiceError.invalidRequest
         }
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.httpBody = jsonData
 
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -288,29 +280,23 @@ class OnboardingViewModel: ObservableObject {
         }
 
         guard httpResponse.statusCode == 200 else {
-            print("[RACE SEARCH] API error: HTTP \(httpResponse.statusCode)")
+            let body = String(data: data, encoding: .utf8) ?? "no body"
+            print("[RACE SEARCH] API error: HTTP \(httpResponse.statusCode) — \(body)")
             throw ClaudeServiceError.serverError
         }
 
-        // Parse Claude response - extract text from content blocks
+        // Parse OpenAI response
         let responseJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let content = responseJSON?["content"] as? [[String: Any]] else {
+        guard let choices = responseJSON?["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              var jsonText = message["content"] as? String else {
             throw ClaudeServiceError.invalidResponse
-        }
-
-        // Find the text block (skip tool_use and tool_result blocks)
-        var jsonText = ""
-        for block in content {
-            if block["type"] as? String == "text", let text = block["text"] as? String {
-                jsonText = text
-                break
-            }
         }
 
         // Extract JSON from the response (might be wrapped in markdown code block)
         if let jsonStart = jsonText.range(of: "{"),
            let jsonEnd = jsonText.range(of: "}", options: .backwards) {
-            jsonText = String(jsonText[jsonStart.lowerBound...jsonEnd.upperBound])
+            jsonText = String(jsonText[jsonStart.lowerBound...jsonEnd.lowerBound])
         }
 
         guard let resultData = jsonText.data(using: .utf8) else {

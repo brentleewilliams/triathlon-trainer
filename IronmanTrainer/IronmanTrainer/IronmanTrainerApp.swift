@@ -30,7 +30,9 @@ struct IronmanTrainerApp: App {
                         .onAppear {
                             healthKitManager.checkAuthorization()
                             Task {
+                                print("[App] ContentView appeared, syncing workouts...")
                                 await healthKitManager.syncWorkouts()
+                                print("[App] Workout sync complete, found \(healthKitManager.workouts.count) workouts")
                             }
                         }
                         .onOpenURL { url in

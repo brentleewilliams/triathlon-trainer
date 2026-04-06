@@ -195,7 +195,7 @@ struct PrepRaceSearchResult {
 
 enum PrepRaceSearchHelper {
     static func search(query: String) async throws -> PrepRaceSearchResult {
-        let apiKey = Secrets.anthropicAPIKey
+        let apiKey = Secrets.openAIAPIKey
         guard !apiKey.isEmpty else { throw ClaudeServiceError.invalidAPIKey }
 
         // Sanitize input: limit length, strip non-printable chars
@@ -206,8 +206,8 @@ enum PrepRaceSearchHelper {
             .map { Character($0) })
 
         let systemPrompt = """
-        You search the web for races and return structured data. \
-        After searching, your ENTIRE text response must be exactly one JSON object and nothing else. \
+        You return structured race data. \
+        Your ENTIRE response must be exactly one JSON object and nothing else. \
         No explanation, no preamble, no markdown fences. Just the raw JSON object:
         {"name": "Official Race Name", "date": "YYYY-MM-DD", "distance": "Sprint Tri|Olympic Tri|Half Marathon|Marathon|10K|5K|Century Ride|Half Iron|Other"}
         Pick the single best matching race. Pick the closest distance label. \
@@ -216,17 +216,10 @@ enum PrepRaceSearchHelper {
         """
 
         let requestBody: [String: Any] = [
-            "model": "claude-sonnet-4-20250514",
+            "model": "gpt-4.1-mini",
             "max_tokens": 512,
-            "system": systemPrompt,
-            "tools": [
-                [
-                    "type": "web_search_20250305",
-                    "name": "web_search",
-                    "max_uses": 3
-                ]
-            ],
             "messages": [
+                ["role": "system", "content": systemPrompt],
                 ["role": "user", "content": "Race search query: \(sanitized)"]
             ]
         ]
@@ -235,14 +228,13 @@ enum PrepRaceSearchHelper {
             throw ClaudeServiceError.invalidRequest
         }
 
-        guard let apiURL = URL(string: "https://api.anthropic.com/v1/messages") else {
+        guard let apiURL = URL(string: "https://api.openai.com/v1/chat/completions") else {
             throw ClaudeServiceError.invalidRequest
         }
         var request = URLRequest(url: apiURL)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
         request.httpBody = jsonData
 
@@ -259,26 +251,16 @@ enum PrepRaceSearchHelper {
             throw ClaudeServiceError.serverError
         }
 
-        // Parse Claude response - extract text from content blocks
+        // Parse OpenAI response
         let responseJSON = try JSONSerialization.jsonObject(with: data) as? [String: Any]
-        guard let content = responseJSON?["content"] as? [[String: Any]] else {
-            print("[PREP RACE SEARCH] No content in response: \(responseJSON?.keys.joined(separator: ", ") ?? "nil")")
+        guard let choices = responseJSON?["choices"] as? [[String: Any]],
+              let message = choices.first?["message"] as? [String: Any],
+              let jsonText = message["content"] as? String else {
+            print("[PREP RACE SEARCH] No content in response")
             throw ClaudeServiceError.invalidResponse
         }
 
-        // Log content block types for debugging
-        let blockTypes = content.compactMap { $0["type"] as? String }
-        print("[PREP RACE SEARCH] Content blocks: \(blockTypes)")
-
-        var jsonText = ""
-        for block in content {
-            if block["type"] as? String == "text", let text = block["text"] as? String {
-                jsonText = text
-                break
-            }
-        }
-
-        print("[PREP RACE SEARCH] Extracted text: \(jsonText.prefix(500))")
+        print("[PREP RACE SEARCH] Response: \(jsonText.prefix(500))")
 
         // Extract JSON object from response — may be wrapped in prose or markdown
         struct RawResult: Decodable {
@@ -295,7 +277,7 @@ enum PrepRaceSearchHelper {
             attempts += 1
             guard let braceStart = jsonText.range(of: "{", range: searchStart..<jsonText.endIndex) else { break }
             if let braceEnd = jsonText.range(of: "}", range: braceStart.upperBound..<jsonText.endIndex) {
-                let candidate = String(jsonText[braceStart.lowerBound...braceEnd.upperBound])
+                let candidate = String(jsonText[braceStart.lowerBound...braceEnd.lowerBound])
                 if let data = candidate.data(using: .utf8),
                    let parsed = try? JSONDecoder().decode(RawResult.self, from: data) {
                     raw = parsed

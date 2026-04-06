@@ -620,6 +620,15 @@ class ChatViewModel: ObservableObject {
                 let dayStart = calendar.startOfDay(for: dayDate)
                 let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? dayStart
 
+                // Collect all HK workouts for this day
+                let dayHKWorkouts = healthKit.workouts.filter { hkWorkout in
+                    let hkDay = calendar.startOfDay(for: hkWorkout.startDate)
+                    return hkDay >= dayStart && hkDay < dayEnd
+                }
+                var matchedHKWorkoutIDs = Set<UUID>()
+
+                let isRestDay = dayWorkouts.allSatisfy { $0.type.lowercased() == "rest" }
+
                 for planned in dayWorkouts {
                     // Skip rest days from comparison
                     if planned.type.lowercased() == "rest" { continue }
@@ -628,9 +637,13 @@ class ChatViewModel: ObservableObject {
 
                     // Find matching HealthKit workout: same calendar day + same activity type
                     let matchingActivity = hkActivityType(for: planned.type)
-                    let matchedWorkout = healthKit.workouts.first { hkWorkout in
-                        let hkDay = calendar.startOfDay(for: hkWorkout.startDate)
-                        return hkDay >= dayStart && hkDay < dayEnd && hkWorkout.workoutActivityType == matchingActivity
+                    let matchedWorkout = dayHKWorkouts.first { hkWorkout in
+                        !matchedHKWorkoutIDs.contains(hkWorkout.uuid) &&
+                        hkWorkout.workoutActivityType == matchingActivity
+                    }
+
+                    if let actual = matchedWorkout {
+                        matchedHKWorkoutIDs.insert(actual.uuid)
                     }
 
                     // Compliance marker
@@ -649,6 +662,13 @@ class ChatViewModel: ObservableObject {
                     } else {
                         history += "- \(day): \(complianceEmoji) Planned: \(plannedStr) | Actual: \u{26A0}\u{FE0F} MISSED\n"
                     }
+                }
+
+                // Report unmatched HK workouts (extra workouts not in the plan)
+                let unmatchedWorkouts = dayHKWorkouts.filter { !matchedHKWorkoutIDs.contains($0.uuid) }
+                for extra in unmatchedWorkouts {
+                    let label = isRestDay ? "REST DAY" : "EXTRA"
+                    history += "- \(day): \u{1F4AA} \(label) — Actual: \(formatActual(extra))\n"
                 }
             }
 
