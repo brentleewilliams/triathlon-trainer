@@ -34,6 +34,7 @@
 		84D0F0CA2F7C3441007D9BC7 /* LangSmithTracer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */; };
 		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */; };
 		84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */; };
+		84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */; };
 		84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */; };
 		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
 		84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D32F7C3624007D9BC7 /* HomeView.swift */; };
@@ -116,6 +117,7 @@
 		84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LangSmithTracer.swift; sourceTree = "<group>"; };
 		84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingHelpers.swift; sourceTree = "<group>"; };
 		84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
+		84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
 		84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		84D0F0D32F7C3624007D9BC7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
@@ -205,6 +207,7 @@
 				84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */,
 				84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */,
 				84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */,
+				84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */,
 				84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */,
 				84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */,
 				84D0F0D32F7C3624007D9BC7 /* HomeView.swift */,
@@ -444,7 +447,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Inject all API keys into plists in built bundle\nBUNDLE=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n\n# Firebase\nGS_PLIST=\"$BUNDLE/GoogleService-Info.plist\"\nif [ -f \"$GS_PLIST\" ] && [ -n \"$FIREBASE_API_KEY\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :API_KEY $FIREBASE_API_KEY\" \"$GS_PLIST\"\n  echo \"Injected Firebase API key\"\nfi\n\n# Anthropic + LangSmith\nCONFIG_PLIST=\"$BUNDLE/Config.plist\"\nif [ -f \"$CONFIG_PLIST\" ]; then\n  if [ -n \"$ANTHROPIC_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :ANTHROPIC_API_KEY $ANTHROPIC_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected Anthropic API key\"\n  fi\n  if [ -n \"$LANGSMITH_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :LANGSMITH_API_KEY $LANGSMITH_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected LangSmith API key\"\n  fi\nfi\n";
+			shellScript = "# Inject all API keys into plists in built bundle\nBUNDLE=\"${TARGET_BUILD_DIR}/${WRAPPER_NAME}\"\n\n# Firebase\nGS_PLIST=\"$BUNDLE/GoogleService-Info.plist\"\nif [ -f \"$GS_PLIST\" ] && [ -n \"$FIREBASE_API_KEY\" ]; then\n  /usr/libexec/PlistBuddy -c \"Set :API_KEY $FIREBASE_API_KEY\" \"$GS_PLIST\"\n  echo \"Injected Firebase API key\"\nfi\n\n# Anthropic + OpenAI + LangSmith\nCONFIG_PLIST=\"$BUNDLE/Config.plist\"\nif [ -f \"$CONFIG_PLIST\" ]; then\n  if [ -n \"$ANTHROPIC_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :ANTHROPIC_API_KEY $ANTHROPIC_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected Anthropic API key\"\n  fi\n  if [ -n \"$OPENAI_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :OPENAI_API_KEY $OPENAI_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected OpenAI API key\"\n  fi\n  if [ -n \"$LANGSMITH_API_KEY\" ]; then\n    /usr/libexec/PlistBuddy -c \"Set :LANGSMITH_API_KEY $LANGSMITH_API_KEY\" \"$CONFIG_PLIST\"\n    echo \"Injected LangSmith API key\"\n  fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -464,6 +467,7 @@
 				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
 				84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
 				84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */,
+				84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */,
 				84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */,
 				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,

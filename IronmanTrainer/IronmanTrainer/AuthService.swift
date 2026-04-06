@@ -17,6 +17,15 @@ class AuthService: ObservableObject {
     @Published var checkingPlan: Bool = false
 
     init() {
+        // Firebase Auth stores credentials in Keychain, which survives app
+        // uninstall/reinstall. Detect fresh install (UserDefaults wiped) and
+        // sign out so the user starts clean.
+        let hasLaunchedKey = "has_launched_before"
+        if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
+            UserDefaults.standard.set(true, forKey: hasLaunchedKey)
+            try? Auth.auth().signOut()
+        }
+
         stateListener = Auth.auth().addStateDidChangeListener { [weak self] _, user in
             Task { @MainActor in
                 self?.isAuthenticated = user != nil

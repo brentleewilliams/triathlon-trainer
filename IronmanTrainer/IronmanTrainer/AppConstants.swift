@@ -79,6 +79,18 @@ struct Secrets {
         return ""
     }()
 
+    static let openAIAPIKey: String = {
+        if let key = Bundle.main.infoDictionary?["OPENAI_API_KEY"] as? String, !key.isEmpty {
+            return key
+        }
+        if let configPath = Bundle.main.path(forResource: "Config", ofType: "plist"),
+           let config = NSDictionary(contentsOfFile: configPath),
+           let key = config["OPENAI_API_KEY"] as? String, !key.isEmpty {
+            return key
+        }
+        return ""
+    }()
+
     static let langsmithAPIKey: String = {
         // Primary: read from Info.plist (populated by xcconfig build settings)
         if let key = Bundle.main.infoDictionary?["LANGSMITH_API_KEY"] as? String, !key.isEmpty {

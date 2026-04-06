@@ -24,7 +24,7 @@ class ChatViewModel: ObservableObject {
     @Published var error: String?
     @Published var pendingProposal: PlanChangeProposal?
 
-    private let claudeService = ClaudeService.shared
+    private let coachingService = OpenAIService.shared
     private(set) var lastSwap: SwapCommand? {
         didSet { saveLastSwap() }
     }
@@ -246,7 +246,7 @@ class ChatViewModel: ObservableObject {
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            let response = try await claudeService.sendMessage(userMessage: hasText ? text : "What do you see in this image?", trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory, imageData: imageData)
+            let response = try await coachingService.sendMessage(userMessage: hasText ? text : "What do you see in this image?", trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory, imageData: imageData)
 
             await MainActor.run {
                 // Check for plan changes proposal first
