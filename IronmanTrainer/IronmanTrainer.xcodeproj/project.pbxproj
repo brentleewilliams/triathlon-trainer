@@ -534,6 +534,7 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifestSchema_UIApplicationSupportsMultipleScenes = YES;
@@ -578,6 +579,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
 				INFOPLIST_KEY_UIApplicationSceneManifestSchema_UIApplicationSupportsMultipleScenes = YES;
@@ -609,6 +611,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F85CVKP4V9;
@@ -628,6 +631,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_ENTITLEMENTS = "";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = F85CVKP4V9;

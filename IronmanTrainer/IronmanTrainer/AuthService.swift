@@ -56,7 +56,7 @@ class AuthService: ObservableObject {
                     return false
                 }
                 group.addTask {
-                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5 second timeout
+                    try await Task.sleep(nanoseconds: 2_000_000_000) // 2 second timeout
                     throw CancellationError()
                 }
                 let first = try await group.next() ?? false

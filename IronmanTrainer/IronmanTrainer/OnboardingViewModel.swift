@@ -47,6 +47,60 @@ class OnboardingViewModel: ObservableObject {
     @Published var targetHours: Int = 6
     @Published var targetMinutes: Int = 0
 
+    /// Default finish time based on race type/distance. Returns (hours, minutes).
+    var defaultFinishTime: (hours: Int, minutes: Int) {
+        guard let result = raceSearchResult else { return (6, 0) }
+        let type = result.type.lowercased()
+
+        if type.contains("triathlon") || type.contains("tri") {
+            let totalMiles = result.distances.values.reduce(0, +)
+            if totalMiles > 100 { return (13, 0) }       // Full Ironman (~140.6 mi)
+            if totalMiles > 50 { return (6, 0) }          // Half Iron (~70.3 mi)
+            if totalMiles > 30 { return (3, 0) }           // Olympic (~31 mi)
+            return (1, 30)                                  // Sprint (~16 mi)
+        } else if type.contains("running") || type.contains("run") {
+            let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
+            if runMiles >= 25 { return (4, 30) }            // Marathon
+            if runMiles >= 12 { return (2, 0) }             // Half Marathon
+            if runMiles >= 6 { return (0, 55) }             // 10K
+            if runMiles >= 3 { return (0, 28) }             // 5K
+            return (0, 45)                                   // Other short
+        } else if type.contains("cycling") || type.contains("bike") {
+            let bikeMiles = result.distances["bike"] ?? result.distances.values.max() ?? 0
+            if bikeMiles >= 90 { return (6, 0) }            // Century
+            if bikeMiles >= 50 { return (3, 30) }           // Half century
+            return (2, 0)                                    // Short
+        } else if type.contains("swimming") || type.contains("swim") {
+            return (1, 0)
+        }
+        return (6, 0)
+    }
+
+    /// Reasonable hour range for the time picker based on race type
+    var finishTimeHourRange: ClosedRange<Int> {
+        guard let result = raceSearchResult else { return 0...17 }
+        let type = result.type.lowercased()
+
+        if type.contains("triathlon") || type.contains("tri") {
+            let totalMiles = result.distances.values.reduce(0, +)
+            if totalMiles > 100 { return 8...17 }   // Full Ironman
+            if totalMiles > 50 { return 4...9 }      // Half Iron
+            if totalMiles > 30 { return 1...5 }       // Olympic
+            return 0...3                                // Sprint
+        } else if type.contains("running") || type.contains("run") {
+            let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
+            if runMiles >= 25 { return 2...7 }          // Marathon
+            if runMiles >= 12 { return 1...4 }          // Half Marathon
+            if runMiles >= 6 { return 0...2 }           // 10K
+            return 0...1                                 // 5K
+        } else if type.contains("cycling") || type.contains("bike") {
+            return 1...10
+        } else if type.contains("swimming") || type.contains("swim") {
+            return 0...3
+        }
+        return 0...17
+    }
+
     // Per-sport skill levels (step 4, part of goal setting)
     @Published var swimLevel: SkillLevel?
     @Published var bikeLevel: SkillLevel?
@@ -54,7 +108,7 @@ class OnboardingViewModel: ObservableObject {
 
     // Fitness chat answers (step 5)
     @Published var fitnessHours: String = ""
-    @Published var fitnessExperience: String = ""
+    @Published var fitnessSchedule: String = ""
     @Published var fitnessInjuries: String = ""
     @Published var fitnessEquipment: String = ""
 

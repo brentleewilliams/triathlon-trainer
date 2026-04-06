@@ -28,6 +28,7 @@ struct IronmanTrainerApp: App {
                     ContentView()
                         .environmentObject(healthKitManager)
                         .onAppear {
+                            healthKitManager.checkAuthorization()
                             Task {
                                 await healthKitManager.syncWorkouts()
                             }
@@ -44,7 +45,7 @@ struct IronmanTrainerApp: App {
             }
         }
         .onChange(of: scenePhase) { oldPhase, newPhase in
-            if newPhase == .active {
+            if newPhase == .active && authService.onboardingComplete {
                 Task {
                     await healthKitManager.syncWorkouts()
                 }

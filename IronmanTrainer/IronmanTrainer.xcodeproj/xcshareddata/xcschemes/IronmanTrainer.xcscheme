@@ -20,6 +20,20 @@
                ReferencedContainer = "container:IronmanTrainer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "NO"
+            buildForRunning = "YES"
+            buildForProfiling = "YES"
+            buildForArchiving = "YES"
+            buildForAnalyzing = "YES">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "1AA0000C0A0A0001"
+               BuildableName = "IronmanTrainerWidgetExtension.appex"
+               BlueprintName = "IronmanTrainerWidgetExtension"
+               ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

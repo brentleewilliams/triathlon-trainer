@@ -15,7 +15,9 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
 
     override init() {
         super.init()
-        checkAuthorization()
+        // Don't check authorization on init — it can trigger system prompts
+        // before the user reaches the onboarding HK screen.
+        // checkAuthorization() is called explicitly after onboarding completes.
     }
 
     func checkAuthorization() {

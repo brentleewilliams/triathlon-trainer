@@ -801,7 +801,12 @@ struct GoalSettingStep: View {
                         subtitle: "I have a specific time I want to hit",
                         isSelected: viewModel.goalType == .timeTarget
                     ) {
-                        withAnimation { viewModel.goalType = .timeTarget }
+                        withAnimation {
+                            let defaults = viewModel.defaultFinishTime
+                            viewModel.targetHours = defaults.hours
+                            viewModel.targetMinutes = defaults.minutes
+                            viewModel.goalType = .timeTarget
+                        }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -812,9 +817,10 @@ struct GoalSettingStep: View {
                         Text("Target Finish Time")
                             .font(.subheadline.weight(.medium))
 
+                        let hourRange = viewModel.finishTimeHourRange
                         HStack(spacing: 4) {
                             Picker("Hours", selection: $viewModel.targetHours) {
-                                ForEach(3...12, id: \.self) { h in
+                                ForEach(Array(hourRange), id: \.self) { h in
                                     Text("\(h)h").tag(h)
                                 }
                             }
@@ -1289,7 +1295,7 @@ struct FitnessChatStep: View {
         let userMsgCount = chatViewModel.messages.filter { $0.isUser }.count
         switch userMsgCount {
         case 1: viewModel.fitnessHours = reply.value
-        case 2: viewModel.fitnessExperience = reply.value
+        case 2: viewModel.fitnessSchedule = reply.value
         case 3: viewModel.fitnessInjuries = reply.value
         case 4: viewModel.fitnessEquipment = reply.value
         default: break
@@ -1299,16 +1305,16 @@ struct FitnessChatStep: View {
         let messageCount = chatViewModel.messages.count
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             if messageCount <= 3 {
-                // After hours answer → ask experience level
+                // After hours answer → ask schedule preferences
                 let msg = ChatMessage(
                     isUser: false,
-                    text: "Got it — \(reply.value). That's a great foundation.\n\nHow would you describe your current endurance experience?",
+                    text: "Got it — \(reply.value). That's a great foundation.\n\nWhat does your weekly schedule look like? When do you prefer to train?",
                     timestamp: Date()
                 )
                 chatViewModel.messages.append(msg)
-                withAnimation { quickReplies = Self.experienceReplies }
+                withAnimation { quickReplies = Self.scheduleReplies }
             } else if messageCount <= 5 {
-                // After experience → ask injury history
+                // After schedule → ask injury history
                 let msg = ChatMessage(
                     isUser: false,
                     text: "Thanks! That helps me calibrate your plan.\n\nAny current injuries or limitations I should know about?",
@@ -1357,12 +1363,12 @@ struct FitnessChatStep: View {
         QuickReply(label: "20+ hrs/wk", value: "20+ hours per week (elite)"),
     ]
 
-    static let experienceReplies = [
-        QuickReply(label: "Beginner", value: "Beginner — new to endurance sports"),
-        QuickReply(label: "Some experience", value: "Some experience — done a few races"),
-        QuickReply(label: "Intermediate", value: "Intermediate — race regularly"),
-        QuickReply(label: "Advanced", value: "Advanced — multiple years of structured training"),
-        QuickReply(label: "Elite", value: "Elite / competitive — podium finisher"),
+    static let scheduleReplies = [
+        QuickReply(label: "Mornings before work", value: "Mornings before work — early riser"),
+        QuickReply(label: "Lunch breaks", value: "Lunch breaks and midday sessions"),
+        QuickReply(label: "Evenings after work", value: "Evenings after work"),
+        QuickReply(label: "Weekends mostly", value: "Mostly weekends — weekdays are tight"),
+        QuickReply(label: "Flexible", value: "Flexible schedule — can train anytime"),
     ]
 
     static let injuryReplies = [
@@ -1419,7 +1425,7 @@ struct PlanReviewStep: View {
     private var chatAnswers: [String: String] {
         var answers: [String: String] = [:]
         if !viewModel.fitnessHours.isEmpty { answers["hours"] = viewModel.fitnessHours }
-        if !viewModel.fitnessExperience.isEmpty { answers["experience"] = viewModel.fitnessExperience }
+        if !viewModel.fitnessSchedule.isEmpty { answers["schedule"] = viewModel.fitnessSchedule }
         if !viewModel.fitnessInjuries.isEmpty { answers["injuries"] = viewModel.fitnessInjuries }
         if !viewModel.fitnessEquipment.isEmpty { answers["equipment"] = viewModel.fitnessEquipment }
         return answers
@@ -1520,8 +1526,8 @@ struct PlanReviewStep: View {
                             if let hours = chatAnswers["hours"] {
                                 PlanDetailRow(icon: "clock.fill", label: "Weekly volume", value: hours)
                             }
-                            if let exp = chatAnswers["experience"] {
-                                PlanDetailRow(icon: "chart.bar.fill", label: "Experience", value: exp)
+                            if let sched = chatAnswers["schedule"] {
+                                PlanDetailRow(icon: "calendar.badge.clock", label: "Schedule", value: sched)
                             }
                             if let injury = chatAnswers["injuries"] {
                                 PlanDetailRow(icon: "cross.circle.fill", label: "Injuries", value: injury)
