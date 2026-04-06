@@ -4,6 +4,8 @@
 <dict>
 	<key>ANTHROPIC_API_KEY</key>
 	<string>PLACEHOLDER</string>
+	<key>OPENAI_API_KEY</key>
+	<string>PLACEHOLDER</string>
 	<key>LANGSMITH_API_KEY</key>
 	<string>PLACEHOLDER</string>
 </dict>
