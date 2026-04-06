@@ -35,6 +35,7 @@ class OnboardingViewModel: ObservableObject {
     @Published var hkHasHeight = false
     @Published var hkHasWeight = false
     @Published var hkHasRestingHR = false
+    @Published var hkHasLocation = false
 
     // Race data (step 3)
     @Published var raceSearchQuery: String = ""
@@ -47,9 +48,9 @@ class OnboardingViewModel: ObservableObject {
     @Published var targetMinutes: Int = 0
 
     // Per-sport skill levels (step 4, part of goal setting)
-    @Published var swimLevel: SkillLevel = .beginner
-    @Published var bikeLevel: SkillLevel = .intermediate
-    @Published var runLevel: SkillLevel = .intermediate
+    @Published var swimLevel: SkillLevel?
+    @Published var bikeLevel: SkillLevel?
+    @Published var runLevel: SkillLevel?
 
     // Fitness chat answers (step 5)
     @Published var fitnessHours: String = ""
@@ -62,6 +63,32 @@ class OnboardingViewModel: ObservableObject {
 
     var totalSteps: Int { OnboardingStep.allCases.count }
     var progressPercent: Double { Double(currentStep.rawValue + 1) / Double(totalSteps) }
+
+    /// Which sports are relevant based on race type
+    var relevantSports: [String] {
+        guard let raceType = raceSearchResult?.type.lowercased() else {
+            return ["swim", "bike", "run"] // default to triathlon
+        }
+        if raceType.contains("triathlon") || raceType.contains("tri") {
+            return ["swim", "bike", "run"]
+        } else if raceType.contains("cycling") || raceType.contains("bike") {
+            return ["bike"]
+        } else if raceType.contains("running") || raceType.contains("run") {
+            return ["run"]
+        } else if raceType.contains("swimming") || raceType.contains("swim") {
+            return ["swim"]
+        }
+        return ["swim", "bike", "run"]
+    }
+
+    /// Whether all required skill levels are selected
+    var allSkillsSelected: Bool {
+        let sports = relevantSports
+        if sports.contains("swim") && swimLevel == nil { return false }
+        if sports.contains("bike") && bikeLevel == nil { return false }
+        if sports.contains("run") && runLevel == nil { return false }
+        return true
+    }
 
     func advance() {
         if let next = OnboardingStep(rawValue: currentStep.rawValue + 1) {
@@ -105,6 +132,13 @@ class OnboardingViewModel: ObservableObject {
         if let rhr = profile.restingHR {
             userRestingHR = rhr
             hkHasRestingHR = true
+        }
+
+        // Try to infer home training area from workout locations
+        let inferredZip = await helper.inferHomeZipCode()
+        if let zip = inferredZip, !zip.isEmpty {
+            homeZip = zip
+            hkHasLocation = true
         }
 
         hkDataLoaded = true

@@ -406,9 +406,15 @@ class ChatViewModel: ObservableObject {
         return "Swapped \(command.fromDay) and \(command.toDay) in week \(command.weekNumber)"
     }
 
+    private static let maxPersistedMessages = 50
+
     func saveChatHistory() {
+        // Strip image data from persisted messages to avoid UserDefaults bloat
+        let toSave = messages.suffix(Self.maxPersistedMessages).map { msg in
+            ChatMessage(id: msg.id, isUser: msg.isUser, text: msg.text, timestamp: msg.timestamp, imageData: nil)
+        }
         let encoder = JSONEncoder()
-        if let data = try? encoder.encode(messages) {
+        if let data = try? encoder.encode(toSave) {
             UserDefaults.standard.set(data, forKey: "coaching_chat_history")
         }
     }

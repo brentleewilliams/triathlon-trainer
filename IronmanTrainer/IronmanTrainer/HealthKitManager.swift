@@ -16,10 +16,6 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     override init() {
         super.init()
         checkAuthorization()
-        // Auto-request authorization on app open
-        Task {
-            await self.requestAuthorization()
-        }
     }
 
     func checkAuthorization() {
@@ -178,7 +174,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let query = HKSampleQuery(
             sampleType: heartRateType,
             predicate: predicate,
-            limit: HKObjectQueryNoLimit,
+            limit: 5000,
             sortDescriptors: [sortDescriptor]
         ) { _, results, error in
             if error != nil {
@@ -229,7 +225,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let query = HKSampleQuery(
             sampleType: heartRateType,
             predicate: predicate,
-            limit: HKObjectQueryNoLimit,
+            limit: 5000,
             sortDescriptors: [sortDescriptor]
         ) { _, results, error in
             var zones: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]

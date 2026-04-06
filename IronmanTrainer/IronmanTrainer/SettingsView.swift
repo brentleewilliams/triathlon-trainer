@@ -355,57 +355,57 @@ struct PrepRacesSettingsSection: View {
     @State private var showAddSheet = false
 
     var body: some View {
-        if prepRaces.races.isEmpty {
-            Button {
-                showAddSheet = true
-            } label: {
-                HStack {
-                    Image(systemName: "flag.2.crossed")
-                        .foregroundColor(.orange)
-                    Text("Add a Tune-up Race")
-                }
-            }
-        } else {
-            ForEach(prepRaces.races) { race in
-                HStack {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(race.name)
-                            .font(.subheadline.weight(.medium))
-                        HStack(spacing: 6) {
-                            Text(race.distance)
-                            Text(Formatters.fullDate.string(from: race.date))
-                        }
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+        Group {
+            if prepRaces.races.isEmpty {
+                Button {
+                    showAddSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "flag.2.crossed")
+                            .foregroundColor(.orange)
+                        Text("Add a Tune-up Race")
                     }
-                    Spacer()
-                    if race.isPast {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
+                }
+            } else {
+                ForEach(prepRaces.races) { race in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(race.name)
+                                .font(.subheadline.weight(.medium))
+                            HStack(spacing: 6) {
+                                Text(race.distance)
+                                Text(Formatters.fullDate.string(from: race.date))
+                            }
                             .font(.caption)
+                            .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if race.isPast {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
                     }
                 }
-            }
-            .onDelete { offsets in
-                prepRaces.remove(at: offsets)
-            }
-
-            Button {
-                showAddSheet = true
-            } label: {
-                HStack {
-                    Image(systemName: "plus.circle")
-                    Text("Add Another")
+                .onDelete { offsets in
+                    prepRaces.remove(at: offsets)
                 }
-                .font(.subheadline)
+
+                Button {
+                    showAddSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "plus.circle")
+                        Text("Add Another")
+                    }
+                    .font(.subheadline)
+                }
             }
         }
-
-        EmptyView()
-            .sheet(isPresented: $showAddSheet) {
-                AddPrepRaceSheet { race in
-                    prepRaces.add(race)
-                }
+        .sheet(isPresented: $showAddSheet) {
+            AddPrepRaceSheet { race in
+                prepRaces.add(race)
             }
+        }
     }
 }

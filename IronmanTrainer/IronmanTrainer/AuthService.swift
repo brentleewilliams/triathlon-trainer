@@ -8,6 +8,7 @@ class AuthService: ObservableObject {
 
     @Published var isAuthenticated: Bool = false
     @Published var currentUserID: String?
+    @Published var currentUserEmail: String?
     @Published var isLoading: Bool = true
 
     private var stateListener: AuthStateDidChangeListenerHandle?
@@ -20,6 +21,7 @@ class AuthService: ObservableObject {
             Task { @MainActor in
                 self?.isAuthenticated = user != nil
                 self?.currentUserID = user?.uid
+                self?.currentUserEmail = user?.email
 
                 if let uid = user?.uid {
                     // Check if user already has a plan (returning user)
@@ -44,14 +46,29 @@ class AuthService: ObservableObject {
             return
         }
 
-        // Then check Firestore
+        // Then check Firestore (with timeout to avoid blocking on slow networks)
         do {
-            if let _ = try await FirestoreService.shared.getTrainingPlan(for: uid) {
+            let result = try await withThrowingTaskGroup(of: Bool.self) { group in
+                group.addTask {
+                    if let _ = try await FirestoreService.shared.getTrainingPlan(for: uid) {
+                        return true
+                    }
+                    return false
+                }
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 5_000_000_000) // 5 second timeout
+                    throw CancellationError()
+                }
+                let first = try await group.next() ?? false
+                group.cancelAll()
+                return first
+            }
+            if result {
                 onboardingComplete = true
                 UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
             }
         } catch {
-            // No plan found or error — user needs onboarding
+            // Timeout or error — proceed to onboarding
             onboardingComplete = false
         }
     }

@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import CoreLocation
 
 // MARK: - Onboarding Data Models
 
@@ -73,6 +74,7 @@ class HealthKitOnboardingHelper {
         if let vo2MaxType = HKQuantityType.quantityType(forIdentifier: .vo2Max) {
             typesToRead.insert(vo2MaxType)
         }
+        typesToRead.insert(HKSeriesType.workoutRoute())
 
         do {
             try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
@@ -337,6 +339,115 @@ class HealthKitOnboardingHelper {
                 )
             }
             .sorted { $0.date > $1.date }
+    }
+    // MARK: - Location Inference
+
+    /// Infer the user's home zip code from workout route data.
+    /// Clusters nearby workout start locations and picks the largest cluster,
+    /// so vacation/travel workouts don't skew the result.
+    func inferHomeZipCode() async -> String? {
+        // Prioritize recent workouts (last 2 months), fall back to 6 months if needed
+        var workouts = await fetchWorkoutHistory(months: 2)
+        if workouts.count < 5 {
+            workouts = await fetchWorkoutHistory(months: 6)
+        }
+        guard !workouts.isEmpty else { return nil }
+
+        // Collect starting locations from workout routes
+        var locations: [CLLocation] = []
+
+        for workout in workouts.prefix(30) {
+            if let startLocation = await getWorkoutStartLocation(workout) {
+                locations.append(startLocation)
+            }
+        }
+
+        guard !locations.isEmpty else { return nil }
+
+        // Cluster locations within ~15 miles of each other
+        let clusterRadiusMeters: Double = 25_000
+        var clusters: [[CLLocation]] = []
+
+        for location in locations {
+            var addedToCluster = false
+            for i in clusters.indices {
+                // Check if this location is near the first point in an existing cluster
+                if location.distance(from: clusters[i][0]) < clusterRadiusMeters {
+                    clusters[i].append(location)
+                    addedToCluster = true
+                    break
+                }
+            }
+            if !addedToCluster {
+                clusters.append([location])
+            }
+        }
+
+        // Pick the largest cluster (most workouts = likely home)
+        guard let homeCluster = clusters.max(by: { $0.count < $1.count }),
+              homeCluster.count >= 2 else {
+            // Need at least 2 workouts in a cluster to be confident
+            return nil
+        }
+
+        // Average the cluster locations for a stable center point
+        let avgLat = homeCluster.map(\.coordinate.latitude).reduce(0, +) / Double(homeCluster.count)
+        let avgLon = homeCluster.map(\.coordinate.longitude).reduce(0, +) / Double(homeCluster.count)
+        let centerLocation = CLLocation(latitude: avgLat, longitude: avgLon)
+
+        // Reverse geocode to get city/state/zip
+        return await reverseGeocodeToZip(location: centerLocation)
+    }
+
+    private func getWorkoutStartLocation(_ workout: HKWorkout) async -> CLLocation? {
+        return await withCheckedContinuation { continuation in
+            let routeType = HKSeriesType.workoutRoute()
+            let routeQuery = HKSampleQuery(
+                sampleType: routeType,
+                predicate: HKQuery.predicateForObjects(from: workout),
+                limit: 1,
+                sortDescriptors: nil
+            ) { [weak self] _, results, _ in
+                guard let route = results?.first as? HKWorkoutRoute,
+                      let self = self else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                // Get first location point from route (handler fires multiple times)
+                var resumed = false
+                let locationQuery = HKWorkoutRouteQuery(route: route) { _, locations, done, _ in
+                    guard !resumed else { return }
+                    if let firstLocation = locations?.first {
+                        resumed = true
+                        continuation.resume(returning: firstLocation)
+                    } else if done {
+                        resumed = true
+                        continuation.resume(returning: nil)
+                    }
+                }
+                self.healthStore.execute(locationQuery)
+            }
+            self.healthStore.execute(routeQuery)
+        }
+    }
+
+    private func reverseGeocodeToZip(location: CLLocation) async -> String? {
+        let geocoder = CLGeocoder()
+        do {
+            let placemarks = try await geocoder.reverseGeocodeLocation(location)
+            if let placemark = placemarks.first {
+                // Return "City, ST ZIP" or just zip
+                var parts: [String] = []
+                if let city = placemark.locality { parts.append(city) }
+                if let state = placemark.administrativeArea { parts.append(state) }
+                if let zip = placemark.postalCode { parts.append(zip) }
+                return parts.joined(separator: ", ")
+            }
+        } catch {
+            print("[Onboarding] Reverse geocode failed: \(error.localizedDescription)")
+        }
+        return nil
     }
 }
 

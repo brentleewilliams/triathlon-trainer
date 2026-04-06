@@ -98,11 +98,11 @@ struct OnboardingNavBar: View {
         case .healthKit:
             return viewModel.hkDataLoaded
         case .profile:
-            return !viewModel.userName.trimmingCharacters(in: .whitespaces).isEmpty
+            return true
         case .raceSearch:
             return viewModel.raceSearchResult != nil
         case .goalSetting:
-            return true
+            return viewModel.allSkillsSelected
         case .fitnessChat:
             return true
         case .planReview:
@@ -266,8 +266,17 @@ struct HKDataRow: View {
 
 struct ProfileStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @EnvironmentObject var authService: AuthService
 
     private let sexOptions = ["Male", "Female", "Other"]
+
+    // Imperial input state for height (feet + inches)
+    @State private var heightFeet: String = ""
+    @State private var heightInches: String = ""
+    // Imperial input state for weight (lbs)
+    @State private var weightLbs: String = ""
+    // Track which HK fields user has tapped to edit
+    @State private var editing: Set<String> = []
 
     var body: some View {
         ScrollView {
@@ -282,12 +291,24 @@ struct ProfileStep: View {
                     .font(.title2.weight(.bold))
 
                 VStack(spacing: 16) {
-                    OnboardingTextField(label: "Name", text: $viewModel.userName, placeholder: "Your name")
+                    if let email = authService.currentUserEmail, !email.isEmpty {
+                        HKProvidedRow(label: "Account", value: email)
+                    }
 
-                    OnboardingTextField(label: "Zip Code", text: $viewModel.homeZip, placeholder: "e.g. 80202")
+                    // Home Training Area
+                    if viewModel.hkHasLocation && !editing.contains("location") {
+                        TappableHKRow(label: "Home Training Area", value: viewModel.homeZip) {
+                            editing.insert("location")
+                        }
+                    } else {
+                        OnboardingTextField(label: "Home Training Area (zip code)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
+                    }
 
-                    if viewModel.hkHasDOB {
-                        HKProvidedRow(label: "Date of Birth", value: Formatters.fullDate.string(from: viewModel.userDOB))
+                    // Date of Birth
+                    if viewModel.hkHasDOB && !editing.contains("dob") {
+                        TappableHKRow(label: "Date of Birth", value: Formatters.fullDate.string(from: viewModel.userDOB)) {
+                            editing.insert("dob")
+                        }
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Date of Birth")
@@ -297,8 +318,11 @@ struct ProfileStep: View {
                         }
                     }
 
-                    if viewModel.hkHasSex {
-                        HKProvidedRow(label: "Biological Sex", value: viewModel.userSex)
+                    // Biological Sex
+                    if viewModel.hkHasSex && !editing.contains("sex") {
+                        TappableHKRow(label: "Biological Sex", value: viewModel.userSex) {
+                            editing.insert("sex")
+                        }
                     } else {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Biological Sex")
@@ -313,20 +337,76 @@ struct ProfileStep: View {
                         }
                     }
 
-                    if viewModel.hkHasHeight {
-                        HKProvidedRow(label: "Height", value: String(format: "%.0f cm", viewModel.userHeightCm ?? 0))
+                    // Height (imperial)
+                    if viewModel.hkHasHeight && !editing.contains("height") {
+                        TappableHKRow(label: "Height", value: formatHeightImperial(cm: viewModel.userHeightCm ?? 0)) {
+                            initHeightFromCm()
+                            editing.insert("height")
+                        }
                     } else {
-                        OnboardingNumberField(label: "Height (cm)", value: $viewModel.userHeightCm, placeholder: "175")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Height")
+                                .font(.subheadline.weight(.medium))
+                            HStack(spacing: 8) {
+                                HStack(spacing: 4) {
+                                    TextField("5", text: $heightFeet)
+                                        .textFieldStyle(.roundedBorder)
+                                        .keyboardType(.numberPad)
+                                        .frame(width: 60)
+                                    Text("ft")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    TextField("10", text: $heightInches)
+                                        .textFieldStyle(.roundedBorder)
+                                        .keyboardType(.numberPad)
+                                        .frame(width: 60)
+                                    Text("in")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .onChange(of: heightFeet) { _, _ in updateHeightCm() }
+                        .onChange(of: heightInches) { _, _ in updateHeightCm() }
+                        .onAppear { initHeightFromCm() }
                     }
 
-                    if viewModel.hkHasWeight {
-                        HKProvidedRow(label: "Weight", value: String(format: "%.1f kg", viewModel.userWeightKg ?? 0))
+                    // Weight (imperial)
+                    if viewModel.hkHasWeight && !editing.contains("weight") {
+                        TappableHKRow(label: "Weight", value: String(format: "%.0f lbs", (viewModel.userWeightKg ?? 0) * 2.20462)) {
+                            initWeightFromKg()
+                            editing.insert("weight")
+                        }
                     } else {
-                        OnboardingNumberField(label: "Weight (kg)", value: $viewModel.userWeightKg, placeholder: "75")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Weight")
+                                .font(.subheadline.weight(.medium))
+                            HStack(spacing: 4) {
+                                TextField("170", text: $weightLbs)
+                                    .textFieldStyle(.roundedBorder)
+                                    .keyboardType(.decimalPad)
+                                Text("lbs")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .onChange(of: weightLbs) { _, newVal in
+                            if let lbs = Double(newVal) {
+                                viewModel.userWeightKg = lbs / 2.20462
+                            } else {
+                                viewModel.userWeightKg = nil
+                            }
+                        }
+                        .onAppear { initWeightFromKg() }
                     }
 
-                    if viewModel.hkHasRestingHR {
-                        HKProvidedRow(label: "Resting HR", value: "\(viewModel.userRestingHR ?? 0) bpm")
+                    // Resting HR
+                    if viewModel.hkHasRestingHR && !editing.contains("rhr") {
+                        TappableHKRow(label: "Resting HR", value: "\(viewModel.userRestingHR ?? 0) bpm") {
+                            editing.insert("rhr")
+                        }
                     } else {
                         OnboardingIntField(label: "Resting Heart Rate (bpm)", value: $viewModel.userRestingHR, placeholder: "60")
                     }
@@ -338,6 +418,72 @@ struct ProfileStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+    }
+
+    private func updateHeightCm() {
+        let feet = Int(heightFeet) ?? 0
+        let inches = Int(heightInches) ?? 0
+        let totalInches = feet * 12 + inches
+        if totalInches > 0 {
+            viewModel.userHeightCm = Double(totalInches) * 2.54
+        } else {
+            viewModel.userHeightCm = nil
+        }
+    }
+
+    private func initHeightFromCm() {
+        guard heightFeet.isEmpty, let cm = viewModel.userHeightCm, cm > 0 else { return }
+        let totalInches = Int(round(cm / 2.54))
+        heightFeet = "\(totalInches / 12)"
+        heightInches = "\(totalInches % 12)"
+    }
+
+    private func initWeightFromKg() {
+        guard weightLbs.isEmpty, let kg = viewModel.userWeightKg, kg > 0 else { return }
+        weightLbs = String(format: "%.0f", kg * 2.20462)
+    }
+
+    private func formatHeightImperial(cm: Double) -> String {
+        let totalInches = Int(round(cm / 2.54))
+        let feet = totalInches / 12
+        let inches = totalInches % 12
+        return "\(feet)'\(inches)\""
+    }
+}
+
+/// HK-provided row that looks like the old design but is tappable to edit.
+struct TappableHKRow: View {
+    let label: String
+    let value: String
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(label)
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.primary)
+                    Text(value)
+                        .font(.body)
+                        .foregroundStyle(.primary)
+                }
+                Spacer()
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.body)
+                Text("from Health")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Image(systemName: "pencil")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .background(Color(.systemGray6))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
     }
 }
 
@@ -435,6 +581,7 @@ struct OnboardingIntField: View {
 
 struct RaceSearchStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @FocusState private var searchFocused: Bool
 
     var body: some View {
         ScrollView {
@@ -455,26 +602,33 @@ struct RaceSearchStep: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 16)
 
-                // Search field
-                HStack {
+                // Search field + button
+                VStack(spacing: 12) {
                     TextField("e.g. Ironman 70.3 Oregon 2026", text: $viewModel.raceSearchQuery)
                         .textFieldStyle(.roundedBorder)
+                        .focused($searchFocused)
                         .disabled(viewModel.isSearchingRace)
+                        .onSubmit {
+                            if !viewModel.raceSearchQuery.isEmpty {
+                                Task { await viewModel.searchRace() }
+                            }
+                        }
 
                     Button {
                         Task { await viewModel.searchRace() }
                     } label: {
                         if viewModel.isSearchingRace {
                             ProgressView()
-                                .frame(width: 44, height: 36)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                         } else {
                             Text("Search")
                                 .font(.body.weight(.semibold))
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
                                 .background(viewModel.raceSearchQuery.isEmpty ? Color(.systemGray4) : Color.blue)
-                                .clipShape(Capsule())
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
                     .disabled(viewModel.raceSearchQuery.isEmpty || viewModel.isSearchingRace)
@@ -513,6 +667,11 @@ struct RaceSearchStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+        .onAppear {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                searchFocused = true
+            }
+        }
     }
 }
 
@@ -625,6 +784,16 @@ struct GoalSettingStep: View {
                     .padding(.horizontal, 16)
 
                 VStack(spacing: 16) {
+                    // Just Complete card (default, first)
+                    GoalCard(
+                        icon: "flag.fill",
+                        title: "Just Complete It",
+                        subtitle: "I want to finish strong and have fun",
+                        isSelected: viewModel.goalType == .justComplete
+                    ) {
+                        withAnimation { viewModel.goalType = .justComplete }
+                    }
+
                     // Time Target card
                     GoalCard(
                         icon: "stopwatch.fill",
@@ -632,17 +801,7 @@ struct GoalSettingStep: View {
                         subtitle: "I have a specific time I want to hit",
                         isSelected: viewModel.goalType == .timeTarget
                     ) {
-                        viewModel.goalType = .timeTarget
-                    }
-
-                    // Just Complete card
-                    GoalCard(
-                        icon: "flag.fill",
-                        title: "Just Complete It",
-                        subtitle: "I want to finish strong and have fun",
-                        isSelected: viewModel.goalType == .justComplete
-                    ) {
-                        viewModel.goalType = .justComplete
+                        withAnimation { viewModel.goalType = .timeTarget }
                     }
                 }
                 .padding(.horizontal, 16)
@@ -680,7 +839,7 @@ struct GoalSettingStep: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
-                // Per-sport skill levels
+                // Per-sport skill levels (only relevant sports)
                 VStack(alignment: .leading, spacing: 12) {
                     Divider().padding(.vertical, 4)
 
@@ -691,13 +850,20 @@ struct GoalSettingStep: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    SkillLevelPicker(icon: "figure.pool.swim", sport: "Swim", level: $viewModel.swimLevel)
-                    SkillLevelPicker(icon: "figure.outdoor.cycle", sport: "Bike", level: $viewModel.bikeLevel)
-                    SkillLevelPicker(icon: "figure.run", sport: "Run", level: $viewModel.runLevel)
+                    let sports = viewModel.relevantSports
+                    if sports.contains("swim") {
+                        SkillLevelPicker(icon: "figure.pool.swim", sport: "Swim", level: $viewModel.swimLevel)
+                    }
+                    if sports.contains("bike") {
+                        SkillLevelPicker(icon: "figure.outdoor.cycle", sport: "Bike", level: $viewModel.bikeLevel)
+                    }
+                    if sports.contains("run") {
+                        SkillLevelPicker(icon: "figure.run", sport: "Run", level: $viewModel.runLevel)
+                    }
                 }
                 .padding(.horizontal, 16)
 
-                // Prep races section
+                // Prep races section (optional)
                 PrepRacesOnboardingSection()
 
                 Spacer()
@@ -796,6 +962,10 @@ struct AddPrepRaceSheet: View {
     @State private var date = Date()
     @State private var distance = "5K"
     @State private var notes = ""
+    @State private var searchQuery = ""
+    @State private var isSearching = false
+    @State private var searchError: String?
+    @State private var searchTask: Task<Void, Never>?
 
     let onAdd: (PrepRace) -> Void
 
@@ -804,6 +974,35 @@ struct AddPrepRaceSheet: View {
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("Search for Race"), footer: Text("Or enter details manually below.")) {
+                    HStack {
+                        TextField("e.g. Cherry Creek Sneak 5K 2026", text: $searchQuery)
+                            .disabled(isSearching)
+                        if isSearching {
+                            Button {
+                                cancelSearch()
+                            } label: {
+                                Text("Cancel")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.red)
+                            }
+                        } else {
+                            Button {
+                                searchTask = Task { await searchRace() }
+                            } label: {
+                                Text("Search")
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .disabled(searchQuery.trimmingCharacters(in: .whitespaces).isEmpty)
+                        }
+                    }
+                    if let error = searchError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
+
                 Section(header: Text("Race Details")) {
                     TextField("Race Name", text: $name)
                     DatePicker("Date", selection: $date, displayedComponents: .date)
@@ -836,14 +1035,45 @@ struct AddPrepRaceSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.large])
+    }
+
+    private func cancelSearch() {
+        searchTask?.cancel()
+        searchTask = nil
+        isSearching = false
+        searchError = nil
+    }
+
+    private func searchRace() async {
+        isSearching = true
+        searchError = nil
+        do {
+            let result = try await PrepRaceSearchHelper.search(query: searchQuery)
+            guard !Task.isCancelled else { return }
+            name = result.name
+            date = result.date
+            // Map race type to distance option
+            if let matchedDist = distanceOptions.first(where: { result.distance.localizedCaseInsensitiveContains($0) }) {
+                distance = matchedDist
+            } else {
+                distance = "Other"
+                if notes.isEmpty { notes = result.distance }
+            }
+        } catch is CancellationError {
+            return
+        } catch {
+            guard !Task.isCancelled else { return }
+            searchError = "Could not find race. Try entering details manually."
+        }
+        isSearching = false
     }
 }
 
 struct SkillLevelPicker: View {
     let icon: String
     let sport: String
-    @Binding var level: SkillLevel
+    @Binding var level: SkillLevel?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -854,12 +1084,21 @@ struct SkillLevelPicker: View {
                 Text(sport)
                     .font(.subheadline.weight(.medium))
             }
-            Picker("", selection: $level) {
+            HStack(spacing: 0) {
                 ForEach(SkillLevel.allCases, id: \.self) { lvl in
-                    Text(lvl.rawValue).tag(lvl)
+                    Button {
+                        level = lvl
+                    } label: {
+                        Text(lvl.rawValue)
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
+                            .background(level == lvl ? Color.blue : Color(.systemGray5))
+                            .foregroundStyle(level == lvl ? .white : .primary)
+                    }
                 }
             }
-            .pickerStyle(.segmented)
+            .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
 }
@@ -1024,7 +1263,7 @@ struct FitnessChatStep: View {
                     userName: viewModel.userName,
                     race: viewModel.buildRace(),
                     goal: goalTypeFromSelection(),
-                    skillLevels: (swim: viewModel.swimLevel, bike: viewModel.bikeLevel, run: viewModel.runLevel)
+                    skillLevels: (swim: viewModel.swimLevel ?? .beginner, bike: viewModel.bikeLevel ?? .beginner, run: viewModel.runLevel ?? .beginner)
                 )
                 let name = viewModel.userName.isEmpty ? "there" : viewModel.userName
                 let greeting = ChatMessage(
