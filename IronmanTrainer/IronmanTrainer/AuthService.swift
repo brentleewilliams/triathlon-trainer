@@ -15,6 +15,7 @@ class AuthService: ObservableObject {
 
     @Published var onboardingComplete: Bool = false
     @Published var checkingPlan: Bool = false
+    @Published var savedPlan: [TrainingWeek]?
 
     init() {
         // Firebase Auth stores credentials in Keychain, which survives app
@@ -58,8 +59,9 @@ class AuthService: ObservableObject {
         // Then check Firestore (with timeout to avoid blocking on slow networks)
         do {
             let result = try await withThrowingTaskGroup(of: Bool.self) { group in
-                group.addTask {
-                    if let _ = try await FirestoreService.shared.getTrainingPlan(for: uid) {
+                group.addTask { [weak self] in
+                    if let result = try await FirestoreService.shared.getTrainingPlan(for: uid) {
+                        await MainActor.run { self?.savedPlan = result.weeks }
                         return true
                     }
                     return false
@@ -82,10 +84,27 @@ class AuthService: ObservableObject {
         }
     }
 
-    func markOnboardingComplete() {
+    func markOnboardingComplete(plan: [TrainingWeek]? = nil) {
         guard let uid = currentUserID else { return }
         onboardingComplete = true
         UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
+
+        if let plan {
+            savedPlan = plan
+            Task {
+                let metadata = PlanMetadata(
+                    generatedAt: Date(),
+                    generatedBy: "llm-generated",
+                    raceId: nil,
+                    approved: true
+                )
+                do {
+                    try await FirestoreService.shared.saveTrainingPlan(plan, metadata: metadata, for: uid)
+                } catch {
+                    print("[AUTH] Failed to save plan to Firestore: \(error)")
+                }
+            }
+        }
     }
 
     deinit {

@@ -136,6 +136,8 @@ struct SettingsView: View {
     @State private var showSignOutAlert = false
     @State private var showReOnboardAlert = false
     @State private var showRestorePlanAlert = false
+    @State private var isRegeneratingPlan = false
+    @State private var regenerateError: String?
     @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var body: some View {
@@ -222,6 +224,26 @@ struct SettingsView: View {
                     }
                     .foregroundColor(.blue)
 
+                    Button {
+                        regeneratePlan()
+                    } label: {
+                        HStack {
+                            Text("Regenerate Plan")
+                            Spacer()
+                            if isRegeneratingPlan {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .foregroundColor(.blue)
+                    .disabled(isRegeneratingPlan)
+
+                    if let error = regenerateError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
+
                     Button("Restore Original Plan") {
                         showRestorePlanAlert = true
                     }
@@ -270,6 +292,40 @@ struct SettingsView: View {
                 }
             } message: {
                 Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
+            }
+        }
+    }
+
+    private func regeneratePlan() {
+        guard let savedInput = PlanGenerationInput.load() else {
+            regenerateError = "No saved onboarding data. Use 'Generate New Plan' instead."
+            return
+        }
+        isRegeneratingPlan = true
+        regenerateError = nil
+        Task {
+            do {
+                let plan = try await PlanGenerationService.shared.generateFullPlan(input: savedInput)
+                await MainActor.run {
+                    trainingPlan.loadPlan(plan)
+                    if let uid = authService.currentUserID {
+                        let metadata = PlanMetadata(
+                            generatedAt: Date(),
+                            generatedBy: "llm-generated",
+                            raceId: nil,
+                            approved: true
+                        )
+                        Task {
+                            try? await FirestoreService.shared.saveTrainingPlan(plan, metadata: metadata, for: uid)
+                        }
+                    }
+                    isRegeneratingPlan = false
+                }
+            } catch {
+                await MainActor.run {
+                    regenerateError = error.localizedDescription
+                    isRegeneratingPlan = false
+                }
             }
         }
     }

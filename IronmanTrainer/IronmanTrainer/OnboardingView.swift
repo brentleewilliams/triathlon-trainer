@@ -5,7 +5,7 @@ import SwiftUI
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     @StateObject private var chatViewModel = ChatViewModel(skipHistory: true)
-    var onComplete: () -> Void
+    var onComplete: ([TrainingWeek]) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
@@ -1241,6 +1241,7 @@ struct FitnessChatStep: View {
             VStack(spacing: 0) {
                 if showPlanButton {
                     Button {
+                        viewModel.startPlanGeneration(chatMessages: chatViewModel.messages)
                         viewModel.advance()
                     } label: {
                         HStack {
@@ -1415,7 +1416,7 @@ struct QuickReplyButtons: View {
 
 struct PlanReviewStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
-    var onComplete: () -> Void
+    var onComplete: ([TrainingWeek]) -> Void
 
     private var weeksUntilRace: Int {
         guard let race = viewModel.raceSearchResult else { return 0 }
@@ -1432,6 +1433,31 @@ struct PlanReviewStep: View {
     }
 
     private var planPhases: [(name: String, weeks: String, description: String, color: Color)] {
+        // If we have a generated plan, derive phases from it
+        if let plan = viewModel.generatedPlan {
+            var phaseGroups: [(name: String, startWeek: Int, endWeek: Int)] = []
+            for week in plan {
+                if let last = phaseGroups.last, last.name == week.phase {
+                    phaseGroups[phaseGroups.count - 1] = (last.name, last.startWeek, week.weekNumber)
+                } else {
+                    phaseGroups.append((week.phase, week.weekNumber, week.weekNumber))
+                }
+            }
+            let phaseColors: [String: Color] = [
+                "Base": .blue, "Build": .orange, "Peak": .red,
+                "Taper": .green, "Race Week": .purple, "Race Prep": .purple,
+                "Recovery": .mint
+            ]
+            return phaseGroups.map { group in
+                let color = phaseColors.first { group.name.contains($0.key) }?.value ?? .gray
+                let weekStr = group.startWeek == group.endWeek
+                    ? "Week \(group.startWeek)"
+                    : "Weeks \(group.startWeek)–\(group.endWeek)"
+                return (group.name, weekStr, "", color)
+            }
+        }
+
+        // Fallback: estimate from weeks until race
         let total = weeksUntilRace
         guard total > 0 else { return [] }
         let taper = min(2, max(1, total / 8))
@@ -1473,7 +1499,12 @@ struct PlanReviewStep: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                        if weeksUntilRace > 0 {
+                        if let plan = viewModel.generatedPlan {
+                            Text("\(plan.count) weeks of training")
+                                .font(.headline)
+                                .foregroundStyle(.blue)
+                                .padding(.top, 2)
+                        } else if weeksUntilRace > 0 {
                             Text("\(weeksUntilRace) weeks of training")
                                 .font(.headline)
                                 .foregroundStyle(.blue)
@@ -1486,6 +1517,57 @@ struct PlanReviewStep: View {
                         .foregroundStyle(.blue)
                     Text("Your Training Plan")
                         .font(.title3.weight(.bold))
+                }
+
+                // Loading state
+                if viewModel.isGeneratingPlan {
+                    PlanSummaryCard {
+                        VStack(spacing: 16) {
+                            ProgressView()
+                                .scaleEffect(1.2)
+                            Text("Generating your personalized plan...")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text("This may take a minute")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 20)
+                    }
+                }
+
+                // Error state
+                if let error = viewModel.planGenerationError {
+                    PlanSummaryCard {
+                        VStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.orange)
+                            Text("Plan generation failed")
+                                .font(.subheadline.weight(.semibold))
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                            Button {
+                                viewModel.startPlanGeneration()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Retry")
+                                }
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(Color.blue)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                            }
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                    }
                 }
 
                 // Goal card
@@ -1540,49 +1622,63 @@ struct PlanReviewStep: View {
                 }
 
                 // Plan phases
-                PlanSummaryCard {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Training Phases")
-                            .font(.subheadline.weight(.semibold))
+                if !planPhases.isEmpty {
+                    PlanSummaryCard {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Training Phases")
+                                .font(.subheadline.weight(.semibold))
 
-                        ForEach(Array(planPhases.enumerated()), id: \.offset) { _, phase in
-                            HStack(alignment: .top, spacing: 10) {
-                                Circle()
-                                    .fill(phase.color)
-                                    .frame(width: 10, height: 10)
-                                    .padding(.top, 4)
-                                VStack(alignment: .leading, spacing: 2) {
-                                    HStack {
-                                        Text(phase.name)
-                                            .font(.subheadline.weight(.medium))
-                                        Spacer()
-                                        Text(phase.weeks)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
+                            ForEach(Array(planPhases.enumerated()), id: \.offset) { _, phase in
+                                HStack(alignment: .top, spacing: 10) {
+                                    Circle()
+                                        .fill(phase.color)
+                                        .frame(width: 10, height: 10)
+                                        .padding(.top, 4)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        HStack {
+                                            Text(phase.name)
+                                                .font(.subheadline.weight(.medium))
+                                            Spacer()
+                                            Text(phase.weeks)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        if !phase.description.isEmpty {
+                                            Text(phase.description)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
-                                    Text(phase.description)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
                                 }
                             }
                         }
                     }
                 }
 
-                // Weekly structure preview
+                // Weekly structure preview (from generated plan week 1, or fallback)
                 PlanSummaryCard {
                     VStack(alignment: .leading, spacing: 10) {
                         Text("Typical Week")
                             .font(.subheadline.weight(.semibold))
 
-                        HStack(spacing: 0) {
-                            WeekDayBlock(day: "M", activity: "Swim", color: .cyan)
-                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
-                            WeekDayBlock(day: "W", activity: "Bike", color: .green)
-                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
-                            WeekDayBlock(day: "F", activity: "Swim", color: .cyan)
-                            WeekDayBlock(day: "S", activity: "Bike", color: .green)
-                            WeekDayBlock(day: "S", activity: "Rest", color: .gray.opacity(0.3))
+                        if let week1 = viewModel.generatedPlan?.first {
+                            HStack(spacing: 0) {
+                                ForEach(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"], id: \.self) { dayName in
+                                    let workout = week1.workouts.first { $0.day == dayName }
+                                    let (shortDay, activity, color) = weekDayInfo(dayName: dayName, workout: workout)
+                                    WeekDayBlock(day: shortDay, activity: activity, color: color)
+                                }
+                            }
+                        } else {
+                            HStack(spacing: 0) {
+                                WeekDayBlock(day: "M", activity: "Swim", color: .cyan)
+                                WeekDayBlock(day: "T", activity: "Run", color: .orange)
+                                WeekDayBlock(day: "W", activity: "Bike", color: .green)
+                                WeekDayBlock(day: "T", activity: "Run", color: .orange)
+                                WeekDayBlock(day: "F", activity: "Swim", color: .cyan)
+                                WeekDayBlock(day: "S", activity: "Bike", color: .green)
+                                WeekDayBlock(day: "S", activity: "Rest", color: .gray.opacity(0.3))
+                            }
                         }
                     }
                 }
@@ -1590,8 +1686,10 @@ struct PlanReviewStep: View {
                 // Action buttons
                 VStack(spacing: 12) {
                     Button {
-                        viewModel.planApproved = true
-                        onComplete()
+                        if let plan = viewModel.generatedPlan {
+                            viewModel.planApproved = true
+                            onComplete(plan)
+                        }
                     } label: {
                         HStack {
                             Image(systemName: "checkmark.circle.fill")
@@ -1601,9 +1699,10 @@ struct PlanReviewStep: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.blue)
+                        .background(viewModel.generatedPlan != nil ? Color.blue : Color.gray)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
+                    .disabled(viewModel.generatedPlan == nil)
 
                     Button {
                         viewModel.goBack()
@@ -1619,6 +1718,20 @@ struct PlanReviewStep: View {
             }
             .padding(.horizontal, 16)
         }
+    }
+
+    private func weekDayInfo(dayName: String, workout: DayWorkout?) -> (String, String, Color) {
+        let shortDays: [String: String] = ["Mon": "M", "Tue": "T", "Wed": "W", "Thu": "T", "Fri": "F", "Sat": "S", "Sun": "S"]
+        let short = shortDays[dayName] ?? String(dayName.prefix(1))
+        guard let w = workout else { return (short, "Rest", .gray.opacity(0.3)) }
+        let type = w.type.lowercased()
+        if type.contains("swim") { return (short, "Swim", .cyan) }
+        if type.contains("bike") && type.contains("run") || type.contains("brick") { return (short, "Brick", .purple) }
+        if type.contains("bike") { return (short, "Bike", .green) }
+        if type.contains("run") { return (short, "Run", .orange) }
+        if type.contains("strength") { return (short, "Strength", .pink) }
+        if type.contains("rest") { return (short, "Rest", .gray.opacity(0.3)) }
+        return (short, String(w.type.prefix(5)), .gray)
     }
 }
 

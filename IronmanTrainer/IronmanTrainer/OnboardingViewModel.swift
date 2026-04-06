@@ -112,8 +112,11 @@ class OnboardingViewModel: ObservableObject {
     @Published var fitnessInjuries: String = ""
     @Published var fitnessEquipment: String = ""
 
-    // Plan approval (step 6)
+    // Plan generation (step 6)
     @Published var planApproved = false
+    @Published var generatedPlan: [TrainingWeek]?
+    @Published var isGeneratingPlan = false
+    @Published var planGenerationError: String?
 
     var totalSteps: Int { OnboardingStep.allCases.count }
     var progressPercent: Double { Double(currentStep.rawValue + 1) / Double(totalSteps) }
@@ -343,6 +346,84 @@ class OnboardingViewModel: ObservableObject {
             homeElevationM: nil,
             onboardingComplete: true,
             createdAt: Date()
+        )
+    }
+
+    // MARK: - Plan Generation
+
+    func startPlanGeneration(chatMessages: [ChatMessage] = []) {
+        guard !isGeneratingPlan else { return }
+        isGeneratingPlan = true
+        planGenerationError = nil
+        generatedPlan = nil
+
+        Task {
+            do {
+                let input = buildPlanGenerationInput(chatMessages: chatMessages)
+                input.save() // Save for regeneration from Settings
+                let plan = try await PlanGenerationService.shared.generateFullPlan(input: input)
+                generatedPlan = plan
+            } catch {
+                planGenerationError = error.localizedDescription
+            }
+            isGeneratingPlan = false
+        }
+    }
+
+    func buildPlanGenerationInput(chatMessages: [ChatMessage] = []) -> PlanGenerationInput {
+        let race = buildRace() ?? Race(
+            name: "Race",
+            date: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date(),
+            location: "TBD",
+            type: .triathlon,
+            distances: [:],
+            courseType: "road",
+            userGoal: .justComplete
+        )
+
+        let profile = buildUserProfile(uid: AuthService.shared.currentUserID ?? "")
+
+        // Build HK summary string
+        var hkSummary: String?
+        if let hkProfile = hkProfile {
+            var parts: [String] = []
+            if let vol = hkProfile.recentWeeklyVolume {
+                parts.append("Weekly avg: Swim \(Int(vol.avgSwimYardsPerWeek))yd, Bike \(String(format: "%.1f", vol.avgBikeHoursPerWeek))hrs, Run \(String(format: "%.1f", vol.avgRunMilesPerWeek))mi (\(String(format: "%.1f", vol.avgWorkoutsPerWeek)) workouts/wk over \(vol.periodWeeks) weeks)")
+            }
+            if !hkProfile.recentWorkoutDetails.isEmpty {
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "MMM d"
+                let recentLines = hkProfile.recentWorkoutDetails.prefix(10).map { w in
+                    var line = "\(dateFormatter.string(from: w.date)): \(w.type) \(Int(w.durationMinutes))min"
+                    if let dist = w.distanceMiles { line += " \(String(format: "%.1f", dist))mi" }
+                    return line
+                }
+                parts.append("Recent: " + recentLines.joined(separator: "; "))
+            }
+            if !parts.isEmpty { hkSummary = parts.joined(separator: "\n") }
+        }
+
+        // Build chat summary
+        var chatSummary: String?
+        if !chatMessages.isEmpty {
+            let lines = chatMessages.map { msg in
+                "\(msg.isUser ? "Athlete" : "Coach"): \(msg.text)"
+            }
+            chatSummary = lines.joined(separator: "\n")
+        }
+
+        return PlanGenerationInput(
+            race: race,
+            profile: profile,
+            swimLevel: swimLevel,
+            bikeLevel: bikeLevel,
+            runLevel: runLevel,
+            fitnessHours: fitnessHours,
+            fitnessSchedule: fitnessSchedule,
+            fitnessInjuries: fitnessInjuries,
+            fitnessEquipment: fitnessEquipment,
+            hkSummary: hkSummary,
+            chatSummary: chatSummary
         )
     }
 

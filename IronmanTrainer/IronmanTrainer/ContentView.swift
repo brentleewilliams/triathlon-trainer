@@ -1,9 +1,15 @@
 import SwiftUI
 
 struct ContentView: View {
-    @StateObject private var trainingPlan = TrainingPlanManager()
+    @StateObject private var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
+
+    init() {
+        let plan = AuthService.shared.savedPlan
+        _trainingPlan = StateObject(wrappedValue: TrainingPlanManager(weeks: plan))
+    }
+
     var body: some View {
         TabView {
             HomeView()
