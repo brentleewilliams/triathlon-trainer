@@ -19,8 +19,8 @@ struct IronmanTrainerApp: App {
                 } else if !authService.isAuthenticated {
                     SignInView()
                 } else if !authService.onboardingComplete {
-                    OnboardingView(onComplete: {
-                        authService.markOnboardingComplete()
+                    OnboardingView(onComplete: { plan in
+                        authService.markOnboardingComplete(plan: plan)
                     })
                     .environmentObject(authService)
                     .environmentObject(healthKitManager)

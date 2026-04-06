@@ -181,13 +181,16 @@ class TrainingPlanManager: ObservableObject {
     @Published var currentPlanVersion: NSManagedObject?
     @Published var previousPlanVersion: NSManagedObject?
 
-    private let planStartDate: Date = {
+    private var planStartDate: Date {
+        if let firstStart = weeks.first?.startDate {
+            return firstStart
+        }
         var components = DateComponents()
         components.year = 2026
         components.month = 3
         components.day = 23
         return Calendar.current.date(from: components) ?? Date()
-    }()
+    }
 
     private lazy var container: NSPersistentContainer = {
         let container = NSPersistentContainer(name: "IronmanTrainer")
@@ -217,6 +220,18 @@ class TrainingPlanManager: ObservableObject {
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
+    init(weeks externalWeeks: [TrainingWeek]?, useInMemoryStore: Bool = false) {
+        self.useInMemoryStore = useInMemoryStore
+        if let externalWeeks, !externalWeeks.isEmpty {
+            self.weeks = externalWeeks
+        } else {
+            setupTrainingPlan()
+        }
+        calculateCurrentWeek()
+        loadPlanVersions()
+        AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
     func calculateCurrentWeek() {
         let calendar = Calendar.current
         let today = Date()
@@ -224,8 +239,8 @@ class TrainingPlanManager: ObservableObject {
         let daysSinceStart = calendar.dateComponents([.day], from: planStartDate, to: today).day ?? 0
         let weekNumber = (daysSinceStart / 7) + 1
 
-        // Clamp between 1 and 17
-        currentWeekNumber = max(1, min(17, weekNumber))
+        // Clamp between 1 and total weeks
+        currentWeekNumber = max(1, min(weeks.count, weekNumber))
     }
 
     func getWeek(_ weekNumber: Int) -> TrainingWeek? {
@@ -236,6 +251,13 @@ class TrainingPlanManager: ObservableObject {
     func restoreHardcodedPlan() {
         weeks = []
         setupTrainingPlan()
+        AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
+    /// Replace current plan with externally generated weeks
+    func loadPlan(_ newWeeks: [TrainingWeek]) {
+        weeks = newWeeks
+        calculateCurrentWeek()
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
