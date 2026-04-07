@@ -4,8 +4,6 @@ import PhotosUI
 // MARK: - Chat View
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
-    @EnvironmentObject var trainingPlan: TrainingPlanManager
-    @EnvironmentObject var healthKit: HealthKitManager
 
     var body: some View {
         NavigationStack {

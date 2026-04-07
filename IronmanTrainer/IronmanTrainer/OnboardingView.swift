@@ -274,6 +274,8 @@ struct ProfileStep: View {
     @State private var weightLbs: String = ""
     // Track which HK fields user has tapped to edit
     @State private var editing: Set<String> = []
+    // Local state for text fields — avoids publishing to viewModel on every keystroke
+    @State private var localHomeZip: String = ""
 
     var body: some View {
         ScrollView {
@@ -298,7 +300,7 @@ struct ProfileStep: View {
                             editing.insert("location")
                         }
                     } else {
-                        OnboardingTextField(label: "Home Training Area (zip code)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
+                        OnboardingTextField(label: "Home Training Area (zip code)", text: $localHomeZip, placeholder: "e.g. 80202")
                     }
 
                     // Date of Birth
@@ -415,6 +417,8 @@ struct ProfileStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+        .onAppear { localHomeZip = viewModel.homeZip }
+        .onDisappear { viewModel.homeZip = localHomeZip }
     }
 
     private func updateHeightCm() {
@@ -796,6 +800,7 @@ struct RaceDetailRow: View {
 
 struct GoalSettingStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @State private var localCustomGoal: String = ""
 
     var body: some View {
         ScrollView {
@@ -855,8 +860,9 @@ struct GoalSettingStep: View {
 
                 // Custom goal text field
                 if viewModel.goalType == .custom {
-                    TextField("e.g., Qualify for Boston, run/walk strategy...", text: $viewModel.customGoalText)
+                    TextField("e.g., Qualify for Boston, run/walk strategy...", text: $localCustomGoal)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled()
                         .padding(.horizontal, 16)
                         .transition(.opacity.combined(with: .move(edge: .top)))
                 }
@@ -1030,6 +1036,8 @@ struct GoalSettingStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+        .onAppear { localCustomGoal = viewModel.customGoalText }
+        .onDisappear { viewModel.customGoalText = localCustomGoal }
         .onChange(of: viewModel.targetHours) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.targetMinutes) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.goalType) { _, _ in viewModel.validateGoal() }
