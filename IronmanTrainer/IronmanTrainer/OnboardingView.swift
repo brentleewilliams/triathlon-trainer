@@ -14,30 +14,32 @@ struct OnboardingView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-            // Content area
-            TabView(selection: $viewModel.currentStep) {
-                HealthKitPermissionStep(viewModel: viewModel)
-                    .tag(OnboardingStep.healthKit)
-
-                ProfileStep(viewModel: viewModel)
-                    .tag(OnboardingStep.profile)
-
-                RaceSearchStep(viewModel: viewModel)
-                    .tag(OnboardingStep.raceSearch)
-
-                GoalSettingStep(viewModel: viewModel)
-                    .tag(OnboardingStep.goalSetting)
-
-                FitnessChatStep(viewModel: viewModel, chatViewModel: chatViewModel)
-                    .tag(OnboardingStep.fitnessChat)
-
-                PlanReviewStep(viewModel: viewModel, onComplete: onComplete)
-                    .tag(OnboardingStep.planReview)
+            // Content area — no swipe between steps, button-only navigation
+            Group {
+                switch viewModel.currentStep {
+                case .healthKit:
+                    HealthKitPermissionStep(viewModel: viewModel)
+                case .profile:
+                    ProfileStep(viewModel: viewModel)
+                case .raceSearch:
+                    RaceSearchStep(viewModel: viewModel)
+                case .goalSetting:
+                    GoalSettingStep(viewModel: viewModel)
+                case .fitnessChat:
+                    FitnessChatStep(viewModel: viewModel, chatViewModel: chatViewModel)
+                case .tutorial:
+                    TutorialStep(viewModel: viewModel)
+                case .planReview:
+                    PlanReviewStep(viewModel: viewModel, onComplete: onComplete)
+                }
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .animation(.easeInOut, value: viewModel.currentStep)
+            .transition(.asymmetric(
+                insertion: .move(edge: .trailing),
+                removal: .move(edge: .leading)
+            ))
+            .animation(.easeInOut(duration: 0.3), value: viewModel.currentStep)
 
-            // Navigation buttons
+            // Navigation buttons (hidden during fitness chat which has its own input bar)
             if viewModel.currentStep != .fitnessChat {
                 OnboardingNavBar(viewModel: viewModel)
                     .padding(.horizontal, 20)
@@ -61,6 +63,7 @@ struct OnboardingProgressBar: View {
         case .raceSearch: return "Your Race"
         case .goalSetting: return "Goals"
         case .fitnessChat: return "Fitness Assessment"
+        case .tutorial: return "Getting Started"
         case .planReview: return "Your Plan"
         }
     }
@@ -105,6 +108,8 @@ struct OnboardingNavBar: View {
             return viewModel.allSkillsSelected
         case .fitnessChat:
             return true
+        case .tutorial:
+            return viewModel.minimumWeeksLoaded
         case .planReview:
             return false // Plan review has its own buttons
         }
@@ -1241,8 +1246,7 @@ struct FitnessChatStep: View {
             VStack(spacing: 0) {
                 if showPlanButton {
                     Button {
-                        viewModel.startPlanGeneration(chatMessages: chatViewModel.messages)
-                        viewModel.advance()
+                        viewModel.advance(chatMessages: chatViewModel.messages)
                     } label: {
                         HStack {
                             Image(systemName: "doc.text.fill")
@@ -1297,7 +1301,10 @@ struct FitnessChatStep: View {
         switch userMsgCount {
         case 1: viewModel.fitnessHours = reply.value
         case 2: viewModel.fitnessSchedule = reply.value
-        case 3: viewModel.fitnessInjuries = reply.value
+        case 3:
+            viewModel.fitnessInjuries = reply.value
+            // Start plan generation early — we have hours, schedule, and injuries
+            viewModel.startEarlyPlanGeneration(chatMessages: chatViewModel.messages)
         case 4: viewModel.fitnessEquipment = reply.value
         default: break
         }
@@ -1445,7 +1452,256 @@ struct QuickReplyButtons: View {
     }
 }
 
-// MARK: - Step 6: Plan Review
+// MARK: - Step 6: Tutorial
+
+struct TutorialStep: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+    @State private var tutorialPage = 0
+
+    var body: some View {
+        VStack(spacing: 0) {
+            TabView(selection: $tutorialPage) {
+                // Page 1: Your Week at a Glance
+                ScrollView {
+                    VStack(spacing: 24) {
+                        Spacer().frame(height: 40)
+
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.blue)
+
+                        Text("Your Week at a Glance")
+                            .font(.title2.weight(.bold))
+
+                        Text("Each day shows your planned workout type at a glance")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+
+                        // Example week blocks
+                        HStack(spacing: 0) {
+                            WeekDayBlock(day: "M", activity: "Swim", color: .cyan)
+                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
+                            WeekDayBlock(day: "W", activity: "Bike", color: .green)
+                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
+                            WeekDayBlock(day: "F", activity: "Swim", color: .cyan)
+                            WeekDayBlock(day: "S", activity: "Bike", color: .green)
+                            WeekDayBlock(day: "S", activity: "Rest", color: .gray.opacity(0.3))
+                        }
+                        .padding(.horizontal, 24)
+
+                        // Legend
+                        VStack(spacing: 8) {
+                            HStack(spacing: 16) {
+                                TutorialLegendItem(color: .cyan, label: "Swim")
+                                TutorialLegendItem(color: .green, label: "Bike")
+                                TutorialLegendItem(color: .orange, label: "Run")
+                            }
+                            HStack(spacing: 16) {
+                                TutorialLegendItem(color: .purple, label: "Brick")
+                                TutorialLegendItem(color: .yellow, label: "Strength")
+                                TutorialLegendItem(color: .gray.opacity(0.3), label: "Rest")
+                            }
+                        }
+                        .padding(.top, 8)
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .tag(0)
+
+                // Page 2: Track Your Progress
+                ScrollView {
+                    VStack(spacing: 24) {
+                        Spacer().frame(height: 40)
+
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.green)
+
+                        Text("Track Your Progress")
+                            .font(.title2.weight(.bold))
+
+                        Text("Your workouts sync automatically from Apple Health. Completed workouts show a green checkmark.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+
+                        // Mock workout row with checkmark
+                        VStack(spacing: 0) {
+                            TutorialMockWorkoutRow(type: "Run", duration: "45 min", zone: "Z2", completed: true)
+                            Divider()
+                            TutorialMockWorkoutRow(type: "Swim", duration: "30 min", zone: "Z1-Z2", completed: true)
+                            Divider()
+                            TutorialMockWorkoutRow(type: "Bike", duration: "60 min", zone: "Z2-Z3", completed: false)
+                        }
+                        .background(Color(.systemGray6))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 24)
+
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.text.square.fill")
+                                .foregroundStyle(.red)
+                            Text("Powered by Apple Health")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .tag(1)
+
+                // Page 3: Your AI Coach
+                ScrollView {
+                    VStack(spacing: 24) {
+                        Spacer().frame(height: 40)
+
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.system(size: 56))
+                            .foregroundStyle(.blue)
+
+                        Text("Your AI Coach")
+                            .font(.title2.weight(.bold))
+
+                        Text("Ask your coach about today's workout, get pacing advice, or reschedule training days.")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+
+                        // Mock chat bubbles
+                        VStack(alignment: .leading, spacing: 8) {
+                            TutorialChatBubble(text: "What should I focus on in today's swim?", isUser: true)
+                            TutorialChatBubble(text: "Focus on your catch and pull technique. Aim for 1:50/100yd pace in the main set.", isUser: false)
+                        }
+                        .padding(.horizontal, 24)
+
+                        Spacer().frame(height: 16)
+
+                        // Plan generation progress
+                        if viewModel.isGeneratingPlan {
+                            VStack(spacing: 12) {
+                                ProgressView()
+                                Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal, 24)
+                        } else if viewModel.minimumWeeksLoaded {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.green)
+                            Text("Your plan is ready!")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.green)
+                        }
+
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                }
+                .tag(2)
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            // Page dots
+            HStack(spacing: 8) {
+                ForEach(0..<3, id: \.self) { index in
+                    Circle()
+                        .fill(tutorialPage == index ? Color.blue : Color(.systemGray4))
+                        .frame(width: 8, height: 8)
+                        .animation(.easeInOut(duration: 0.2), value: tutorialPage)
+                }
+            }
+            .padding(.bottom, 8)
+        }
+    }
+}
+
+struct TutorialLegendItem: View {
+    let color: Color
+    let label: String
+
+    var body: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 3)
+                .fill(color)
+                .frame(width: 16, height: 16)
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct TutorialMockWorkoutRow: View {
+    let type: String
+    let duration: String
+    let zone: String
+    let completed: Bool
+
+    private var typeColor: Color {
+        switch type.lowercased() {
+        case "swim": return .cyan
+        case "bike": return .green
+        case "run": return .orange
+        default: return .gray
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Circle()
+                .fill(typeColor)
+                .frame(width: 8, height: 8)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(type)
+                    .font(.subheadline.weight(.medium))
+                Text("\(duration) \u{2022} \(zone)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            if completed {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.title3)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+    }
+}
+
+struct TutorialChatBubble: View {
+    let text: String
+    let isUser: Bool
+
+    var body: some View {
+        HStack {
+            if isUser { Spacer() }
+            Text(text)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .background(isUser ? Color.blue : Color(.systemGray5))
+                .foregroundStyle(isUser ? .white : .primary)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            if !isUser { Spacer() }
+        }
+    }
+}
+
+// MARK: - Step 7: Plan Review
 
 struct PlanReviewStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -1558,12 +1814,18 @@ struct PlanReviewStep: View {
                         VStack(spacing: 16) {
                             ProgressView()
                                 .scaleEffect(1.2)
-                            Text("Generating your personalized plan...")
+                            Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
-                            Text("This may take a minute")
-                                .font(.caption)
-                                .foregroundStyle(.tertiary)
+                            if let plan = viewModel.generatedPlan, !plan.isEmpty {
+                                Text("\(plan.count) weeks loaded so far")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            } else {
+                                Text("This may take a minute")
+                                    .font(.caption)
+                                    .foregroundStyle(.tertiary)
+                            }
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 20)

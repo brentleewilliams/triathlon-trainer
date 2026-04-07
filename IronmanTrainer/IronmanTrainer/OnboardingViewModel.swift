@@ -7,7 +7,8 @@ enum OnboardingStep: Int, CaseIterable {
     case raceSearch = 2
     case goalSetting = 3
     case fitnessChat = 4
-    case planReview = 5
+    case tutorial = 5
+    case planReview = 6
 }
 
 @MainActor
@@ -123,11 +124,17 @@ class OnboardingViewModel: ObservableObject {
     @Published var fitnessInjuries: String = ""
     @Published var fitnessEquipment: String = ""
 
-    // Plan generation (step 6)
+    // Plan generation (step 7)
     @Published var planApproved = false
     @Published var generatedPlan: [TrainingWeek]?
     @Published var isGeneratingPlan = false
     @Published var planGenerationError: String?
+    @Published var planBatchesCompleted = 0
+    @Published var planTotalBatches = 3
+
+    var minimumWeeksLoaded: Bool {
+        (generatedPlan?.count ?? 0) >= 4
+    }
 
     var totalSteps: Int { OnboardingStep.allCases.count }
     var progressPercent: Double { Double(currentStep.rawValue + 1) / Double(totalSteps) }
@@ -158,10 +165,24 @@ class OnboardingViewModel: ObservableObject {
         return true
     }
 
-    func advance() {
+    /// Stored chat messages for plan generation (set when advancing from fitnessChat)
+    private var storedChatMessages: [ChatMessage] = []
+
+    func advance(chatMessages: [ChatMessage] = []) {
+        // Store chat messages when leaving fitnessChat (plan gen already started earlier)
+        if currentStep == .fitnessChat {
+            storedChatMessages = chatMessages
+        }
         if let next = OnboardingStep(rawValue: currentStep.rawValue + 1) {
             withAnimation { currentStep = next }
         }
+    }
+
+    /// Call this as soon as the injuries question is answered (3rd question)
+    /// to start plan generation early while user finishes remaining questions + tutorial.
+    func startEarlyPlanGeneration(chatMessages: [ChatMessage]) {
+        storedChatMessages = chatMessages
+        startPlanGeneration(chatMessages: chatMessages)
     }
 
     func goBack() {
@@ -275,18 +296,56 @@ class OnboardingViewModel: ObservableObject {
         isGeneratingPlan = true
         planGenerationError = nil
         generatedPlan = nil
+        planBatchesCompleted = 0
 
         Task {
             // Keep the network request alive if the user backgrounds the app
             let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
-            do {
-                let input = buildPlanGenerationInput(chatMessages: chatMessages)
-                input.save() // Save for regeneration from Settings
-                let plan = try await LLMProxyService.shared.generatePlan(input: input)
-                generatedPlan = plan
-            } catch {
-                planGenerationError = error.localizedDescription
+
+            let input = buildPlanGenerationInput(chatMessages: chatMessages)
+            input.save() // Save for regeneration from Settings
+
+            let totalWeeks = max(4, Calendar.current.dateComponents(
+                [.weekOfYear], from: Date(), to: input.race.date
+            ).weekOfYear ?? 12)
+
+            // Split into batches of ~5 weeks each (dynamic for any plan length)
+            let batchSize = 5
+            var batches: [(start: Int, end: Int)] = []
+            var week = 1
+            while week <= totalWeeks {
+                let end = min(week + batchSize - 1, totalWeeks)
+                batches.append((start: week, end: end))
+                week = end + 1
             }
+
+            planTotalBatches = batches.count
+
+            for batch in batches {
+                do {
+                    let weeks = try await LLMProxyService.shared.generatePlanBatch(
+                        input: input,
+                        weekStart: batch.start,
+                        weekEnd: batch.end,
+                        totalWeeks: totalWeeks
+                    )
+                    if generatedPlan == nil {
+                        generatedPlan = weeks
+                    } else {
+                        generatedPlan?.append(contentsOf: weeks)
+                    }
+                    planBatchesCompleted += 1
+                } catch {
+                    // If we already have enough weeks, silently stop; otherwise surface error
+                    if minimumWeeksLoaded {
+                        print("[PlanGen] Batch \(batch.start)-\(batch.end) failed but have \(generatedPlan?.count ?? 0) weeks, continuing")
+                    } else {
+                        planGenerationError = error.localizedDescription
+                    }
+                    break
+                }
+            }
+
             isGeneratingPlan = false
             UIApplication.shared.endBackgroundTask(taskID)
         }

@@ -187,6 +187,29 @@ class LLMProxyService {
         return try parsePlanJSON(planData)
     }
 
+    // MARK: - 5. Plan Generation (Batch)
+
+    func generatePlanBatch(input: PlanGenerationInput, weekStart: Int, weekEnd: Int, totalWeeks: Int) async throws -> [TrainingWeek] {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let inputData = try encoder.encode(input)
+        guard let inputDict = try JSONSerialization.jsonObject(with: inputData) as? [String: Any] else {
+            throw ClaudeServiceError.invalidRequest
+        }
+
+        let body: [String: Any] = [
+            "type": "planGenerationBatch",
+            "input": inputDict,
+            "weekStart": weekStart,
+            "weekEnd": weekEnd,
+            "totalWeeks": totalWeeks
+        ]
+
+        let data = try await performRequest(body: body, timeout: 180)
+        let planData = try extractResultData(from: data)
+        return try parsePlanJSON(planData)
+    }
+
     // MARK: - Request Infrastructure
 
     private func buildRequest(body: [String: Any], timeout: TimeInterval) async throws -> URLRequest {
