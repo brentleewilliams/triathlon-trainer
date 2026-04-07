@@ -1331,7 +1331,7 @@ struct FitnessChatStep: View {
                     timestamp: Date()
                 )
                 chatViewModel.messages.append(msg)
-                withAnimation { quickReplies = Self.equipmentReplies }
+                withAnimation { quickReplies = self.equipmentRepliesForRaceType() }
             } else {
                 // Done with quick questions → open it up
                 let msg = ChatMessage(
@@ -1385,6 +1385,39 @@ struct FitnessChatStep: View {
         QuickReply(label: "Minimal", value: "Minimal — running shoes and a gym membership"),
         QuickReply(label: "Home only", value: "Home only — treadmill/trainer, no pool"),
     ]
+
+    static let runningEquipmentReplies = [
+        QuickReply(label: "Full setup", value: "Full setup — running shoes, GPS watch, gym access, outdoor trails"),
+        QuickReply(label: "Basics", value: "Basics — running shoes and outdoor routes"),
+        QuickReply(label: "Gym access", value: "Gym access — treadmill, strength equipment"),
+        QuickReply(label: "Home only", value: "Home only — treadmill, basic gear"),
+    ]
+
+    static let cyclingEquipmentReplies = [
+        QuickReply(label: "Full setup", value: "Full setup — road bike, trainer, power meter, outdoor routes"),
+        QuickReply(label: "Basics", value: "Basics — bike, helmet, outdoor routes"),
+        QuickReply(label: "Indoor", value: "Indoor — bike trainer or spin bike"),
+        QuickReply(label: "Minimal", value: "Minimal — bike and helmet only"),
+    ]
+
+    static let swimmingEquipmentReplies = [
+        QuickReply(label: "Full setup", value: "Full setup — pool access, wetsuit, paddles, pull buoy"),
+        QuickReply(label: "Basics", value: "Basics — pool access, goggles, swim cap"),
+        QuickReply(label: "Open water", value: "Open water access — lake or ocean, wetsuit"),
+        QuickReply(label: "Pool only", value: "Pool only — lap pool access"),
+    ]
+
+    func equipmentRepliesForRaceType() -> [QuickReply] {
+        let sports = viewModel.relevantSports
+        if sports == ["run"] {
+            return Self.runningEquipmentReplies
+        } else if sports == ["bike"] {
+            return Self.cyclingEquipmentReplies
+        } else if sports == ["swim"] {
+            return Self.swimmingEquipmentReplies
+        }
+        return Self.equipmentReplies
+    }
 }
 
 struct QuickReplyButtons: View {
@@ -1615,7 +1648,14 @@ struct PlanReviewStep: View {
                                 PlanDetailRow(icon: "cross.circle.fill", label: "Injuries", value: injury)
                             }
                             if let equip = chatAnswers["equipment"] {
-                                PlanDetailRow(icon: "bicycle", label: "Equipment", value: equip)
+                                let equipIcon: String = {
+                                    let sports = viewModel.relevantSports
+                                    if sports == ["run"] { return "figure.run" }
+                                    if sports == ["swim"] { return "figure.pool.swim" }
+                                    if sports == ["bike"] { return "bicycle" }
+                                    return "bicycle"
+                                }()
+                                PlanDetailRow(icon: equipIcon, label: "Equipment", value: equip)
                             }
                         }
                     }
