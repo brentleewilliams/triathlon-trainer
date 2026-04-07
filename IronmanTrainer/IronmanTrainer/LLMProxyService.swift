@@ -250,7 +250,7 @@ class LLMProxyService {
             "templateParams": paramsDict
         ]
 
-        let data = try await performRequest(body: body, timeout: 60)
+        let data = try await performRequest(body: body, timeout: 120)
 
         // Parse outer response for result, method, and warnings
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

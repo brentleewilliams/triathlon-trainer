@@ -291,6 +291,7 @@ class OnboardingViewModel: ObservableObject {
         planGenerationError = nil
         generatedPlan = nil
         planBatchesCompleted = 0
+        planTotalBatches = 1
         planMethod = "template"
         planWarnings = []
 

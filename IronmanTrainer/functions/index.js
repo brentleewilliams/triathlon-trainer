@@ -141,7 +141,10 @@ function getOpenAIClient() {
 }
 
 function getAnthropicClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return new Anthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    timeout: 240000, // 4 minutes — needed for large plan generation calls
+  });
 }
 
 /**
@@ -173,6 +176,44 @@ async function callLLM({ messages, model, temperature, maxTokens }) {
   } else {
     throw new Error(`Unsupported model: ${model}`);
   }
+}
+
+/**
+ * LLM call with Anthropic web search tool. The model can search the web to
+ * ground its response in real data (e.g. race dates, locations). Falls back
+ * to a plain callLLM for non-Claude models.
+ */
+async function callLLMWithWebSearch({ messages, model, temperature, maxTokens }) {
+  // Web search is only available via Anthropic API
+  if (!model.startsWith("claude-")) {
+    return callLLM({ messages, model, temperature, maxTokens });
+  }
+
+  const client = getAnthropicClient();
+  const systemMsg = messages.find((m) => m.role === "system");
+  const nonSystem = messages.filter((m) => m.role !== "system");
+
+  const resp = await client.messages.create({
+    model,
+    max_tokens: maxTokens,
+    temperature,
+    system: systemMsg ? systemMsg.content : undefined,
+    messages: nonSystem,
+    tools: [
+      {
+        type: "web_search_20250305",
+        name: "web_search",
+        max_uses: 3,
+      },
+    ],
+  });
+
+  // Extract all text blocks from the response (the model may interleave
+  // tool_use / web_search_tool_result / text blocks).
+  return resp.content
+    .filter((block) => block.type === "text")
+    .map((block) => block.text)
+    .join("");
 }
 
 /**
@@ -381,7 +422,9 @@ async function handleRaceSearch(req, res) {
   const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", { today: todayStr });
   messages.push({ role: "user", content: `Today's date is ${todayStr}. Only return races that have not yet occurred (date must be after today). If the race has already happened this year, return the next future occurrence.\n\nRace search query: ${query}` });
 
-  const raw = await callLLM({ messages, model, temperature, maxTokens });
+  // Use Anthropic web search tool so the model can look up real race details
+  // instead of hallucinating dates and locations.
+  const raw = await callLLMWithWebSearch({ messages, model, temperature, maxTokens });
   const result = stripMarkdownFences(raw);
   // Try to return parsed JSON so client gets a proper object
   try { res.status(200).json({ result: JSON.parse(result) }); }
@@ -399,7 +442,8 @@ async function handlePrepRaceSearch(req, res) {
   const { messages, model, temperature, maxTokens } = await formatPrompt("prep-race-search", { today: todayStr });
   messages.push({ role: "user", content: `Today's date is ${todayStr}. Only return races that have not yet occurred (date must be after today).\n\nRace search query: ${query}` });
 
-  const raw = await callLLM({ messages, model, temperature, maxTokens });
+  // Use web search for real race data instead of hallucinated dates
+  const raw = await callLLMWithWebSearch({ messages, model, temperature, maxTokens });
   const result = stripMarkdownFences(raw);
   try { res.status(200).json({ result: JSON.parse(result) }); }
   catch { res.status(200).json({ result }); }
@@ -557,7 +601,7 @@ async function handlePlanGenerationBatch(req, res) {
 
   console.log(`[planGenBatch] weeks=${pass1Vars.weeks_available}, goal=${pass1Vars.goal}, race_date=${pass1Vars.race_date}`);
 
-  // Pass 1: Generate plan structure for the batch subset
+  // Pass 1: Generate plan structure for the batch subset (streaming to avoid 60s timeout)
   const pass1Result = await withRetry(async () => {
     const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-summary", pass1Vars);
     messages.push({
@@ -565,15 +609,25 @@ async function handlePlanGenerationBatch(req, res) {
       content: `Generate weeks ${weekStart}-${weekEnd} of my ${totalWeeks}-week training plan. Start dates should continue sequentially from the plan start date ${planStartDate}. Return ONLY weeks ${weekStart} through ${weekEnd}.`,
     });
     const planMaxTokens = Math.max(maxTokens, 16384);
-    return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
+    let result = "";
+    await streamLLM({ messages, model, temperature, maxTokens: planMaxTokens,
+      onToken: (t) => { result += t; },
+      onDone: () => {},
+    });
+    return result;
   });
 
-  // Pass 2: Expand with details/nutrition
+  // Pass 2: Expand with details/nutrition (streaming to avoid 60s timeout)
   const finalResult = await withRetry(async () => {
     const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-details", pass2Vars);
     messages.push({ role: "user", content: `Add detailed notes and nutrition targets to this plan:\n${pass1Result}` });
     const planMaxTokens = Math.max(maxTokens, 16384);
-    return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
+    let result = "";
+    await streamLLM({ messages, model, temperature, maxTokens: planMaxTokens,
+      onToken: (t) => { result += t; },
+      onDone: () => {},
+    });
+    return result;
   });
 
   console.log(`[planGenBatch] pass1 length=${pass1Result.length}, pass2 length=${finalResult.length}`);
@@ -919,31 +973,10 @@ async function handlePlanFromTemplate(req, res) {
 
     console.log(`[planFromTemplate] skeleton built: ${skeleton.length} weeks`);
 
-    // Build vars for the customization prompt
-    const { pass1Vars } = buildPlanGenVars(input);
-    pass1Vars.weeks_available = String(totalWeeks);
-    const customizeVars = {
-      ...pass1Vars,
-      skeleton_json: JSON.stringify(skeleton),
-    };
-
-    // Single LLM call to customize the skeleton
-    const customized = await withRetry(async () => {
-      const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-customize", customizeVars);
-      messages.push({
-        role: "user",
-        content: `Customize and enhance this ${totalWeeks}-week training plan skeleton with personalized notes, nutrition targets, and any adjustments based on the athlete profile.`,
-      });
-      const planMaxTokens = Math.max(maxTokens, 16384);
-      return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
-    });
-
-    console.log(`[planFromTemplate] customized response length=${customized.length}`);
-
-    // Parse and return
-    const parsed = JSON.parse(stripMarkdownFences(customized));
-    console.log(`[planFromTemplate] parsed weeks=${Array.isArray(parsed) ? parsed.length : "not array"}`);
-    res.status(200).json({ result: parsed, method: "template", warnings: [] });
+    // Return skeleton directly — no LLM customization needed.
+    // The skeleton has correct phases, dates, zones, and nutrition targets.
+    // Athletes can refine via the coaching chat after onboarding.
+    res.status(200).json({ result: skeleton, method: "template", warnings: [] });
   } catch (err) {
     console.error(`[planFromTemplate] template path failed, falling back to batch:`, err.message);
     try {

@@ -634,8 +634,10 @@ struct RaceSearchStep: View {
 
                 // Results
                 if let result = viewModel.raceSearchResult {
-                    RaceResultCard(result: result)
-                        .padding(.horizontal, 16)
+                    RaceResultCard(result: result) { newDate in
+                        viewModel.raceSearchResult = result.withDate(newDate)
+                    }
+                    .padding(.horizontal, 16)
 
                     Button {
                         viewModel.raceSearchResult = nil
@@ -674,11 +676,14 @@ struct RaceSearchStep: View {
 
 struct RaceResultCard: View {
     let result: RaceSearchResult
+    var onDateChange: ((Date) -> Void)?
 
-    private var dateString: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .long
-        return formatter.string(from: result.date)
+    @State private var selectedDate: Date
+
+    init(result: RaceSearchResult, onDateChange: ((Date) -> Void)? = nil) {
+        self.result = result
+        self.onDateChange = onDateChange
+        self._selectedDate = State(initialValue: result.date)
     }
 
     var body: some View {
@@ -692,7 +697,30 @@ struct RaceResultCard: View {
 
             Divider()
 
-            RaceDetailRow(icon: "calendar", label: "Date", value: dateString)
+            if onDateChange != nil {
+                HStack(spacing: 8) {
+                    Image(systemName: "calendar")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 20)
+                    Text("Date")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 80, alignment: .leading)
+                    DatePicker("", selection: $selectedDate, displayedComponents: .date)
+                        .datePickerStyle(.compact)
+                        .labelsHidden()
+                        .onChange(of: selectedDate) { _, newDate in
+                            onDateChange?(newDate)
+                        }
+                }
+            } else {
+                RaceDetailRow(icon: "calendar", label: "Date", value: {
+                    let formatter = DateFormatter()
+                    formatter.dateStyle = .long
+                    return formatter.string(from: result.date)
+                }())
+            }
             RaceDetailRow(icon: "mappin.and.ellipse", label: "Location", value: result.location)
             RaceDetailRow(icon: "figure.mixed.cardio", label: "Type", value: result.type.capitalized)
             RaceDetailRow(icon: "road.lanes", label: "Course", value: result.courseType.capitalized)
@@ -1599,6 +1627,12 @@ struct PlanReviewStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
     var onComplete: ([TrainingWeek]) -> Void
 
+    @State private var minimumSpinnerElapsed = false
+
+    private var isLoading: Bool {
+        viewModel.isGeneratingPlan || !minimumSpinnerElapsed
+    }
+
     private var weeksUntilRace: Int {
         guard let race = viewModel.raceSearchResult else { return 0 }
         return max(0, Calendar.current.dateComponents([.weekOfYear], from: Date(), to: race.date).weekOfYear ?? 0)
@@ -1700,37 +1734,35 @@ struct PlanReviewStep: View {
                 }
 
                 // Loading state
-                if viewModel.isGeneratingPlan {
-                    PlanSummaryCard {
-                        VStack(spacing: 16) {
-                            ProgressView()
-                                .scaleEffect(1.2)
-                            if viewModel.planMethod == "template" {
-                                Text("Building your plan...")
+                if isLoading {
+                    VStack(spacing: 20) {
+                        Spacer().frame(height: 40)
+                        ProgressView()
+                            .scaleEffect(1.6)
+                        VStack(spacing: 8) {
+                            Text("Building your AI plan...")
+                                .font(.title3.weight(.semibold))
+                            if !viewModel.isGeneratingPlan {
+                                Text("Almost ready")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            } else if viewModel.planMethod != "template" && viewModel.planBatchesCompleted > 0 {
+                                Text("(\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches) sections complete)")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             } else {
-                                Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
+                                Text("Personalizing based on your profile")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                if let plan = viewModel.generatedPlan, !plan.isEmpty {
-                                    Text("\(plan.count) weeks loaded so far")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                } else {
-                                    Text("This may take a minute")
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
-                                }
                             }
                         }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 20)
+                        Spacer()
                     }
+                    .frame(maxWidth: .infinity, minHeight: 300)
                 }
 
                 // Error state
-                if let error = viewModel.planGenerationError {
+                if !isLoading, let error = viewModel.planGenerationError {
                     PlanSummaryCard {
                         VStack(spacing: 12) {
                             Image(systemName: "exclamationmark.triangle.fill")
@@ -1761,6 +1793,9 @@ struct PlanReviewStep: View {
                         .padding(.vertical, 8)
                     }
                 }
+
+                // Plan details (hidden while loading)
+                if !isLoading { Group {
 
                 // Goal card
                 PlanSummaryCard {
@@ -1912,6 +1947,8 @@ struct PlanReviewStep: View {
                     .padding(.horizontal, 16)
                 }
 
+                }} // end if !isLoading / Group
+
                 // Action buttons
                 VStack(spacing: 12) {
                     Button {
@@ -1928,30 +1965,38 @@ struct PlanReviewStep: View {
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(viewModel.generatedPlan != nil ? Color.blue : Color.gray)
+                        .background(!isLoading && viewModel.generatedPlan != nil ? Color.blue : Color.gray)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
-                    .disabled(viewModel.generatedPlan == nil)
+                    .disabled(isLoading || viewModel.generatedPlan == nil)
 
-                    Button {
-                        viewModel.goBackToGoalSetting()
-                    } label: {
-                        Text("Go Back & Adjust")
-                            .font(.body)
-                            .foregroundStyle(.blue)
+                    if !isLoading {
+                        Button {
+                            viewModel.goBackToGoalSetting()
+                        } label: {
+                            Text("Go Back & Adjust")
+                                .font(.body)
+                                .foregroundStyle(.blue)
+                        }
+
+                        Text("You can adjust your plan anytime by chatting with your AI coach.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 4)
                     }
-
-                    Text("You can adjust your plan anytime by chatting with your AI coach.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 4)
                 }
                 .padding(.horizontal, 16)
 
                 Spacer().frame(height: 20)
             }
             .padding(.horizontal, 16)
+        }
+        .onAppear {
+            minimumSpinnerElapsed = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                minimumSpinnerElapsed = true
+            }
         }
     }
 
