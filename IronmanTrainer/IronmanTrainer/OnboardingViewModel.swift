@@ -221,7 +221,22 @@ class OnboardingViewModel: ObservableObject {
         error = nil
 
         do {
-            let result = try await searchRaceWithClaude(query: raceSearchQuery)
+            var result = try await searchRaceWithClaude(query: raceSearchQuery)
+            // Ensure race date is in the future; bump to next year if needed
+            let now = Date()
+            if result.date < now {
+                var dateComponents = Calendar.current.dateComponents([.month, .day], from: result.date)
+                let currentYear = Calendar.current.component(.year, from: now)
+                dateComponents.year = currentYear
+                if let candidateDate = Calendar.current.date(from: dateComponents), candidateDate > now {
+                    result = result.withDate(candidateDate)
+                } else {
+                    dateComponents.year = currentYear + 1
+                    if let nextYear = Calendar.current.date(from: dateComponents) {
+                        result = result.withDate(nextYear)
+                    }
+                }
+            }
             raceSearchResult = result
         } catch {
             self.error = "Could not find race details: \(error.localizedDescription)"
@@ -388,4 +403,11 @@ struct RaceSearchResult: Codable {
     let elevationGainM: Double?
     let elevationAtVenueM: Double?
     let historicalWeather: String?
+
+    func withDate(_ newDate: Date) -> RaceSearchResult {
+        RaceSearchResult(name: name, date: newDate, location: location, type: type,
+                         distances: distances, courseType: courseType,
+                         elevationGainM: elevationGainM, elevationAtVenueM: elevationAtVenueM,
+                         historicalWeather: historicalWeather)
+    }
 }

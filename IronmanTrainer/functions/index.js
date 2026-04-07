@@ -375,8 +375,9 @@ async function handleRaceSearch(req, res) {
     return;
   }
 
-  const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", {});
-  messages.push({ role: "user", content: `Race search query: ${query}` });
+  const todayStr = new Date().toISOString().split("T")[0];
+  const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", { today: todayStr });
+  messages.push({ role: "user", content: `Today's date is ${todayStr}. Only return races that have not yet occurred (date must be after today). If the race has already happened this year, return the next future occurrence.\n\nRace search query: ${query}` });
 
   const raw = await callLLM({ messages, model, temperature, maxTokens });
   const result = stripMarkdownFences(raw);
