@@ -124,7 +124,7 @@ struct OnboardingNavBar: View {
 
             Spacer()
 
-            if viewModel.currentStep != .planReview {
+            if viewModel.currentStep != .planReview && viewModel.currentStep != .tutorial {
                 Button {
                     viewModel.advance()
                 } label: {
@@ -1349,14 +1349,17 @@ struct TutorialStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @State private var tutorialPage = 0
 
+    private let totalPages = 3
+
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $tutorialPage) {
-                // Page 1: Your Week at a Glance
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Spacer().frame(height: 40)
+            // Slide content
+            ScrollView {
+                VStack(spacing: 24) {
+                    Spacer().frame(height: 40)
 
+                    if tutorialPage == 0 {
+                        // Page 1: Your Week at a Glance
                         Image(systemName: "calendar.badge.clock")
                             .font(.system(size: 56))
                             .foregroundStyle(.blue)
@@ -1370,7 +1373,6 @@ struct TutorialStep: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
 
-                        // Example week blocks
                         HStack(spacing: 0) {
                             WeekDayBlock(day: "M", activity: "Swim", color: .cyan)
                             WeekDayBlock(day: "T", activity: "Run", color: .orange)
@@ -1382,7 +1384,6 @@ struct TutorialStep: View {
                         }
                         .padding(.horizontal, 24)
 
-                        // Legend
                         VStack(spacing: 8) {
                             HStack(spacing: 16) {
                                 TutorialLegendItem(color: .cyan, label: "Swim")
@@ -1397,17 +1398,8 @@ struct TutorialStep: View {
                         }
                         .padding(.top, 8)
 
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                }
-                .tag(0)
-
-                // Page 2: Track Your Progress
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Spacer().frame(height: 40)
-
+                    } else if tutorialPage == 1 {
+                        // Page 2: Track Your Progress
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 56))
                             .foregroundStyle(.green)
@@ -1421,7 +1413,6 @@ struct TutorialStep: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
 
-                        // Mock workout row with checkmark
                         VStack(spacing: 0) {
                             TutorialMockWorkoutRow(type: "Run", duration: "45 min", zone: "Z2", completed: true)
                             Divider()
@@ -1441,17 +1432,8 @@ struct TutorialStep: View {
                                 .foregroundStyle(.secondary)
                         }
 
-                        Spacer()
-                    }
-                    .padding(.horizontal, 16)
-                }
-                .tag(1)
-
-                // Page 3: Your AI Coach
-                ScrollView {
-                    VStack(spacing: 24) {
-                        Spacer().frame(height: 40)
-
+                    } else {
+                        // Page 3: Your AI Coach
                         Image(systemName: "bubble.left.and.bubble.right.fill")
                             .font(.system(size: 56))
                             .foregroundStyle(.blue)
@@ -1465,7 +1447,6 @@ struct TutorialStep: View {
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
 
-                        // Mock chat bubbles
                         VStack(alignment: .leading, spacing: 8) {
                             TutorialChatBubble(text: "What should I focus on in today's swim?", isUser: true)
                             TutorialChatBubble(text: "Focus on your catch and pull technique. Aim for 1:50/100yd pace in the main set.", isUser: false)
@@ -1474,11 +1455,11 @@ struct TutorialStep: View {
 
                         Spacer().frame(height: 16)
 
-                        // Plan generation progress
+                        // Plan generation status
                         if viewModel.isGeneratingPlan {
-                            VStack(spacing: 12) {
+                            HStack(spacing: 10) {
                                 ProgressView()
-                                Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
+                                Text("Building your plan...")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
                             }
@@ -1488,21 +1469,21 @@ struct TutorialStep: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.horizontal, 24)
                         } else if viewModel.minimumWeeksLoaded {
-                            Image(systemName: "checkmark.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.green)
-                            Text("Your plan is ready!")
-                                .font(.subheadline.weight(.medium))
-                                .foregroundStyle(.green)
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Your plan is ready!")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(.green)
+                            }
                         } else if viewModel.planGenerationError != nil {
-                            VStack(spacing: 12) {
+                            VStack(spacing: 10) {
                                 Image(systemName: "exclamationmark.triangle.fill")
                                     .font(.title2)
                                     .foregroundStyle(.orange)
-                                Text("Plan generation failed. Please try again.")
+                                Text("Plan generation failed.")
                                     .font(.subheadline)
                                     .foregroundStyle(.secondary)
-                                    .multilineTextAlignment(.center)
                                 Button {
                                     viewModel.retryPlanGeneration()
                                 } label: {
@@ -1524,25 +1505,37 @@ struct TutorialStep: View {
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.horizontal, 24)
                         }
-
-                        Spacer()
                     }
-                    .padding(.horizontal, 16)
-                }
-                .tag(2)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
 
-            // Page dots
-            HStack(spacing: 8) {
-                ForEach(0..<3, id: \.self) { index in
-                    Circle()
-                        .fill(tutorialPage == index ? Color.blue : Color(.systemGray4))
-                        .frame(width: 8, height: 8)
-                        .animation(.easeInOut(duration: 0.2), value: tutorialPage)
+                    Spacer()
                 }
+                .padding(.horizontal, 16)
             }
-            .padding(.bottom, 8)
+
+            // Continue button
+            VStack(spacing: 0) {
+                Divider()
+                Button {
+                    if tutorialPage < totalPages - 1 {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            tutorialPage += 1
+                        }
+                    } else {
+                        viewModel.advance()
+                    }
+                } label: {
+                    Text(tutorialPage < totalPages - 1 ? "Continue" : (viewModel.minimumWeeksLoaded ? "See Your Plan" : "Please wait..."))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(tutorialPage == totalPages - 1 && !viewModel.minimumWeeksLoaded ? Color.gray : Color.blue)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                }
+                .disabled(tutorialPage == totalPages - 1 && !viewModel.minimumWeeksLoaded)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 16)
+            }
         }
     }
 }
