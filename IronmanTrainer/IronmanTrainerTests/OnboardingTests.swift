@@ -355,6 +355,316 @@ final class OnboardingStepTests: XCTestCase {
     }
 }
 
+// MARK: - OnboardingFlow Tests
+
+@MainActor
+final class OnboardingFlowTests: XCTestCase {
+
+    var viewModel: OnboardingViewModel!
+
+    override func setUp() {
+        super.setUp()
+        viewModel = OnboardingViewModel()
+    }
+
+    // MARK: - Helpers
+
+    private func makeRaceSearchResult(
+        name: String,
+        type: String,
+        distances: [String: Double],
+        daysFromNow: Int = 120
+    ) -> RaceSearchResult {
+        let futureDate = Calendar.current.date(byAdding: .day, value: daysFromNow, to: Date()) ?? Date()
+        return RaceSearchResult(
+            name: name,
+            date: futureDate,
+            location: "Test Location",
+            type: type,
+            distances: distances,
+            courseType: "road",
+            elevationGainM: 300.0,
+            elevationAtVenueM: 100.0,
+            historicalWeather: "Partly cloudy, 70°F"
+        )
+    }
+
+    // MARK: - Scenario 1: Half Ironman (70.3) — triathlon, timeTarget, spread
+
+    func testHalfIronman_classifyRaceForTemplate() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        let classification = viewModel.classifyRaceForTemplate()
+        XCTAssertNotNil(classification)
+        XCTAssertEqual(classification?.category, "triathlon")
+        XCTAssertEqual(classification?.subtype, "70.3")
+    }
+
+    func testHalfIronman_validateGoal_noWarning() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 6
+        viewModel.targetMinutes = 0
+        viewModel.validateGoal()
+        XCTAssertNil(viewModel.goalValidationWarning)
+    }
+
+    func testHalfIronman_buildPlanGenerationInput() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 6
+        viewModel.targetMinutes = 0
+        viewModel.schedulePattern = .spread
+        viewModel.userName = "Brent"
+
+        let input = viewModel.buildPlanGenerationInput()
+
+        XCTAssertEqual(input.race.name, "Ironman 70.3 Oregon")
+        XCTAssertEqual(input.race.distances["swim"], 1.2)
+        XCTAssertEqual(input.race.distances["bike"], 56.0)
+        XCTAssertEqual(input.race.distances["run"], 13.1)
+        XCTAssertEqual(input.fitnessHours, SchedulePattern.spread.label)
+        XCTAssertEqual(input.fitnessSchedule, SchedulePattern.spread.label)
+    }
+
+    func testHalfIronman_buildRace() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 6
+        viewModel.targetMinutes = 0
+
+        let race = viewModel.buildRace()
+        XCTAssertNotNil(race)
+        XCTAssertEqual(race?.type, .triathlon)
+        if case .timeTarget(let seconds) = race?.userGoal {
+            XCTAssertEqual(seconds, 21600, accuracy: 1)
+        } else {
+            XCTFail("Expected timeTarget goal")
+        }
+    }
+
+    func testHalfIronman_advanceFromGoalSettingTriggersGeneration() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 6
+        viewModel.targetMinutes = 0
+        viewModel.currentStep = .goalSetting
+
+        viewModel.advance()
+
+        XCTAssertEqual(viewModel.currentStep, .tutorial)
+        XCTAssertTrue(viewModel.isGeneratingPlan)
+    }
+
+    func testHalfIronman_strengthRecommended() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1]
+        )
+        XCTAssertTrue(viewModel.strengthRecommended)
+    }
+
+    // MARK: - Scenario 2: 10K Run — running, justComplete, weekendWarrior
+
+    func testTenK_classifyRaceForTemplate() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        let classification = viewModel.classifyRaceForTemplate()
+        XCTAssertNotNil(classification)
+        XCTAssertEqual(classification?.category, "running")
+        XCTAssertEqual(classification?.subtype, "10k")
+    }
+
+    func testTenK_validateGoal_noWarningForJustComplete() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        viewModel.goalType = .justComplete
+        viewModel.validateGoal()
+        XCTAssertNil(viewModel.goalValidationWarning)
+    }
+
+    func testTenK_buildPlanGenerationInput() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        viewModel.goalType = .justComplete
+        viewModel.schedulePattern = .weekendWarrior
+        viewModel.userName = "Brent"
+
+        let input = viewModel.buildPlanGenerationInput()
+
+        XCTAssertEqual(input.race.name, "Denver 10K")
+        XCTAssertEqual(input.race.distances["run"], 6.2)
+        XCTAssertEqual(input.fitnessHours, SchedulePattern.weekendWarrior.label)
+        XCTAssertEqual(input.fitnessSchedule, SchedulePattern.weekendWarrior.label)
+    }
+
+    func testTenK_buildRace() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        viewModel.goalType = .justComplete
+
+        let race = viewModel.buildRace()
+        XCTAssertNotNil(race)
+        XCTAssertEqual(race?.type, .running)
+        if case .justComplete = race?.userGoal {
+            // pass
+        } else {
+            XCTFail("Expected justComplete goal")
+        }
+    }
+
+    func testTenK_advanceFromGoalSettingTriggersGeneration() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        viewModel.goalType = .justComplete
+        viewModel.schedulePattern = .weekendWarrior
+        viewModel.currentStep = .goalSetting
+
+        viewModel.advance()
+
+        XCTAssertEqual(viewModel.currentStep, .tutorial)
+        XCTAssertTrue(viewModel.isGeneratingPlan)
+    }
+
+    func testTenK_strengthNotRecommended() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Denver 10K",
+            type: "running",
+            distances: ["run": 6.2]
+        )
+        XCTAssertFalse(viewModel.strengthRecommended)
+    }
+
+    // MARK: - Scenario 3: Marathon — running, timeTarget, compressed
+
+    func testMarathon_classifyRaceForTemplate() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        let classification = viewModel.classifyRaceForTemplate()
+        XCTAssertNotNil(classification)
+        XCTAssertEqual(classification?.category, "running")
+        XCTAssertEqual(classification?.subtype, "marathon")
+    }
+
+    func testMarathon_validateGoal_noWarning() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 4
+        viewModel.targetMinutes = 30
+        viewModel.validateGoal()
+        XCTAssertNil(viewModel.goalValidationWarning)
+    }
+
+    func testMarathon_buildPlanGenerationInput() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 4
+        viewModel.targetMinutes = 30
+        viewModel.schedulePattern = .compressed
+        viewModel.userName = "Brent"
+
+        let input = viewModel.buildPlanGenerationInput()
+
+        XCTAssertEqual(input.race.name, "Chicago Marathon")
+        XCTAssertEqual(input.race.distances["run"], 26.2)
+        XCTAssertEqual(input.fitnessHours, SchedulePattern.compressed.label)
+        XCTAssertEqual(input.fitnessSchedule, SchedulePattern.compressed.label)
+    }
+
+    func testMarathon_buildRace() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 4
+        viewModel.targetMinutes = 30
+
+        let race = viewModel.buildRace()
+        XCTAssertNotNil(race)
+        XCTAssertEqual(race?.type, .running)
+        if case .timeTarget(let seconds) = race?.userGoal {
+            XCTAssertEqual(seconds, 16200, accuracy: 1) // 4h30m = 16200s
+        } else {
+            XCTFail("Expected timeTarget goal")
+        }
+    }
+
+    func testMarathon_advanceFromGoalSettingTriggersGeneration() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        viewModel.goalType = .timeTarget
+        viewModel.targetHours = 4
+        viewModel.targetMinutes = 30
+        viewModel.schedulePattern = .compressed
+        viewModel.currentStep = .goalSetting
+
+        viewModel.advance()
+
+        XCTAssertEqual(viewModel.currentStep, .tutorial)
+        XCTAssertTrue(viewModel.isGeneratingPlan)
+    }
+
+    func testMarathon_strengthRecommended() {
+        viewModel.raceSearchResult = makeRaceSearchResult(
+            name: "Chicago Marathon",
+            type: "running",
+            distances: ["run": 26.2]
+        )
+        XCTAssertTrue(viewModel.strengthRecommended)
+    }
+}
+
 // MARK: - HealthKitOnboardingProfile Tests
 
 final class HealthKitOnboardingProfileTests: XCTestCase {
