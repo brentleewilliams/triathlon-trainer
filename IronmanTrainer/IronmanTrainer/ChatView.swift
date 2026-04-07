@@ -12,6 +12,10 @@ struct ChatView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
+                        if viewModel.messages.isEmpty && !viewModel.isLoading {
+                            CoachWelcomeView()
+                        }
+
                         ForEach(viewModel.messages) { message in
                             ChatBubble(message: message)
                                 .id(message.id)
@@ -262,6 +266,58 @@ struct PlanChangeCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.systemGray6))
         )
+    }
+}
+
+// MARK: - Coach Welcome View
+
+struct CoachWelcomeView: View {
+    var body: some View {
+        VStack(spacing: 16) {
+            Spacer().frame(height: 60)
+
+            Image(systemName: "bubble.left.and.bubble.right.fill")
+                .font(.system(size: 48))
+                .foregroundStyle(.blue.opacity(0.6))
+
+            Text("Your AI Coach")
+                .font(.title3.weight(.semibold))
+
+            Text("Ask about today's workout, get pacing advice, request schedule changes, or send a photo for form feedback.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 32)
+
+            VStack(alignment: .leading, spacing: 10) {
+                SuggestionChip(text: "How should I pace my long run?")
+                SuggestionChip(text: "Can I swap today's swim to tomorrow?")
+                SuggestionChip(text: "What should I eat before my brick workout?")
+            }
+            .padding(.top, 8)
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+struct SuggestionChip: View {
+    let text: String
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "text.bubble")
+                .font(.caption)
+                .foregroundStyle(.blue)
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .background(Color(.systemGray6))
+        .clipShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
