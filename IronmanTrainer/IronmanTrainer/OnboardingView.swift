@@ -610,6 +610,9 @@ struct RaceSearchStep: View {
                 VStack(spacing: 12) {
                     TextField("e.g. Ironman 70.3 Oregon 2026", text: $localQuery)
                         .textFieldStyle(.roundedBorder)
+                        .autocorrectionDisabled()
+                        .textInputAutocapitalization(.words)
+                        .keyboardType(.default)
                         .focused($searchFocused)
                         .disabled(viewModel.isSearchingRace)
                         .onSubmit { performSearch() }

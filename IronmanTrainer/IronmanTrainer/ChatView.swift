@@ -130,6 +130,8 @@ struct ChatInputBar: View {
 
                 TextField("Message your coach...", text: $text)
                     .autocorrectionDisabled()
+                    .textInputAutocapitalization(.sentences)
+                    .keyboardType(.default)
                     .submitLabel(.send)
                     .padding(.vertical, 12)
                     .padding(.trailing, 16)
