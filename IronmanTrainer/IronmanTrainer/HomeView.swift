@@ -1100,6 +1100,15 @@ struct WorkoutDayRows: View {
         return "🏋️"
     }
 
+    /// Strip any leading emoji/symbol characters so the hardcoded plan's
+    /// embedded emojis don't double up with workoutEmoji().
+    func strippedType(_ type: String) -> String {
+        if let idx = type.firstIndex(where: { $0.isLetter }) {
+            return String(type[idx...])
+        }
+        return type
+    }
+
     var body: some View {
         let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate
 
@@ -1224,7 +1233,7 @@ struct WorkoutDayRows: View {
                                                     .background(Color.secondary.opacity(0.6))
                                                     .cornerRadius(4)
                                             }
-                                            Text(workoutEmoji(workout.type) + " " + workout.type)
+                                            Text(workoutEmoji(workout.type) + " " + strippedType(workout.type))
                                                 .fontWeight(.semibold)
                                         }
                                         Text("\(workout.duration) \u{2022} \(workout.zone)")

@@ -52,21 +52,34 @@ class AuthService: ObservableObject {
 
         print("[AuthService] checkForExistingPlan called for uid: \(uid)")
 
-        // First check local cache
+        // Try local plan cache first for instant startup
         if UserDefaults.standard.bool(forKey: "onboarding_complete_\(uid)") {
-            print("[AuthService] Local cache hit — skipping onboarding")
-            onboardingComplete = true
-            return
+            if let data = UserDefaults.standard.data(forKey: "saved_plan_\(uid)"),
+               let plan = try? JSONDecoder().decode([TrainingWeek].self, from: data) {
+                print("[AuthService] Local plan cache hit — loading plan instantly")
+                savedPlan = plan
+                onboardingComplete = true
+                return
+            }
+            // Cache flag set but no plan data — fall through to Firestore
+            print("[AuthService] Onboarding complete flag set but no local plan, checking Firestore...")
+        } else {
+            print("[AuthService] No local cache, checking Firestore...")
         }
 
-        print("[AuthService] No local cache, checking Firestore...")
-
-        // Then check Firestore (with timeout to avoid blocking on slow networks)
+        // Fetch from Firestore (with timeout to avoid blocking on slow networks)
         do {
             let found = try await withThrowingTaskGroup(of: Bool.self) { group in
                 group.addTask { [weak self] in
                     if let result = try await FirestoreService.shared.getTrainingPlan(for: uid) {
-                        await MainActor.run { self?.savedPlan = result.weeks }
+                        let plan = result.weeks
+                        await MainActor.run {
+                            self?.savedPlan = plan
+                            // Cache plan locally for fast future startups
+                            if let data = try? JSONEncoder().encode(plan) {
+                                UserDefaults.standard.set(data, forKey: "saved_plan_\(uid)")
+                            }
+                        }
                         return true
                     }
                     return false
@@ -87,9 +100,12 @@ class AuthService: ObservableObject {
                 UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
             }
         } catch {
-            // Network error — proceed to onboarding
+            // Network error — fall back to local cache flag if present
             print("[AuthService] Firestore check failed: \(error)")
-            onboardingComplete = false
+            if UserDefaults.standard.bool(forKey: "onboarding_complete_\(uid)") {
+                print("[AuthService] Network error, using local onboarding flag (no plan)")
+                onboardingComplete = true
+            }
         }
     }
 
@@ -100,6 +116,10 @@ class AuthService: ObservableObject {
 
         if let plan {
             savedPlan = plan
+            // Cache locally for instant future startups
+            if let data = try? JSONEncoder().encode(plan) {
+                UserDefaults.standard.set(data, forKey: "saved_plan_\(uid)")
+            }
             Task {
                 let metadata = PlanMetadata(
                     generatedAt: Date(),

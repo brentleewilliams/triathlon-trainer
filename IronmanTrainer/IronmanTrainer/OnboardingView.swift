@@ -1483,14 +1483,6 @@ struct TutorialStep: View {
                             .background(Color(.systemGray6))
                             .clipShape(RoundedRectangle(cornerRadius: 12))
                             .padding(.horizontal, 24)
-                        } else if viewModel.minimumWeeksLoaded {
-                            HStack(spacing: 8) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.green)
-                                Text("Your plan is ready!")
-                                    .font(.subheadline.weight(.medium))
-                                    .foregroundStyle(.green)
-                            }
                         } else if viewModel.planGenerationError != nil {
                             VStack(spacing: 10) {
                                 Image(systemName: "exclamationmark.triangle.fill")
