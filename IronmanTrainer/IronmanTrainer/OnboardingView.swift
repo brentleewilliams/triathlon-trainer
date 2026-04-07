@@ -1036,7 +1036,14 @@ struct GoalSettingStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
-        .onAppear { localCustomGoal = viewModel.customGoalText }
+        .onAppear {
+            localCustomGoal = viewModel.customGoalText
+            // Reset equipment if current value isn't valid for this race type
+            let opts = equipmentOptionsForRaceType()
+            if !opts.contains(where: { $0.value == viewModel.fitnessEquipment }) {
+                viewModel.fitnessEquipment = opts.first?.value ?? viewModel.fitnessEquipment
+            }
+        }
         .onDisappear { viewModel.customGoalText = localCustomGoal }
         .onChange(of: viewModel.targetHours) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.targetMinutes) { _, _ in viewModel.validateGoal() }
@@ -1531,7 +1538,7 @@ struct TutorialStep: View {
                         viewModel.advance()
                     }
                 } label: {
-                    Text(tutorialPage < totalPages - 1 ? "Continue" : (viewModel.minimumWeeksLoaded ? "See Your Plan" : "Please wait..."))
+                    Text(tutorialPage < totalPages - 1 ? "Continue" : (viewModel.minimumWeeksLoaded ? "Build My Plan" : "Please wait..."))
                         .font(.body.weight(.semibold))
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)

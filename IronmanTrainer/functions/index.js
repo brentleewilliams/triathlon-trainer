@@ -194,7 +194,7 @@ async function callLLMWithWebSearch({ messages, model, temperature, maxTokens })
   const nonSystem = messages.filter((m) => m.role !== "system");
 
   const resp = await client.messages.create({
-    model,
+    model: "claude-haiku-4-5-20251001",  // force Claude — web search requires Anthropic models
     max_tokens: maxTokens,
     temperature,
     system: systemMsg ? systemMsg.content : undefined,
@@ -425,14 +425,41 @@ async function handleRaceSearch(req, res) {
   const augmentedQuery = yearPattern.test(query) ? query : `${query} ${currentYear}`;
 
   const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", { today: todayStr });
-  messages.push({ role: "user", content: `Today's date is ${todayStr}. Search the web for the official race date — do not guess from memory. Only return races that have not yet occurred (date must be after today). If the race has already happened this year, search for the next future occurrence.\n\nRace search query: ${augmentedQuery}` });
+  messages.push({
+    role: "user",
+    content: `Today's date is ${todayStr}. You MUST use the web_search tool — do not use any date from your training data.
+
+Search strategy:
+1. Search: "${augmentedQuery} official race date"
+2. If needed, search: "${augmentedQuery} registration site:ironman.com OR site:athlinks.com OR site:runsignup.com"
+
+Requirements:
+- The race date MUST come from a web search result, not your memory
+- Only return future races (after today: ${todayStr})
+- If the ${currentYear} edition has already passed, find the next future occurrence
+- Include "sourceUrl" (the page where you found the date) in your JSON
+- Include "dateConfidence": "high" if date is from official race page, "low" if uncertain
+
+Race query: ${augmentedQuery}`
+  });
 
   // Use Anthropic web search tool so the model can look up real race details
   // instead of hallucinating dates and locations.
   const raw = await callLLMWithWebSearch({ messages, model, temperature, maxTokens });
   const result = stripMarkdownFences(raw);
   // Try to return parsed JSON so client gets a proper object
-  try { res.status(200).json({ result: JSON.parse(result) }); }
+  try {
+    const parsed = JSON.parse(result);
+    // Date validation: if the returned date is in the past, downgrade confidence
+    if (parsed.date) {
+      const raceDate = new Date(parsed.date);
+      const today = new Date(todayStr);
+      if (raceDate < today) {
+        parsed.dateConfidence = "low";
+      }
+    }
+    res.status(200).json({ result: parsed });
+  }
   catch { res.status(200).json({ result }); }
 }
 
