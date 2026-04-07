@@ -1089,6 +1089,17 @@ struct WorkoutDayRows: View {
         parent.isWorkoutCompleted(workout)
     }
 
+    func workoutEmoji(_ type: String) -> String {
+        let t = type.lowercased()
+        if t.contains("swim") { return "🏊" }
+        if t.contains("brick") || (t.contains("bike") && t.contains("run")) { return "🏊🚴🏃" }
+        if t.contains("bike") || t.contains("cycl") { return "🚴" }
+        if t.contains("run") { return "🏃" }
+        if t.contains("strength") || t.contains("gym") { return "💪" }
+        if t.contains("rest") || t.contains("recover") { return "😴" }
+        return "🏋️"
+    }
+
     var body: some View {
         let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate
 
@@ -1213,7 +1224,7 @@ struct WorkoutDayRows: View {
                                                     .background(Color.secondary.opacity(0.6))
                                                     .cornerRadius(4)
                                             }
-                                            Text(workout.type)
+                                            Text(workoutEmoji(workout.type) + " " + workout.type)
                                                 .fontWeight(.semibold)
                                         }
                                         Text("\(workout.duration) \u{2022} \(workout.zone)")
