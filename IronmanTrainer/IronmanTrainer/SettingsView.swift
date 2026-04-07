@@ -304,6 +304,7 @@ struct SettingsView: View {
         isRegeneratingPlan = true
         regenerateError = nil
         Task {
+            let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
             do {
                 let plan = try await LLMProxyService.shared.generatePlan(input: savedInput)
                 await MainActor.run {
@@ -327,6 +328,7 @@ struct SettingsView: View {
                     isRegeneratingPlan = false
                 }
             }
+            UIApplication.shared.endBackgroundTask(taskID)
         }
     }
 }

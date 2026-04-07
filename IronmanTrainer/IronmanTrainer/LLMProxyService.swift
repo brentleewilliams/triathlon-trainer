@@ -180,7 +180,7 @@ class LLMProxyService {
         ]
 
         // Plan generation can take a while (two LLM passes on the server)
-        let data = try await performRequest(body: body, timeout: 180)
+        let data = try await performRequest(body: body, timeout: 300)
 
         // Proxy returns { result: ... } — result may be a JSON object/array or a string
         let planData = try extractResultData(from: data)

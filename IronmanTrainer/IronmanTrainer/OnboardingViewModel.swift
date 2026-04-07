@@ -277,6 +277,8 @@ class OnboardingViewModel: ObservableObject {
         generatedPlan = nil
 
         Task {
+            // Keep the network request alive if the user backgrounds the app
+            let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
             do {
                 let input = buildPlanGenerationInput(chatMessages: chatMessages)
                 input.save() // Save for regeneration from Settings
@@ -286,6 +288,7 @@ class OnboardingViewModel: ObservableObject {
                 planGenerationError = error.localizedDescription
             }
             isGeneratingPlan = false
+            UIApplication.shared.endBackgroundTask(taskID)
         }
     }
 
