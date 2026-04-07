@@ -322,6 +322,32 @@ struct HomeView: View {
                     .cornerRadius(12)
                 }
 
+                // Weekly Volume Deviation Banner
+                if SubscriptionManager.shared.hasAccess(to: .weeklyVolumeDeviation),
+                   let week = currentWeek {
+                    let volume = WeeklyVolumeService.calculateWeeklyVolume(
+                        week: week,
+                        hkWorkouts: healthKit.workouts
+                    )
+                    if volume.plannedMinutes > 0 && !volume.isOnTrack {
+                        HStack(spacing: 8) {
+                            Image(systemName: volume.statusIcon)
+                                .foregroundColor(volumeStatusColor(volume))
+                            Text(volume.statusMessage)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                            Spacer()
+                            Text("\(Int(volume.actualMinutes))m / \(Int(volume.plannedMinutes))m")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(volumeStatusColor(volume).opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                }
+
                 ScrollView {
                     DayGroupsView(
                         dayGroups: workoutsByDay,
@@ -376,6 +402,12 @@ struct HomeView: View {
                 }
             }
         }
+    }
+
+    private func volumeStatusColor(_ volume: WeeklyVolumeResult) -> Color {
+        if volume.isOnTrack { return .green }
+        if abs(volume.deviationPercent) <= 50 { return .yellow }
+        return .red
     }
 }
 

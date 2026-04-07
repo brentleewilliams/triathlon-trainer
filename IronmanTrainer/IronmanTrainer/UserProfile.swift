@@ -6,6 +6,76 @@ enum RaceType: String, Codable, CaseIterable {
     case triathlon, running, cycling, swimming
 }
 
+// MARK: - Race Distance
+
+enum RaceDistance: String, Codable, CaseIterable {
+    case sprint        // Sprint Tri: 750m swim, 20km bike, 5km run
+    case olympic       // Olympic Tri: 1.5km swim, 40km bike, 10km run
+    case half          // 70.3: 1.2mi swim, 56mi bike, 13.1mi run
+    case full          // 140.6: 2.4mi swim, 112mi bike, 26.2mi run
+    case ultra         // Ultra-distance: longer than full Ironman
+
+    var displayName: String {
+        switch self {
+        case .sprint: return "Sprint"
+        case .olympic: return "Olympic"
+        case .half: return "70.3"
+        case .full: return "Full Ironman"
+        case .ultra: return "Ultra"
+        }
+    }
+
+    var typicalWeeks: ClosedRange<Int> {
+        switch self {
+        case .sprint: return 8...12
+        case .olympic: return 12...16
+        case .half: return 16...20
+        case .full: return 20...30
+        case .ultra: return 24...36
+        }
+    }
+
+    var swimDistance: String {
+        switch self {
+        case .sprint: return "750m"
+        case .olympic: return "1.5km"
+        case .half: return "1.2mi"
+        case .full: return "2.4mi"
+        case .ultra: return "Varies"
+        }
+    }
+
+    var bikeDistance: String {
+        switch self {
+        case .sprint: return "20km"
+        case .olympic: return "40km"
+        case .half: return "56mi"
+        case .full: return "112mi"
+        case .ultra: return "Varies"
+        }
+    }
+
+    var runDistance: String {
+        switch self {
+        case .sprint: return "5km"
+        case .olympic: return "10km"
+        case .half: return "13.1mi"
+        case .full: return "26.2mi"
+        case .ultra: return "Varies"
+        }
+    }
+
+    var weeklyVolumeRangeHours: ClosedRange<Double> {
+        switch self {
+        case .sprint: return 4...8
+        case .olympic: return 6...12
+        case .half: return 8...16
+        case .full: return 12...20
+        case .ultra: return 15...25
+        }
+    }
+}
+
 // MARK: - Goal Type
 
 enum GoalType: Codable, Equatable {
@@ -53,6 +123,7 @@ struct Race: Codable, Equatable {
     var date: Date
     var location: String
     var type: RaceType
+    var raceDistance: RaceDistance?
     var distances: [String: Double] // e.g., {"swim": 1.2, "bike": 56, "run": 13.1} in miles
     var courseType: String // road, trail, mixed
     var elevationGainM: Double?

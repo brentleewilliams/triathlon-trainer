@@ -150,6 +150,15 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         220 - getUserAge()
     }
 
+    var restingHeartRate: Int {
+        // Estimate resting HR from age. Overridable in future.
+        let age = getUserAge()
+        if age < 30 { return 60 }
+        if age < 40 { return 63 }
+        if age < 50 { return 65 }
+        return 68
+    }
+
     /// BPM zone boundaries derived from maxHeartRate using %maxHR thresholds.
     /// Single source of truth for both analytics and Claude coaching.
     var zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int) {

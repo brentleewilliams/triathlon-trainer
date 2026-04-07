@@ -132,6 +132,7 @@ class NotificationManager: ObservableObject {
 struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
     @ObservedObject var authService = AuthService.shared
+    @ObservedObject var subscriptionManager = SubscriptionManager.shared
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showSignOutAlert = false
     @State private var showReOnboardAlert = false
@@ -141,6 +142,42 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             Form {
+                Section(header: Text("Subscription")) {
+                    HStack {
+                        Image(systemName: subscriptionManager.effectiveTier.iconName)
+                            .foregroundColor(subscriptionManager.effectiveTier.color)
+                            .font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(subscriptionManager.effectiveTier.displayName) Plan")
+                                .fontWeight(.semibold)
+                            Text(subscriptionManager.effectiveTier.monthlyPrice)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        Spacer()
+                        if let daysLeft = subscriptionManager.trialDaysRemaining {
+                            Text("\(daysLeft)d trial")
+                                .font(.caption)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.orange.opacity(0.2))
+                                .cornerRadius(8)
+                        }
+                    }
+
+                    if subscriptionManager.effectiveTier != .ultra {
+                        NavigationLink {
+                            SubscriptionUpgradeView()
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.up.circle.fill")
+                                    .foregroundColor(.purple)
+                                Text("Upgrade Plan")
+                            }
+                        }
+                    }
+                }
+
                 Section(header: Text("Notifications")) {
                     Toggle("Morning Workout Reminder", isOn: $notificationManager.morningWorkoutReminder)
 
@@ -172,6 +209,38 @@ struct SettingsView: View {
                     HStack { Text("Z3"); Spacer(); Text("\(zones.z3)-\(zones.z4 - 1) bpm").foregroundColor(.secondary) }
                     HStack { Text("Z4"); Spacer(); Text("\(zones.z4)-\(zones.z5 - 1) bpm").foregroundColor(.secondary) }
                     HStack { Text("Z5"); Spacer(); Text("> \(zones.z5) bpm").foregroundColor(.secondary) }
+                }
+
+                if subscriptionManager.hasAccess(to: .trainingLoadTracking) {
+                    Section(header: Text("Training Load")) {
+                        let load = TrainingLoadService.calculateTrainingLoad(
+                            workouts: healthKit.workouts,
+                            restingHR: Double(healthKit.restingHeartRate),
+                            maxHR: Double(healthKit.maxHeartRate)
+                        )
+                        HStack {
+                            Text("Fitness (CTL)")
+                            Spacer()
+                            Text(String(format: "%.0f", load.fitness))
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Fatigue (ATL)")
+                            Spacer()
+                            Text(String(format: "%.0f", load.fatigue))
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Form (TSB)")
+                            Spacer()
+                            HStack(spacing: 4) {
+                                Image(systemName: load.formStatus.iconName)
+                                    .foregroundColor(formStatusColor(load.formStatus))
+                                Text(load.formStatus.displayName)
+                                    .foregroundColor(formStatusColor(load.formStatus))
+                            }
+                        }
+                    }
                 }
 
                 Section(header: Text("About")) {
@@ -268,6 +337,81 @@ struct SettingsView: View {
                 Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
             }
         }
+    }
+
+    private func formStatusColor(_ status: FormStatus) -> Color {
+        switch status {
+        case .fresh: return .blue
+        case .ready: return .green
+        case .tired: return .yellow
+        case .overreached: return .red
+        }
+    }
+}
+
+// MARK: - Subscription Upgrade View
+
+struct SubscriptionUpgradeView: View {
+    @ObservedObject var subscriptionManager = SubscriptionManager.shared
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        List {
+            ForEach(SubscriptionTier.allCases, id: \.self) { tier in
+                Section {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: tier.iconName)
+                                .font(.title2)
+                                .foregroundColor(tier.color)
+                            VStack(alignment: .leading) {
+                                Text(tier.displayName)
+                                    .font(.headline)
+                                Text(tier.monthlyPrice)
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+                            }
+                            Spacer()
+                            if subscriptionManager.effectiveTier == tier {
+                                Text("Current")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 4)
+                                    .background(tier.color.opacity(0.2))
+                                    .cornerRadius(8)
+                            }
+                        }
+
+                        ForEach(tier.features, id: \.self) { feature in
+                            HStack(spacing: 8) {
+                                Image(systemName: "checkmark")
+                                    .font(.caption)
+                                    .foregroundColor(tier.color)
+                                Text(feature.displayName)
+                                    .font(.caption)
+                            }
+                        }
+
+                        if subscriptionManager.effectiveTier != tier && tier != .free {
+                            Button {
+                                subscriptionManager.upgradeTo(tier)
+                                dismiss()
+                            } label: {
+                                Text("Select \(tier.displayName)")
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(tier.color)
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+        .navigationTitle("Choose Plan")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
