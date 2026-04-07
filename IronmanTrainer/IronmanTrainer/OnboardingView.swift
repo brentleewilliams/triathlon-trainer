@@ -1177,16 +1177,34 @@ struct FitnessChatStep: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Intro header
-            VStack(spacing: 8) {
-                Text("Fitness Assessment")
-                    .font(.headline)
-                Text("Chat with your AI coach to assess your fitness and build your plan.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
+            // Intro header with back button
+            ZStack {
+                // Back button on leading edge
+                HStack {
+                    Button {
+                        viewModel.goBack()
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "chevron.left")
+                            Text("Back")
+                        }
+                        .font(.body.weight(.medium))
+                    }
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+
+                // Centered title
+                VStack(spacing: 8) {
+                    Text("Fitness Assessment")
+                        .font(.headline)
+                    Text("Chat with your AI coach to assess your fitness and build your plan.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding(.horizontal, 56) // Leave room for back button
             }
-            .padding(.horizontal, 16)
             .padding(.vertical, 12)
 
             Divider()
@@ -1603,6 +1621,35 @@ struct TutorialStep: View {
                             Text("Your plan is ready!")
                                 .font(.subheadline.weight(.medium))
                                 .foregroundStyle(.green)
+                        } else if viewModel.planGenerationError != nil {
+                            VStack(spacing: 12) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .font(.title2)
+                                    .foregroundStyle(.orange)
+                                Text("Plan generation failed. Please try again.")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                    .multilineTextAlignment(.center)
+                                Button {
+                                    viewModel.retryPlanGeneration()
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "arrow.clockwise")
+                                        Text("Retry")
+                                    }
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 24)
+                                    .padding(.vertical, 10)
+                                    .background(Color.blue)
+                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                                }
+                            }
+                            .padding()
+                            .frame(maxWidth: .infinity)
+                            .background(Color(.systemGray6))
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
+                            .padding(.horizontal, 24)
                         }
 
                         Spacer()
@@ -2007,7 +2054,7 @@ struct PlanReviewStep: View {
                     .disabled(viewModel.generatedPlan == nil)
 
                     Button {
-                        viewModel.goBack()
+                        viewModel.goBackToGoalSetting()
                     } label: {
                         Text("Go Back & Adjust")
                             .font(.body)

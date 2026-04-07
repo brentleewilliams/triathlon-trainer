@@ -191,6 +191,16 @@ class OnboardingViewModel: ObservableObject {
         }
     }
 
+    /// Navigate back to goal setting (used by "Go Back & Adjust" on plan review)
+    func goBackToGoalSetting() {
+        withAnimation { currentStep = .goalSetting }
+    }
+
+    /// Retry plan generation after a failure
+    func retryPlanGeneration() {
+        startPlanGeneration(chatMessages: storedChatMessages)
+    }
+
     // MARK: - HealthKit Data Loading
 
     func loadHealthKitData() async {
