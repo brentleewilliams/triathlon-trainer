@@ -6,9 +6,8 @@ enum OnboardingStep: Int, CaseIterable {
     case profile = 1
     case raceSearch = 2
     case goalSetting = 3
-    case fitnessChat = 4
-    case tutorial = 5
-    case planReview = 6
+    case tutorial = 4
+    case planReview = 5
 }
 
 @MainActor
@@ -118,11 +117,9 @@ class OnboardingViewModel: ObservableObject {
     @Published var bikeLevel: SkillLevel?
     @Published var runLevel: SkillLevel?
 
-    // Fitness chat answers (step 5)
-    @Published var fitnessHours: String = ""
-    @Published var fitnessSchedule: String = ""
-    @Published var fitnessInjuries: String = ""
-    @Published var fitnessEquipment: String = ""
+    // Fitness details (collected in goal setting step)
+    @Published var fitnessInjuries: String = "No current injuries or limitations"
+    @Published var fitnessEquipment: String = "Full setup — bike trainer, pool access, gym, outdoor routes"
 
     // Plan generation (step 7)
     @Published var planApproved = false
@@ -171,24 +168,19 @@ class OnboardingViewModel: ObservableObject {
         return true
     }
 
-    /// Stored chat messages for plan generation (set when advancing from fitnessChat)
-    private var storedChatMessages: [ChatMessage] = []
-
-    func advance(chatMessages: [ChatMessage] = []) {
-        // Store chat messages when leaving fitnessChat (plan gen already started earlier)
-        if currentStep == .fitnessChat {
-            storedChatMessages = chatMessages
+    func advance() {
+        // When advancing from goalSetting, trigger plan generation
+        if currentStep == .goalSetting {
+            startEarlyPlanGeneration()
         }
         if let next = OnboardingStep(rawValue: currentStep.rawValue + 1) {
             withAnimation { currentStep = next }
         }
     }
 
-    /// Call this as soon as the injuries question is answered (3rd question)
-    /// to start plan generation early while user finishes remaining questions + tutorial.
-    func startEarlyPlanGeneration(chatMessages: [ChatMessage]) {
-        storedChatMessages = chatMessages
-        startTemplatePlanGeneration(chatMessages: chatMessages)
+    /// Start plan generation early so it runs during the tutorial step.
+    func startEarlyPlanGeneration() {
+        startTemplatePlanGeneration()
     }
 
     func goBack() {
@@ -204,7 +196,7 @@ class OnboardingViewModel: ObservableObject {
 
     /// Retry plan generation after a failure
     func retryPlanGeneration() {
-        startTemplatePlanGeneration(chatMessages: storedChatMessages)
+        startTemplatePlanGeneration()
     }
 
     // MARK: - Template Classification
@@ -287,10 +279,10 @@ class OnboardingViewModel: ObservableObject {
 
     // MARK: - Template Plan Generation
 
-    func startTemplatePlanGeneration(chatMessages: [ChatMessage]? = nil) {
+    func startTemplatePlanGeneration() {
         // If we can't classify, fall back to batch generation
         guard let classification = classifyRaceForTemplate() else {
-            startPlanGeneration(chatMessages: chatMessages ?? storedChatMessages)
+            startPlanGeneration()
             return
         }
 
@@ -305,7 +297,7 @@ class OnboardingViewModel: ObservableObject {
         Task {
             let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 
-            let input = buildPlanGenerationInput(chatMessages: chatMessages ?? storedChatMessages)
+            let input = buildPlanGenerationInput()
             input.save()
 
             let goalTier: String
@@ -339,7 +331,7 @@ class OnboardingViewModel: ObservableObject {
                 isGeneratingPlan = false
                 UIApplication.shared.endBackgroundTask(taskID)
                 // Fall back to batch generation
-                startPlanGeneration(chatMessages: chatMessages ?? storedChatMessages)
+                startPlanGeneration()
                 return
             }
 
@@ -449,7 +441,7 @@ class OnboardingViewModel: ObservableObject {
 
     // MARK: - Plan Generation
 
-    func startPlanGeneration(chatMessages: [ChatMessage] = []) {
+    func startPlanGeneration() {
         guard !isGeneratingPlan else { return }
         isGeneratingPlan = true
         planGenerationError = nil
@@ -460,7 +452,7 @@ class OnboardingViewModel: ObservableObject {
             // Keep the network request alive if the user backgrounds the app
             let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 
-            let input = buildPlanGenerationInput(chatMessages: chatMessages)
+            let input = buildPlanGenerationInput()
             input.save() // Save for regeneration from Settings
 
             let totalWeeks = max(4, Calendar.current.dateComponents(
@@ -509,7 +501,7 @@ class OnboardingViewModel: ObservableObject {
         }
     }
 
-    func buildPlanGenerationInput(chatMessages: [ChatMessage] = []) -> PlanGenerationInput {
+    func buildPlanGenerationInput() -> PlanGenerationInput {
         let race = buildRace() ?? Race(
             name: "Race",
             date: Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date(),
@@ -542,27 +534,18 @@ class OnboardingViewModel: ObservableObject {
             if !parts.isEmpty { hkSummary = parts.joined(separator: "\n") }
         }
 
-        // Build chat summary
-        var chatSummary: String?
-        if !chatMessages.isEmpty {
-            let lines = chatMessages.map { msg in
-                "\(msg.isUser ? "Athlete" : "Coach"): \(msg.text)"
-            }
-            chatSummary = lines.joined(separator: "\n")
-        }
-
         return PlanGenerationInput(
             race: race,
             profile: profile,
             swimLevel: swimLevel,
             bikeLevel: bikeLevel,
             runLevel: runLevel,
-            fitnessHours: fitnessHours,
-            fitnessSchedule: fitnessSchedule,
+            fitnessHours: schedulePattern.label,
+            fitnessSchedule: schedulePattern.label,
             fitnessInjuries: fitnessInjuries,
             fitnessEquipment: fitnessEquipment,
             hkSummary: hkSummary,
-            chatSummary: chatSummary
+            chatSummary: nil
         )
     }
 

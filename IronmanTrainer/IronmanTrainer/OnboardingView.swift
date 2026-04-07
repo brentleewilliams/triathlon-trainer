@@ -4,7 +4,6 @@ import SwiftUI
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
-    @StateObject private var chatViewModel = ChatViewModel(skipHistory: true)
     var onComplete: ([TrainingWeek]) -> Void
 
     var body: some View {
@@ -25,8 +24,6 @@ struct OnboardingView: View {
                     RaceSearchStep(viewModel: viewModel)
                 case .goalSetting:
                     GoalSettingStep(viewModel: viewModel)
-                case .fitnessChat:
-                    FitnessChatStep(viewModel: viewModel, chatViewModel: chatViewModel)
                 case .tutorial:
                     TutorialStep(viewModel: viewModel)
                 case .planReview:
@@ -39,12 +36,10 @@ struct OnboardingView: View {
             ))
             .animation(.easeInOut(duration: 0.3), value: viewModel.currentStep)
 
-            // Navigation buttons (hidden during fitness chat which has its own input bar)
-            if viewModel.currentStep != .fitnessChat {
-                OnboardingNavBar(viewModel: viewModel)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
-            }
+            // Navigation buttons
+            OnboardingNavBar(viewModel: viewModel)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
         }
         .background(Color(.systemBackground))
     }
@@ -62,7 +57,6 @@ struct OnboardingProgressBar: View {
         case .profile: return "Profile"
         case .raceSearch: return "Your Race"
         case .goalSetting: return "Goals"
-        case .fitnessChat: return "Fitness Assessment"
         case .tutorial: return "Getting Started"
         case .planReview: return "Your Plan"
         }
@@ -106,8 +100,6 @@ struct OnboardingNavBar: View {
             return viewModel.raceSearchResult != nil
         case .goalSetting:
             return viewModel.allSkillsSelected
-        case .fitnessChat:
-            return true
         case .tutorial:
             return viewModel.minimumWeeksLoaded
         case .planReview:
@@ -959,6 +951,42 @@ struct GoalSettingStep: View {
                 }
                 .padding(.horizontal, 16)
 
+                // Injuries & Equipment
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider().padding(.vertical, 4)
+
+                    Text("Injuries & Equipment")
+                        .font(.headline)
+
+                    // Injuries picker
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Any current injuries or limitations?")
+                            .font(.subheadline)
+
+                        Picker("Injuries", selection: $viewModel.fitnessInjuries) {
+                            Text("No injuries").tag("No current injuries or limitations")
+                            Text("Minor niggles").tag("Minor niggles but can train through them")
+                            Text("Recovering from injury").tag("Recovering from an injury — need modifications")
+                            Text("Chronic issue").tag("Chronic issue that limits some activities")
+                        }
+                        .pickerStyle(.menu)
+                    }
+
+                    // Equipment picker
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("What equipment do you have access to?")
+                            .font(.subheadline)
+
+                        Picker("Equipment", selection: $viewModel.fitnessEquipment) {
+                            ForEach(equipmentOptionsForRaceType(), id: \.value) { option in
+                                Text(option.label).tag(option.value)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                    }
+                }
+                .padding(.horizontal, 16)
+
                 // Prep races section (optional)
                 PrepRacesOnboardingSection()
 
@@ -970,6 +998,45 @@ struct GoalSettingStep: View {
         .onChange(of: viewModel.targetHours) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.targetMinutes) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.goalType) { _, _ in viewModel.validateGoal() }
+    }
+
+    // MARK: - Equipment Options
+
+    struct EquipmentOption {
+        let label: String
+        let value: String
+    }
+
+    func equipmentOptionsForRaceType() -> [EquipmentOption] {
+        let sports = viewModel.relevantSports
+        if sports == ["run"] {
+            return [
+                EquipmentOption(label: "Full setup", value: "Full setup — running shoes, GPS watch, gym access, outdoor trails"),
+                EquipmentOption(label: "Basics", value: "Basics — running shoes and outdoor routes"),
+                EquipmentOption(label: "Gym access", value: "Gym access — treadmill, strength equipment"),
+                EquipmentOption(label: "Home only", value: "Home only — treadmill, basic gear"),
+            ]
+        } else if sports == ["bike"] {
+            return [
+                EquipmentOption(label: "Full setup", value: "Full setup — road bike, trainer, power meter, outdoor routes"),
+                EquipmentOption(label: "Basics", value: "Basics — bike, helmet, outdoor routes"),
+                EquipmentOption(label: "Indoor", value: "Indoor — bike trainer or spin bike"),
+                EquipmentOption(label: "Minimal", value: "Minimal — bike and helmet only"),
+            ]
+        } else if sports == ["swim"] {
+            return [
+                EquipmentOption(label: "Full setup", value: "Full setup — pool access, wetsuit, paddles, pull buoy"),
+                EquipmentOption(label: "Basics", value: "Basics — pool access, goggles, swim cap"),
+                EquipmentOption(label: "Open water", value: "Open water access — lake or ocean, wetsuit"),
+                EquipmentOption(label: "Pool only", value: "Pool only — lap pool access"),
+            ]
+        }
+        return [
+            EquipmentOption(label: "Full setup", value: "Full setup — bike trainer, pool access, gym, outdoor routes"),
+            EquipmentOption(label: "Basics", value: "Basics — bike, running shoes, pool access"),
+            EquipmentOption(label: "Minimal", value: "Minimal — running shoes and a gym membership"),
+            EquipmentOption(label: "Home only", value: "Home only — treadmill/trainer, no pool"),
+        ]
     }
 }
 
@@ -1248,319 +1315,7 @@ struct GoalCard: View {
     }
 }
 
-// MARK: - Step 5: Fitness Chat
-
-// Quick reply option for fitness chat
-struct QuickReply: Identifiable {
-    let id = UUID()
-    let label: String
-    let value: String
-}
-
-struct FitnessChatStep: View {
-    @ObservedObject var viewModel: OnboardingViewModel
-    @ObservedObject var chatViewModel: ChatViewModel
-    @State private var showPlanButton = false
-    @State private var quickReplies: [QuickReply] = []
-
-    var body: some View {
-        VStack(spacing: 0) {
-            // Intro header with back button
-            ZStack {
-                // Back button on leading edge
-                HStack {
-                    Button {
-                        viewModel.goBack()
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Back")
-                        }
-                        .font(.body.weight(.medium))
-                    }
-                    Spacer()
-                }
-                .padding(.horizontal, 16)
-
-                // Centered title
-                VStack(spacing: 8) {
-                    Text("Fitness Assessment")
-                        .font(.headline)
-                    Text("Chat with your AI coach to assess your fitness and build your plan.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(.horizontal, 56) // Leave room for back button
-            }
-            .padding(.vertical, 12)
-
-            Divider()
-
-            // Chat messages
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        ForEach(chatViewModel.messages) { message in
-                            ChatBubble(message: message)
-                                .id(message.id)
-                        }
-
-                        if chatViewModel.isLoading {
-                            HStack(spacing: 4) {
-                                ForEach(0..<3, id: \.self) { _ in
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.6))
-                                        .frame(width: 8, height: 8)
-                                }
-                            }
-                            .padding(.leading, 16)
-                            .padding(.vertical, 8)
-                        }
-
-                        if let error = chatViewModel.error {
-                            Text(error)
-                                .foregroundColor(.red)
-                                .font(.caption)
-                                .padding(.horizontal)
-                        }
-
-                        // Quick reply buttons
-                        if !quickReplies.isEmpty && !chatViewModel.isLoading {
-                            QuickReplyButtons(replies: quickReplies) { reply in
-                                selectQuickReply(reply)
-                            }
-                            .id("quickReplies")
-                            .transition(.opacity.combined(with: .move(edge: .bottom)))
-                        }
-                    }
-                    .padding()
-                }
-                .defaultScrollAnchor(.bottom)
-                .scrollDismissesKeyboard(.immediately)
-                .onChange(of: chatViewModel.messages.count) {
-                    withAnimation {
-                        proxy.scrollTo("quickReplies", anchor: .bottom)
-                    }
-                    if chatViewModel.messages.count >= 4 {
-                        withAnimation { showPlanButton = true }
-                    }
-                }
-            }
-
-            // Input and plan button
-            VStack(spacing: 0) {
-                if showPlanButton {
-                    Button {
-                        viewModel.advance(chatMessages: chatViewModel.messages)
-                    } label: {
-                        HStack {
-                            Image(systemName: "doc.text.fill")
-                            Text("I'm ready to see my plan")
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.blue)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.blue.opacity(0.1))
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-
-                ChatInputBar(viewModel: chatViewModel)
-            }
-        }
-        .onAppear {
-            if chatViewModel.messages.isEmpty {
-                let _ = OnboardingChatHelper.buildOnboardingSystemPrompt(
-                    profile: viewModel.hkProfile,
-                    userName: viewModel.userName,
-                    race: viewModel.buildRace(),
-                    goal: goalTypeFromSelection(),
-                    skillLevels: (swim: viewModel.swimLevel ?? .beginner, bike: viewModel.bikeLevel ?? .beginner, run: viewModel.runLevel ?? .beginner)
-                )
-                let name = viewModel.userName.isEmpty ? "there" : viewModel.userName
-                let greeting = ChatMessage(
-                    isUser: false,
-                    text: "Hi \(name)! I'm your AI coach. Let's assess your current fitness so I can build the perfect training plan.\n\nBased on your Health data, I can see your recent training. Let me ask a few questions to fine-tune your plan.\n\nHow many hours per week can you dedicate to training?",
-                    timestamp: Date()
-                )
-                chatViewModel.messages.append(greeting)
-                quickReplies = Self.hoursReplies
-            }
-        }
-    }
-
-    private func selectQuickReply(_ reply: QuickReply) {
-        // Clear buttons immediately
-        withAnimation { quickReplies = [] }
-
-        // Add user message
-        let userMsg = ChatMessage(isUser: true, text: reply.value, timestamp: Date())
-        chatViewModel.messages.append(userMsg)
-
-        // Store answer on view model for plan review
-        let userMsgCount = chatViewModel.messages.filter { $0.isUser }.count
-        switch userMsgCount {
-        case 1: viewModel.fitnessHours = reply.value
-        case 2: viewModel.fitnessSchedule = reply.value
-        case 3:
-            viewModel.fitnessInjuries = reply.value
-            // Start plan generation early — we have hours, schedule, and injuries
-            viewModel.startEarlyPlanGeneration(chatMessages: chatViewModel.messages)
-        case 4: viewModel.fitnessEquipment = reply.value
-        default: break
-        }
-
-        // Determine next question based on conversation state
-        let messageCount = chatViewModel.messages.count
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            if messageCount <= 3 {
-                // After hours answer → ask schedule preferences
-                let msg = ChatMessage(
-                    isUser: false,
-                    text: "Got it — \(reply.value). That's a great foundation.\n\nWhat does your weekly schedule look like? When do you prefer to train?",
-                    timestamp: Date()
-                )
-                chatViewModel.messages.append(msg)
-                withAnimation { quickReplies = Self.scheduleReplies }
-            } else if messageCount <= 5 {
-                // After schedule → ask injury history
-                let msg = ChatMessage(
-                    isUser: false,
-                    text: "Thanks! That helps me calibrate your plan.\n\nAny current injuries or limitations I should know about?",
-                    timestamp: Date()
-                )
-                chatViewModel.messages.append(msg)
-                withAnimation { quickReplies = Self.injuryReplies }
-            } else if messageCount <= 7 {
-                // After injury → ask equipment
-                let msg = ChatMessage(
-                    isUser: false,
-                    text: "Noted.\n\nWhat equipment do you have access to?",
-                    timestamp: Date()
-                )
-                chatViewModel.messages.append(msg)
-                withAnimation { quickReplies = self.equipmentRepliesForRaceType() }
-            } else {
-                // Done with quick questions → open it up
-                let msg = ChatMessage(
-                    isUser: false,
-                    text: "I've got a great picture of where you are. Anything else you'd like me to factor into your plan? If not, tap \"I'm ready to see my plan\" below!",
-                    timestamp: Date()
-                )
-                chatViewModel.messages.append(msg)
-                withAnimation { showPlanButton = true }
-            }
-        }
-    }
-
-    private func goalTypeFromSelection() -> GoalType? {
-        switch viewModel.goalType {
-        case .timeTarget:
-            return .timeTarget(TimeInterval(viewModel.targetHours * 3600 + viewModel.targetMinutes * 60))
-        case .justComplete:
-            return .justComplete
-        case .custom:
-            return .custom(viewModel.customGoalText)
-        }
-    }
-
-    // MARK: - Quick Reply Options
-
-    static let hoursReplies = [
-        QuickReply(label: "5–7 hrs/wk", value: "5–7 hours per week (light)"),
-        QuickReply(label: "8–10 hrs/wk", value: "8–10 hours per week (moderate)"),
-        QuickReply(label: "10–14 hrs/wk", value: "10–14 hours per week (solid)"),
-        QuickReply(label: "15–20 hrs/wk", value: "15–20 hours per week (high volume)"),
-        QuickReply(label: "20+ hrs/wk", value: "20+ hours per week (elite)"),
-    ]
-
-    static let scheduleReplies = [
-        QuickReply(label: "Mornings before work", value: "Mornings before work — early riser"),
-        QuickReply(label: "Lunch breaks", value: "Lunch breaks and midday sessions"),
-        QuickReply(label: "Evenings after work", value: "Evenings after work"),
-        QuickReply(label: "Weekends mostly", value: "Mostly weekends — weekdays are tight"),
-        QuickReply(label: "Flexible", value: "Flexible schedule — can train anytime"),
-    ]
-
-    static let injuryReplies = [
-        QuickReply(label: "No injuries", value: "No current injuries or limitations"),
-        QuickReply(label: "Minor niggles", value: "Minor niggles but can train through them"),
-        QuickReply(label: "Recovering", value: "Recovering from an injury — need modifications"),
-        QuickReply(label: "Chronic issue", value: "Chronic issue that limits some activities"),
-    ]
-
-    static let equipmentReplies = [
-        QuickReply(label: "Full setup", value: "Full setup — bike trainer, pool access, gym, outdoor routes"),
-        QuickReply(label: "Basics", value: "Basics — bike, running shoes, pool access"),
-        QuickReply(label: "Minimal", value: "Minimal — running shoes and a gym membership"),
-        QuickReply(label: "Home only", value: "Home only — treadmill/trainer, no pool"),
-    ]
-
-    static let runningEquipmentReplies = [
-        QuickReply(label: "Full setup", value: "Full setup — running shoes, GPS watch, gym access, outdoor trails"),
-        QuickReply(label: "Basics", value: "Basics — running shoes and outdoor routes"),
-        QuickReply(label: "Gym access", value: "Gym access — treadmill, strength equipment"),
-        QuickReply(label: "Home only", value: "Home only — treadmill, basic gear"),
-    ]
-
-    static let cyclingEquipmentReplies = [
-        QuickReply(label: "Full setup", value: "Full setup — road bike, trainer, power meter, outdoor routes"),
-        QuickReply(label: "Basics", value: "Basics — bike, helmet, outdoor routes"),
-        QuickReply(label: "Indoor", value: "Indoor — bike trainer or spin bike"),
-        QuickReply(label: "Minimal", value: "Minimal — bike and helmet only"),
-    ]
-
-    static let swimmingEquipmentReplies = [
-        QuickReply(label: "Full setup", value: "Full setup — pool access, wetsuit, paddles, pull buoy"),
-        QuickReply(label: "Basics", value: "Basics — pool access, goggles, swim cap"),
-        QuickReply(label: "Open water", value: "Open water access — lake or ocean, wetsuit"),
-        QuickReply(label: "Pool only", value: "Pool only — lap pool access"),
-    ]
-
-    func equipmentRepliesForRaceType() -> [QuickReply] {
-        let sports = viewModel.relevantSports
-        if sports == ["run"] {
-            return Self.runningEquipmentReplies
-        } else if sports == ["bike"] {
-            return Self.cyclingEquipmentReplies
-        } else if sports == ["swim"] {
-            return Self.swimmingEquipmentReplies
-        }
-        return Self.equipmentReplies
-    }
-}
-
-struct QuickReplyButtons: View {
-    let replies: [QuickReply]
-    let onSelect: (QuickReply) -> Void
-
-    var body: some View {
-        VStack(spacing: 8) {
-            ForEach(replies) { reply in
-                Button {
-                    onSelect(reply)
-                } label: {
-                    Text(reply.label)
-                        .font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(Color(.systemGray5))
-                        .foregroundStyle(.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 10))
-                }
-            }
-        }
-        .padding(.leading, 40)
-        .padding(.trailing, 16)
-    }
-}
-
-// MARK: - Step 6: Tutorial
+// MARK: - Step 5: Tutorial
 
 struct TutorialStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -1838,7 +1593,7 @@ struct TutorialChatBubble: View {
     }
 }
 
-// MARK: - Step 7: Plan Review
+// MARK: - Step 6: Plan Review
 
 struct PlanReviewStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -1851,8 +1606,7 @@ struct PlanReviewStep: View {
 
     private var chatAnswers: [String: String] {
         var answers: [String: String] = [:]
-        if !viewModel.fitnessHours.isEmpty { answers["hours"] = viewModel.fitnessHours }
-        if !viewModel.fitnessSchedule.isEmpty { answers["schedule"] = viewModel.fitnessSchedule }
+        answers["schedule"] = viewModel.schedulePattern.label
         if !viewModel.fitnessInjuries.isEmpty { answers["injuries"] = viewModel.fitnessInjuries }
         if !viewModel.fitnessEquipment.isEmpty { answers["equipment"] = viewModel.fitnessEquipment }
         return answers
