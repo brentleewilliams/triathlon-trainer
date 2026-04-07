@@ -68,6 +68,8 @@ struct OnboardingChatHelper {
                 sections.append("GOAL: Finish in \(hours)h \(String(format: "%02d", minutes))m")
             case .justComplete:
                 sections.append("GOAL: Complete the race (no specific time target)")
+            case .custom(let text):
+                sections.append("GOAL: \(text)")
             }
         }
 
@@ -227,6 +229,8 @@ struct OnboardingChatHelper {
                 return "Finish in \(h)h \(String(format: "%02d", m))m"
             case .justComplete:
                 return "Complete the race"
+            case .custom(let text):
+                return text
             }
         }())
 

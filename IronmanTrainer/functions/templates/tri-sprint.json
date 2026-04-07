@@ -1,0 +1,135 @@
+{
+  "templateId": "tri-sprint",
+  "raceCategory": "triathlon",
+  "raceSubtype": "sprint",
+  "raceDistance": {
+    "swim": "750m",
+    "bike": "20K",
+    "run": "5K"
+  },
+  "weeksRange": {
+    "short": [4, 7],
+    "medium": [8, 11],
+    "long": [12, 14]
+  },
+  "phases": [
+    {
+      "name": "Base",
+      "percentage": 0.30,
+      "focus": "Aerobic foundation, technique, consistency",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Build",
+      "percentage": 0.35,
+      "focus": "Increasing intensity, race-pace efforts",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Peak",
+      "percentage": 0.20,
+      "focus": "Race-specific intensity, sharpening",
+      "recoveryWeekEvery": null
+    },
+    {
+      "name": "Taper",
+      "percentage": 0.15,
+      "focus": "Volume reduction, freshness, race prep",
+      "recoveryWeekEvery": null
+    }
+  ],
+  "weekTemplates": {
+    "normal": {
+      "Base": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "Swim", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Technique drills and steady aerobic swimming" },
+        { "day": "Wed", "type": "Bike", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Easy spin, cadence focus" },
+        { "day": "Thu", "type": "Run", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Easy aerobic run" },
+        { "day": "Fri", "type": "Swim", "durationMultiplier": 0.85, "zone": "Z1-Z2", "notes": "Drill-focused technique session" },
+        { "day": "Sat", "type": "Brick", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Bike-to-run transition practice" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Build": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "Swim", "durationMultiplier": 1.1, "zone": "Z2-Z3", "notes": "Threshold intervals mixed with technique" },
+        { "day": "Wed", "type": "Bike", "durationMultiplier": 1.15, "zone": "Z3", "notes": "Tempo intervals, building race pace" },
+        { "day": "Thu", "type": "Run", "durationMultiplier": 1.1, "zone": "Z3", "notes": "Tempo run with race-pace segments" },
+        { "day": "Fri", "type": "Swim", "durationMultiplier": 1.0, "zone": "Z2-Z3", "notes": "Race-pace repeats" },
+        { "day": "Sat", "type": "Brick", "durationMultiplier": 1.15, "zone": "Z3", "notes": "Race-pace brick, quick transitions" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Peak": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "Swim", "durationMultiplier": 1.0, "zone": "Z3-Z4", "notes": "High-intensity race-pace repeats" },
+        { "day": "Wed", "type": "Bike", "durationMultiplier": 1.1, "zone": "Z4", "notes": "VO2max intervals, above race pace" },
+        { "day": "Thu", "type": "Run", "durationMultiplier": 1.0, "zone": "Z3-Z4", "notes": "Race-pace intervals with recovery jogs" },
+        { "day": "Fri", "type": "Swim", "durationMultiplier": 0.85, "zone": "Z2-Z3", "notes": "Race simulation, open-water skills" },
+        { "day": "Sat", "type": "Brick", "durationMultiplier": 1.05, "zone": "Z3-Z4", "notes": "Race rehearsal brick" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Taper": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "Swim", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Easy technique maintenance" },
+        { "day": "Wed", "type": "Bike", "durationMultiplier": 0.55, "zone": "Z1-Z2", "notes": "Light spin, keep legs fresh" },
+        { "day": "Thu", "type": "Run", "durationMultiplier": 0.5, "zone": "Z1-Z2", "notes": "Short easy shakeout" },
+        { "day": "Fri", "type": "Swim", "durationMultiplier": 0.5, "zone": "Z1", "notes": "Easy swim with a few race-pace strides" },
+        { "day": "Sat", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ]
+    },
+    "recovery": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "Swim", "durationMultiplier": 0.65, "zone": "Z1-Z2", "notes": "Easy technique-focused swim" },
+      { "day": "Wed", "type": "Bike", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Recovery spin" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "Swim", "durationMultiplier": 0.6, "zone": "Z1", "notes": "Easy pull/drill set" },
+      { "day": "Sat", "type": "Run", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "taper": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "Swim", "durationMultiplier": 0.5, "zone": "Z1-Z2", "notes": "Light technique swim" },
+      { "day": "Wed", "type": "Bike", "durationMultiplier": 0.5, "zone": "Z1", "notes": "Easy spin, openers" },
+      { "day": "Thu", "type": "Run", "durationMultiplier": 0.45, "zone": "Z1-Z2", "notes": "Short shakeout with strides" },
+      { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sat", "type": "Swim", "durationMultiplier": 0.35, "zone": "Z1", "notes": "Brief race-morning shakeout swim" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "raceWeek": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "Swim", "durationMultiplier": 0.4, "zone": "Z1-Z2", "notes": "Short shakeout swim with a few race-pace efforts" },
+      { "day": "Wed", "type": "Bike", "durationMultiplier": 0.35, "zone": "Z1-Z2", "notes": "Easy spin with 3-4 short openers" },
+      { "day": "Thu", "type": "Run", "durationMultiplier": 0.3, "zone": "Z1-Z2", "notes": "10-15 min jog with strides" },
+      { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sat", "type": "Swim", "durationMultiplier": 0.25, "zone": "Z1", "notes": "Optional 10-min course familiarization" },
+      { "day": "Sun", "type": "Race", "durationMultiplier": 0, "zone": "Race", "notes": "RACE DAY" }
+    ]
+  },
+  "baseDurations": {
+    "beginner": {
+      "swim": "25min",
+      "bike": "30min",
+      "run": "20min",
+      "brick": "45min"
+    },
+    "intermediate": {
+      "swim": "35min",
+      "bike": "45min",
+      "run": "30min",
+      "brick": "60min"
+    },
+    "advanced": {
+      "swim": "45min",
+      "bike": "55min",
+      "run": "40min",
+      "brick": "75min"
+    }
+  },
+  "phaseProgressionMultipliers": {
+    "Base": [1.0, 1.05, 1.1],
+    "Build": [1.1, 1.15, 1.2],
+    "Peak": [1.2, 1.15],
+    "Taper": [0.7, 0.5]
+  },
+  "strengthRecommendation": "optional"
+}

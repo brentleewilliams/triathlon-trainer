@@ -87,10 +87,11 @@ final class CIScriptTests: XCTestCase {
         var trackedFiles: [String] = []
         while let url = enumerator.nextObject() as? URL {
             let path = url.path
-            // Skip build artifacts, DerivedData, .git, dependencies, etc.
+            // Skip build artifacts, DerivedData, .git, dependencies, tool configs, etc.
             if path.contains("DerivedData") || path.contains(".git/") || path.contains(".build/") { continue }
             if path.contains("xcuserdata") || path.contains("xcshareddata/xcschemes") { continue }
             if path.contains("node_modules") || path.contains("Pods/") || path.contains(".framework/") { continue }
+            if path.contains(".claude/") { continue }
             trackedFiles.append(url.path)
         }
 

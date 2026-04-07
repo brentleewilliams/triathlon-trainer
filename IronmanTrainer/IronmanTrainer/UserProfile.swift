@@ -6,20 +6,53 @@ enum RaceType: String, Codable, CaseIterable {
     case triathlon, running, cycling, swimming
 }
 
+// MARK: - Schedule Pattern
+
+enum SchedulePattern: String, CaseIterable, Codable {
+    case spread = "spread"
+    case weekendWarrior = "weekendWarrior"
+    case compressed = "compressed"
+
+    var label: String {
+        switch self {
+        case .spread: return "Balanced"
+        case .weekendWarrior: return "Weekend Warrior"
+        case .compressed: return "Compressed"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .spread: return "Evenly distributed across the week"
+        case .weekendWarrior: return "Short weekdays, long weekends"
+        case .compressed: return "4 training days, 3 rest days"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .spread: return "calendar"
+        case .weekendWarrior: return "sun.max.fill"
+        case .compressed: return "bolt.fill"
+        }
+    }
+}
+
 // MARK: - Goal Type
 
 enum GoalType: Codable, Equatable {
     case timeTarget(TimeInterval) // seconds
     case justComplete
+    case custom(String)
 
     // MARK: - Custom Codable (associated value enum)
 
     private enum CodingKeys: String, CodingKey {
-        case type, targetSeconds
+        case type, targetSeconds, customGoalText
     }
 
     private enum GoalKind: String, Codable {
-        case timeTarget, justComplete
+        case timeTarget, justComplete, custom
     }
 
     func encode(to encoder: Encoder) throws {
@@ -30,6 +63,9 @@ enum GoalType: Codable, Equatable {
             try container.encode(seconds, forKey: .targetSeconds)
         case .justComplete:
             try container.encode(GoalKind.justComplete, forKey: .type)
+        case .custom(let text):
+            try container.encode(GoalKind.custom, forKey: .type)
+            try container.encode(text, forKey: .customGoalText)
         }
     }
 
@@ -42,6 +78,9 @@ enum GoalType: Codable, Equatable {
             self = .timeTarget(seconds)
         case .justComplete:
             self = .justComplete
+        case .custom:
+            let text = try container.decode(String.self, forKey: .customGoalText)
+            self = .custom(text)
         }
     }
 }

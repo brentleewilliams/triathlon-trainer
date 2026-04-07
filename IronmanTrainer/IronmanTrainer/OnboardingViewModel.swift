@@ -131,6 +131,12 @@ class OnboardingViewModel: ObservableObject {
     @Published var planGenerationError: String?
     @Published var planBatchesCompleted = 0
     @Published var planTotalBatches = 3
+    @Published var schedulePattern: SchedulePattern = .spread
+    @Published var includeStrength: Bool = true
+    @Published var customGoalText: String = ""
+    @Published var goalValidationWarning: String? = nil
+    @Published var planMethod: String = "template"
+    @Published var planWarnings: [String] = []
 
     var minimumWeeksLoaded: Bool {
         (generatedPlan?.count ?? 0) >= 4
@@ -182,7 +188,7 @@ class OnboardingViewModel: ObservableObject {
     /// to start plan generation early while user finishes remaining questions + tutorial.
     func startEarlyPlanGeneration(chatMessages: [ChatMessage]) {
         storedChatMessages = chatMessages
-        startPlanGeneration(chatMessages: chatMessages)
+        startTemplatePlanGeneration(chatMessages: chatMessages)
     }
 
     func goBack() {
@@ -198,7 +204,148 @@ class OnboardingViewModel: ObservableObject {
 
     /// Retry plan generation after a failure
     func retryPlanGeneration() {
-        startPlanGeneration(chatMessages: storedChatMessages)
+        startTemplatePlanGeneration(chatMessages: storedChatMessages)
+    }
+
+    // MARK: - Template Classification
+
+    /// Maps the current race to a template category and subtype.
+    /// Returns nil if the race cannot be classified (triggers fully custom fallback).
+    func classifyRaceForTemplate() -> (category: String, subtype: String)? {
+        guard let result = raceSearchResult else { return nil }
+        let type = result.type.lowercased()
+        let distances = result.distances
+
+        let hasSwim = distances["swim"] != nil
+        let hasBike = distances["bike"] != nil
+        let hasRun = distances["run"] != nil
+
+        if type.contains("triathlon") || (hasSwim && hasBike && hasRun) {
+            let totalMiles = distances.values.reduce(0, +)
+            let subtype: String
+            if totalMiles < 20 { subtype = "sprint" }
+            else if totalMiles < 40 { subtype = "olympic" }
+            else if totalMiles < 80 { subtype = "70.3" }
+            else { subtype = "140.6" }
+            return ("triathlon", subtype)
+        }
+
+        if type.contains("running") || type.contains("run") || (hasRun && !hasBike && !hasSwim) {
+            let runMiles = distances["run"] ?? distances.values.max() ?? 0
+            let subtype: String
+            if runMiles < 4 { subtype = "5k" }
+            else if runMiles < 8 { subtype = "10k" }
+            else if runMiles < 15 { subtype = "half" }
+            else { subtype = "marathon" }
+            return ("running", subtype)
+        }
+
+        return nil
+    }
+
+    /// Validates the user's goal against heuristic time bounds.
+    func validateGoal() {
+        guard goalType == .timeTarget else {
+            goalValidationWarning = nil
+            return
+        }
+        let targetSeconds = targetHours * 3600 + targetMinutes * 60
+        let minHours = finishTimeHourRange.lowerBound
+        let minSeconds = minHours * 3600
+        let weeksAvailable = max(1, Calendar.current.dateComponents(
+            [.weekOfYear], from: Date(), to: raceSearchResult?.date ?? Date()
+        ).weekOfYear ?? 12)
+
+        if targetSeconds < minSeconds {
+            goalValidationWarning = "This time goal is ambitious for \(weeksAvailable) weeks of training. Consider a more conservative target."
+        } else {
+            goalValidationWarning = nil
+        }
+    }
+
+    /// Update includeStrength default based on race classification.
+    func updateStrengthDefault() {
+        guard let classification = classifyRaceForTemplate() else { return }
+        switch classification.subtype {
+        case "70.3", "140.6", "marathon", "half":
+            includeStrength = true
+        default:
+            includeStrength = false
+        }
+    }
+
+    /// Whether strength training is recommended for the current race distance.
+    var strengthRecommended: Bool {
+        guard let classification = classifyRaceForTemplate() else { return true }
+        switch classification.subtype {
+        case "70.3", "140.6", "marathon", "half":
+            return true
+        default:
+            return false
+        }
+    }
+
+    // MARK: - Template Plan Generation
+
+    func startTemplatePlanGeneration(chatMessages: [ChatMessage]? = nil) {
+        // If we can't classify, fall back to batch generation
+        guard let classification = classifyRaceForTemplate() else {
+            startPlanGeneration(chatMessages: chatMessages ?? storedChatMessages)
+            return
+        }
+
+        guard !isGeneratingPlan else { return }
+        isGeneratingPlan = true
+        planGenerationError = nil
+        generatedPlan = nil
+        planBatchesCompleted = 0
+        planMethod = "template"
+        planWarnings = []
+
+        Task {
+            let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
+
+            let input = buildPlanGenerationInput(chatMessages: chatMessages ?? storedChatMessages)
+            input.save()
+
+            let goalTier: String
+            switch goalType {
+            case .justComplete: goalTier = "finish"
+            case .timeTarget: goalTier = "timeGoal"
+            case .custom: goalTier = "custom"
+            }
+
+            let templateParams = TemplateParams(
+                raceCategory: classification.category,
+                raceSubtype: classification.subtype,
+                goalTier: goalTier,
+                customGoalText: goalType == .custom ? customGoalText : nil,
+                schedulePattern: schedulePattern.rawValue,
+                includeStrength: includeStrength
+            )
+
+            do {
+                let result = try await LLMProxyService.shared.generatePlanFromTemplate(
+                    input: input,
+                    templateParams: templateParams
+                )
+                generatedPlan = result.weeks
+                planMethod = result.method
+                planWarnings = result.warnings
+                planBatchesCompleted = 1
+                planTotalBatches = 1
+            } catch {
+                print("[TemplatePlan] Template generation failed, falling back to batch: \(error.localizedDescription)")
+                isGeneratingPlan = false
+                UIApplication.shared.endBackgroundTask(taskID)
+                // Fall back to batch generation
+                startPlanGeneration(chatMessages: chatMessages ?? storedChatMessages)
+                return
+            }
+
+            isGeneratingPlan = false
+            UIApplication.shared.endBackgroundTask(taskID)
+        }
     }
 
     // MARK: - HealthKit Data Loading
@@ -269,6 +416,7 @@ class OnboardingViewModel: ObservableObject {
                 }
             }
             raceSearchResult = result
+            updateStrengthDefault()
         } catch {
             self.error = "Could not find race details: \(error.localizedDescription)"
         }
@@ -427,6 +575,8 @@ class OnboardingViewModel: ObservableObject {
             goal = .timeTarget(TimeInterval(targetHours * 3600 + targetMinutes * 60))
         case .justComplete:
             goal = .justComplete
+        case .custom:
+            goal = .custom(customGoalText)
         }
 
         return Race(
@@ -463,6 +613,7 @@ enum SkillLevel: String, CaseIterable, Codable {
 enum GoalSelection {
     case timeTarget
     case justComplete
+    case custom
 }
 
 struct RaceSearchResult: Codable {

@@ -75,6 +75,8 @@ class PlanGenerationService {
                 return "Finish in \(h)h \(String(format: "%02d", m))m"
             case .justComplete:
                 return "Complete the race (no specific time target)"
+            case .custom(let text):
+                return text
             }
         }()
 

@@ -39,6 +39,7 @@ const PROMPT_NAMES = [
   "prep-race-search",
   "plan-gen-summary",
   "plan-gen-details",
+  "plan-gen-customize",
 ];
 
 // In-memory cache: { [name]: { prompt, model, temperature, maxTokens, fetchedAt } }
@@ -287,6 +288,7 @@ async function handleCoaching(req, res) {
   // The iOS app sends everything (plan, date, prep races, swap info) combined in
   // trainingContext, so we map it to {context} and blank out the other prompt vars.
   const z = zoneBoundaries || {};
+  const todayStr = new Date().toISOString().split("T")[0];
   const variables = {
     context: trainingContext || "",
     history: workoutHistory || "",
@@ -295,7 +297,7 @@ async function handleCoaching(req, res) {
     z4: z.z4 || "",
     z5: z.z5 || "",
     full_plan: "",
-    current_date: "",
+    current_date: todayStr,
     prep_races: "",
     last_swap_info: "",
   };
@@ -393,8 +395,9 @@ async function handlePrepRaceSearch(req, res) {
     return;
   }
 
-  const { messages, model, temperature, maxTokens } = await formatPrompt("prep-race-search", {});
-  messages.push({ role: "user", content: `Race search query: ${query}` });
+  const todayStr = new Date().toISOString().split("T")[0];
+  const { messages, model, temperature, maxTokens } = await formatPrompt("prep-race-search", { today: todayStr });
+  messages.push({ role: "user", content: `Today's date is ${todayStr}. Only return races that have not yet occurred (date must be after today).\n\nRace search query: ${query}` });
 
   const raw = await callLLM({ messages, model, temperature, maxTokens });
   const result = stripMarkdownFences(raw);
@@ -587,6 +590,379 @@ async function handlePlanGenerationBatch(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Template-based Plan Generation
+// ---------------------------------------------------------------------------
+
+const fs = require("fs");
+const path = require("path");
+
+// In-memory template cache: { [filePath]: { data, fetchedAt } }
+let templateFileCache = {};
+const TEMPLATE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function loadTemplateFile(filePath) {
+  const cached = templateFileCache[filePath];
+  if (cached && Date.now() - cached.fetchedAt < TEMPLATE_CACHE_TTL_MS) {
+    return cached.data;
+  }
+  const raw = fs.readFileSync(filePath, "utf-8");
+  const data = JSON.parse(raw);
+  templateFileCache[filePath] = { data, fetchedAt: Date.now() };
+  return data;
+}
+
+/**
+ * Parse a duration string like "45min", "100min" into total minutes.
+ */
+function parseDurationMinutes(durStr) {
+  if (!durStr || typeof durStr !== "string") return 0;
+  const match = durStr.match(/^(\d+)\s*min$/i);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
+/**
+ * Format minutes into a human-readable string: "45min" or "1:15".
+ */
+function formatDuration(minutes) {
+  if (minutes <= 0) return "0min";
+  minutes = Math.round(minutes);
+  if (minutes < 60) return `${minutes}min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (m === 0) return `${h}:00`;
+  return `${h}:${String(m).padStart(2, "0")}`;
+}
+
+/**
+ * Build a training plan skeleton from race and schedule templates.
+ * Pure function — no LLM calls.
+ */
+function buildSkeletonFromTemplate(templateParams, input, planStartDate, totalWeeks, skillLevel) {
+  const { raceCategory, raceSubtype, schedulePattern, includeStrength } = templateParams;
+
+  // Load race template and schedule overlay
+  const raceTemplatePath = path.join(__dirname, "templates", `${raceCategory}-${raceSubtype}.json`);
+  const schedulePath = path.join(__dirname, "templates", `schedule-${schedulePattern}.json`);
+  const raceTemplate = loadTemplateFile(raceTemplatePath);
+  const schedule = loadTemplateFile(schedulePath);
+
+  // Determine duration bucket from totalWeeks and weeksRange
+  const ranges = raceTemplate.weeksRange;
+  let bucket = "medium"; // default
+  if (ranges.short && totalWeeks >= ranges.short[0] && totalWeeks <= ranges.short[1]) {
+    bucket = "short";
+  } else if (ranges.long && totalWeeks >= ranges.long[0] && totalWeeks <= ranges.long[1]) {
+    bucket = "long";
+  } else if (ranges.medium && totalWeeks >= ranges.medium[0] && totalWeeks <= ranges.medium[1]) {
+    bucket = "medium";
+  } else if (ranges.short && totalWeeks < ranges.short[0]) {
+    bucket = "short";
+  } else if (ranges.long && totalWeeks > ranges.long[1]) {
+    bucket = "long";
+  }
+
+  // Compute phase week counts from percentages, ensuring they sum to totalWeeks
+  const phases = raceTemplate.phases;
+  const rawWeeks = phases.map((p) => p.percentage * totalWeeks);
+  let phaseWeeks = rawWeeks.map((w) => Math.round(w));
+  const diff = totalWeeks - phaseWeeks.reduce((a, b) => a + b, 0);
+  // Adjust the largest phase to absorb rounding difference
+  if (diff !== 0) {
+    let maxIdx = 0;
+    for (let i = 1; i < phaseWeeks.length; i++) {
+      if (phaseWeeks[i] > phaseWeeks[maxIdx]) maxIdx = i;
+    }
+    phaseWeeks[maxIdx] += diff;
+  }
+
+  // Build phase assignment array: [{name, weekIndexInPhase, isRecovery}]
+  const weekAssignments = [];
+  let weekCounter = 0;
+  for (let pi = 0; pi < phases.length; pi++) {
+    const phase = phases[pi];
+    const count = phaseWeeks[pi];
+    for (let wi = 0; wi < count; wi++) {
+      const isRecovery = phase.recoveryWeekEvery
+        ? (wi + 1) % phase.recoveryWeekEvery === 0
+        : false;
+      weekAssignments.push({
+        phaseName: phase.name,
+        weekIndexInPhase: wi,
+        isRecovery,
+      });
+      weekCounter++;
+    }
+  }
+
+  // Last week is always raceWeek
+  if (weekAssignments.length > 0) {
+    weekAssignments[weekAssignments.length - 1].isRaceWeek = true;
+  }
+
+  // Base durations for this skill level
+  const baseDurations = raceTemplate.baseDurations[skillLevel]
+    || raceTemplate.baseDurations["intermediate"];
+
+  const progressionMultipliers = raceTemplate.phaseProgressionMultipliers || {};
+  const weekTemplates = raceTemplate.weekTemplates;
+
+  // Build the skeleton weeks
+  const startDateObj = new Date(planStartDate + "T00:00:00");
+  const skeleton = [];
+
+  for (let wi = 0; wi < totalWeeks; wi++) {
+    const assignment = weekAssignments[wi];
+    if (!assignment) break;
+
+    const { phaseName, weekIndexInPhase, isRecovery, isRaceWeek } = assignment;
+
+    // Select week template variant
+    let templateWorkouts;
+    if (isRaceWeek && weekTemplates.raceWeek) {
+      templateWorkouts = weekTemplates.raceWeek;
+    } else if (isRecovery && weekTemplates.recovery) {
+      templateWorkouts = weekTemplates.recovery;
+    } else if (phaseName === "Taper" && weekTemplates.taper) {
+      // Use top-level taper template if available, otherwise fall through to normal.Taper
+      templateWorkouts = weekTemplates.taper;
+    } else if (weekTemplates.normal && weekTemplates.normal[phaseName]) {
+      templateWorkouts = weekTemplates.normal[phaseName];
+    } else {
+      // Fallback: use first available normal phase
+      const normalPhases = Object.keys(weekTemplates.normal || {});
+      templateWorkouts = normalPhases.length > 0
+        ? weekTemplates.normal[normalPhases[0]]
+        : [];
+    }
+
+    // Phase progression multiplier for this week
+    const phaseMultipliers = progressionMultipliers[phaseName] || [1.0];
+    const progressionMult = phaseMultipliers[weekIndexInPhase % phaseMultipliers.length];
+
+    // Compute week start/end dates (Monday-Sunday)
+    const weekStartDate = new Date(startDateObj);
+    weekStartDate.setDate(weekStartDate.getDate() + wi * 7);
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+
+    const workouts = templateWorkouts.map((tw) => {
+      // Resolve base duration: use durationKey if present, otherwise map from type
+      const durationKey = tw.durationKey || tw.type.toLowerCase().replace(/[^a-z]/g, "");
+      const baseDurStr = baseDurations[durationKey] || baseDurations[tw.type.toLowerCase()] || "0min";
+      const baseMinutes = parseDurationMinutes(baseDurStr);
+
+      // Apply multipliers
+      const finalMinutes = baseMinutes * (tw.durationMultiplier || 0) * progressionMult;
+      const duration = tw.durationMultiplier === 0 ? null : formatDuration(finalMinutes);
+
+      return {
+        day: tw.day,
+        type: tw.type,
+        duration,
+        zone: tw.zone || "-",
+        notes: tw.notes || null,
+        nutritionTarget: null,
+      };
+    });
+
+    // Add strength workout if includeStrength and template recommends it
+    if (includeStrength && baseDurations.strength) {
+      const hasStrength = workouts.some((w) =>
+        w.type.toLowerCase().includes("strength"),
+      );
+      if (!hasStrength) {
+        // Find a rest day or easy day to add strength
+        const restDays = schedule.restDays || ["Mon"];
+        // Pick a day that isn't rest in the workout list but is moderate/easy in schedule
+        const workoutDays = new Set(workouts.filter((w) => w.type !== "Rest").map((w) => w.day));
+        const candidateDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+          .filter((d) => !workoutDays.has(d) || restDays.includes(d));
+        const strengthDay = candidateDays.length > 0
+          ? candidateDays[candidateDays.length - 1]
+          : "Mon";
+
+        const strengthMinutes = parseDurationMinutes(baseDurations.strength);
+        workouts.push({
+          day: strengthDay,
+          type: "Strength",
+          duration: formatDuration(strengthMinutes * (isRecovery ? 0.6 : 1.0)),
+          zone: "-",
+          notes: "Full-body strength and mobility",
+          nutritionTarget: null,
+        });
+      }
+    }
+
+    skeleton.push({
+      weekNumber: wi + 1,
+      phase: phaseName,
+      startDate: weekStartDate.toISOString().split("T")[0],
+      endDate: weekEndDate.toISOString().split("T")[0],
+      workouts,
+    });
+  }
+
+  return skeleton;
+}
+
+/**
+ * Handle template-based plan generation.
+ * Uses buildSkeletonFromTemplate + single LLM customization pass.
+ * Falls back to handlePlanGenerationBatch on error or custom goals.
+ */
+async function handlePlanFromTemplate(req, res) {
+  const { input, templateParams } = req.body;
+
+  // Validate required fields
+  if (!input || typeof input !== "object") {
+    res.status(400).json({ error: "input object is required" });
+    return;
+  }
+  if (!templateParams || typeof templateParams !== "object") {
+    res.status(400).json({ error: "templateParams object is required" });
+    return;
+  }
+  const { raceCategory, raceSubtype, schedulePattern, includeStrength } = templateParams;
+  let { goalTier } = templateParams;
+  if (!raceCategory || !raceSubtype || !schedulePattern) {
+    res.status(400).json({ error: "templateParams must include raceCategory, raceSubtype, and schedulePattern" });
+    return;
+  }
+
+  console.log(`[planFromTemplate] raceCategory=${raceCategory}, raceSubtype=${raceSubtype}, goalTier=${goalTier}, schedule=${schedulePattern}`);
+
+  // Compute totalWeeks and planStartDate
+  const race = input.race || {};
+  const now = new Date();
+  let raceDate = race.date ? new Date(race.date) : null;
+  if (raceDate) {
+    while (raceDate < now) raceDate.setFullYear(raceDate.getFullYear() + 1);
+  }
+  const planStartDate = now.toISOString().split("T")[0];
+  const totalWeeks = raceDate
+    ? Math.max(4, Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000)))
+    : 12;
+
+  console.log(`[planFromTemplate] totalWeeks=${totalWeeks}, planStartDate=${planStartDate}`);
+
+  // Handle custom goal tier — classify via quick LLM call
+  if (goalTier === "custom") {
+    const customGoalText = race.userGoal?.customText || race.userGoal?.text || "";
+    console.log(`[planFromTemplate] classifying custom goal: "${customGoalText.substring(0, 100)}"`);
+
+    try {
+      const classifyMessages = [
+        {
+          role: "user",
+          content: `Classify this training goal into one of: "finish", "time_goal", "custom_unique".\nIf it maps to a time goal, extract the target time in seconds.\nRace: ${raceCategory} ${raceSubtype}. Goal text: ${customGoalText}\nReturn ONLY JSON: {"classification": "finish"|"time_goal"|"custom_unique", "extractedTimeSeconds": null|number}`,
+        },
+      ];
+
+      const classifyRaw = await callLLM({
+        messages: classifyMessages,
+        model: "gpt-4.1-mini",
+        temperature: 0,
+        maxTokens: 256,
+      });
+
+      const classified = JSON.parse(stripMarkdownFences(classifyRaw));
+      console.log(`[planFromTemplate] goal classification: ${JSON.stringify(classified)}`);
+
+      if (classified.classification === "finish") {
+        goalTier = "finish";
+      } else if (classified.classification === "time_goal") {
+        goalTier = "time_goal";
+        // Update the input goal with extracted time if available
+        if (classified.extractedTimeSeconds && input.race?.userGoal) {
+          input.race.userGoal.type = "timeTarget";
+          input.race.userGoal.targetSeconds = classified.extractedTimeSeconds;
+        }
+      } else {
+        // custom_unique — fall back to full LLM plan generation
+        console.log(`[planFromTemplate] custom_unique goal, falling back to batch generation`);
+        req.body.weekStart = 1;
+        req.body.weekEnd = totalWeeks;
+        req.body.totalWeeks = totalWeeks;
+        await handlePlanGenerationBatch(req, res);
+        return;
+      }
+    } catch (err) {
+      console.error(`[planFromTemplate] goal classification failed, falling back:`, err.message);
+      req.body.weekStart = 1;
+      req.body.weekEnd = totalWeeks;
+      req.body.totalWeeks = totalWeeks;
+      await handlePlanGenerationBatch(req, res);
+      return;
+    }
+  }
+
+  // Determine skill level: highest of swim/bike/run, default intermediate
+  const levelRank = { beginner: 0, intermediate: 1, advanced: 2 };
+  const levels = [input.swimLevel, input.bikeLevel, input.runLevel]
+    .filter(Boolean)
+    .map((l) => l.toLowerCase());
+  const skillLevel = levels.length > 0
+    ? levels.reduce((best, l) => (levelRank[l] || 0) > (levelRank[best] || 0) ? l : best, levels[0])
+    : "intermediate";
+
+  console.log(`[planFromTemplate] skillLevel=${skillLevel}`);
+
+  try {
+    // Build skeleton from template
+    const skeleton = buildSkeletonFromTemplate(
+      templateParams,
+      input,
+      planStartDate,
+      totalWeeks,
+      skillLevel,
+    );
+
+    console.log(`[planFromTemplate] skeleton built: ${skeleton.length} weeks`);
+
+    // Build vars for the customization prompt
+    const { pass1Vars } = buildPlanGenVars(input);
+    pass1Vars.weeks_available = String(totalWeeks);
+    const customizeVars = {
+      ...pass1Vars,
+      skeleton_json: JSON.stringify(skeleton),
+    };
+
+    // Single LLM call to customize the skeleton
+    const customized = await withRetry(async () => {
+      const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-customize", customizeVars);
+      messages.push({
+        role: "user",
+        content: `Customize and enhance this ${totalWeeks}-week training plan skeleton with personalized notes, nutrition targets, and any adjustments based on the athlete profile.`,
+      });
+      const planMaxTokens = Math.max(maxTokens, 16384);
+      return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
+    });
+
+    console.log(`[planFromTemplate] customized response length=${customized.length}`);
+
+    // Parse and return
+    const parsed = JSON.parse(stripMarkdownFences(customized));
+    console.log(`[planFromTemplate] parsed weeks=${Array.isArray(parsed) ? parsed.length : "not array"}`);
+    res.status(200).json({ result: parsed, method: "template", warnings: [] });
+  } catch (err) {
+    console.error(`[planFromTemplate] template path failed, falling back to batch:`, err.message);
+    try {
+      req.body.weekStart = 1;
+      req.body.weekEnd = totalWeeks;
+      req.body.totalWeeks = totalWeeks;
+      await handlePlanGenerationBatch(req, res);
+      // Note: if batch already sent response, we can't add method field.
+      // The fallback response comes from handlePlanGenerationBatch directly.
+    } catch (fallbackErr) {
+      console.error(`[planFromTemplate] fallback also failed:`, fallbackErr.message);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Plan generation failed", method: "custom_fallback" });
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // OTP Functions (existing)
 // ---------------------------------------------------------------------------
 
@@ -759,6 +1135,9 @@ exports.llmProxy = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
         break;
       case "planGenerationBatch":
         await handlePlanGenerationBatch(req, res);
+        break;
+      case "planFromTemplate":
+        await handlePlanFromTemplate(req, res);
         break;
       default:
         res.status(400).json({ error: `Unknown type: ${type}` });

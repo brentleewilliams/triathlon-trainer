@@ -1,0 +1,18 @@
+{
+  "patternId": "weekendWarrior",
+  "label": "Weekend Warrior",
+  "description": "Short weekdays, long weekends",
+  "daySlots": {
+    "Mon": "rest",
+    "Tue": "easy",
+    "Wed": "moderate",
+    "Thu": "easy",
+    "Fri": "rest",
+    "Sat": "long",
+    "Sun": "long"
+  },
+  "restDays": ["Mon", "Fri"],
+  "longSessionDays": ["Sat", "Sun"],
+  "hardSessionDays": ["Wed"],
+  "doubleSessionDays": []
+}

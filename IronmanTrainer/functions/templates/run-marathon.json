@@ -1,0 +1,134 @@
+{
+  "templateId": "run-marathon",
+  "raceCategory": "running",
+  "raceSubtype": "marathon",
+  "raceDistance": "Marathon (26.2 mi)",
+  "weeksRange": {
+    "short": [12, 15],
+    "medium": [16, 20],
+    "long": [21, 24]
+  },
+  "phases": [
+    {
+      "name": "Base",
+      "percentage": 0.25,
+      "focus": "Aerobic foundation, progressive mileage buildup, injury prevention",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Build",
+      "percentage": 0.35,
+      "focus": "Long run progression, marathon-pace work, lactate threshold",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Peak",
+      "percentage": 0.25,
+      "focus": "Peak mileage, race-specific long runs, goal-pace confidence",
+      "recoveryWeekEvery": null
+    },
+    {
+      "name": "Taper",
+      "percentage": 0.15,
+      "focus": "Gradual volume reduction, maintaining sharpness, glycogen loading",
+      "recoveryWeekEvery": null
+    }
+  ],
+  "weekTemplates": {
+    "normal": {
+      "Base": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.0, "zone": "Z1-Z2", "notes": "Easy aerobic run, building consistency" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.0, "zone": "Z3-Z4", "notes": "Fartlek or strides, developing speed and turnover" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.85, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+        { "day": "Fri", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 1.0, "zone": "Z3", "notes": "Steady-state tempo at comfortable-hard effort" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Long run at easy conversational pace" },
+        { "day": "Sun", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.7, "zone": "Z1", "notes": "Easy recovery run, flush legs" }
+      ],
+      "Build": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.05, "zone": "Z2", "notes": "Easy aerobic run" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.1, "zone": "Z4-Z5", "notes": "1200m-mile repeats at 10K effort, 2-3 min recovery" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.85, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+        { "day": "Fri", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 1.1, "zone": "Z3-Z4", "notes": "Tempo at marathon-to-half marathon effort" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.15, "zone": "Z2", "notes": "Progressive long run, last 20 min at marathon pace" },
+        { "day": "Sun", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.7, "zone": "Z1", "notes": "Easy recovery run" }
+      ],
+      "Peak": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 1.15, "zone": "Z3-Z4", "notes": "Marathon-pace tempo, practice fueling" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.1, "zone": "Z4-Z5", "notes": "Mile repeats at half marathon pace, 2 min recovery" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.85, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+        { "day": "Fri", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.9, "zone": "Z2", "notes": "Easy run with 4-6 strides" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.2, "zone": "Z2-Z3", "notes": "Race-rehearsal long run with goal-pace miles, practice nutrition" },
+        { "day": "Sun", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1", "notes": "Very easy recovery jog" }
+      ],
+      "Taper": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Easy run with strides" },
+        { "day": "Wed", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 0.5, "zone": "Z3", "notes": "Short marathon-pace sharpener" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.5, "zone": "Z1", "notes": "Easy jog, stay loose" },
+        { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sat", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.4, "zone": "Z1", "notes": "Short shakeout" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ]
+    },
+    "recovery": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.65, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+      { "day": "Wed", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1", "notes": "Very easy jog, active recovery" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Short easy run" },
+      { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Shortened easy long run, no pace pressure" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "taper": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.5, "zone": "Z1-Z2", "notes": "Short easy run with strides" },
+      { "day": "Wed", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 0.4, "zone": "Z3", "notes": "Brief marathon-pace openers" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.35, "zone": "Z1", "notes": "10-min easy shakeout" },
+      { "day": "Sat", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "raceWeek": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.35, "zone": "Z1-Z2", "notes": "Easy shakeout with 4 strides at marathon pace" },
+      { "day": "Wed", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.25, "zone": "Z1", "notes": "10-15 min easy jog" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sat", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.2, "zone": "Z1", "notes": "Optional 10-min shakeout with 2-3 strides" },
+      { "day": "Sun", "type": "Race", "durationMultiplier": 0, "zone": "Race", "notes": "RACE DAY — Marathon" }
+    ]
+  },
+  "baseDurations": {
+    "beginner": {
+      "run": "30min",
+      "longRun": "60min",
+      "intervals": "30min",
+      "tempo": "30min",
+      "strength": "25min"
+    },
+    "intermediate": {
+      "run": "40min",
+      "longRun": "75min",
+      "intervals": "40min",
+      "tempo": "35min",
+      "strength": "30min"
+    },
+    "advanced": {
+      "run": "50min",
+      "longRun": "90min",
+      "intervals": "45min",
+      "tempo": "40min",
+      "strength": "30min"
+    }
+  },
+  "phaseProgressionMultipliers": {
+    "Base": [1.0, 1.05, 1.1],
+    "Build": [1.1, 1.15, 1.2, 1.25],
+    "Peak": [1.25, 1.22, 1.18],
+    "Taper": [0.7, 0.5]
+  },
+  "strengthRecommendation": "recommended"
+}

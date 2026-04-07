@@ -1,0 +1,131 @@
+{
+  "templateId": "run-5k",
+  "raceCategory": "running",
+  "raceSubtype": "5k",
+  "raceDistance": "5K",
+  "weeksRange": {
+    "short": [4, 6],
+    "medium": [7, 9],
+    "long": [10, 12]
+  },
+  "phases": [
+    {
+      "name": "Base",
+      "percentage": 0.30,
+      "focus": "Aerobic foundation, running form, consistency",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Build",
+      "percentage": 0.40,
+      "focus": "Increasing volume, introducing speed work",
+      "recoveryWeekEvery": 3
+    },
+    {
+      "name": "Peak",
+      "percentage": 0.15,
+      "focus": "Race-pace sharpening, VO2max intervals",
+      "recoveryWeekEvery": null
+    },
+    {
+      "name": "Taper",
+      "percentage": 0.15,
+      "focus": "Volume reduction, maintaining intensity, freshness",
+      "recoveryWeekEvery": null
+    }
+  ],
+  "weekTemplates": {
+    "normal": {
+      "Base": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.0, "zone": "Z1-Z2", "notes": "Easy aerobic run, focus on relaxed form" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.0, "zone": "Z3-Z4", "notes": "Strides and short pickups to develop turnover" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.0, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+        { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Steady long run, conversational pace" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Build": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.05, "zone": "Z2", "notes": "Easy aerobic run with good cadence" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.1, "zone": "Z4-Z5", "notes": "400m-800m repeats at 5K effort with equal recovery" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 1.0, "zone": "Z1-Z2", "notes": "Easy recovery run" },
+        { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.1, "zone": "Z2", "notes": "Moderate long run, building endurance" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Peak": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Tempo", "durationKey": "tempo", "durationMultiplier": 1.0, "zone": "Z3-Z4", "notes": "Tempo run at 10K-to-half marathon effort" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 1.05, "zone": "Z4-Z5", "notes": "Race-pace 1K repeats or 5x1000m at goal pace" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.9, "zone": "Z1-Z2", "notes": "Easy shakeout run" },
+        { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 1.0, "zone": "Z2", "notes": "Steady long run with final miles at tempo" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ],
+      "Taper": [
+        { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1-Z2", "notes": "Easy shakeout with 4-6 strides" },
+        { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 0.5, "zone": "Z4", "notes": "Short race-pace sharpeners, low volume" },
+        { "day": "Thu", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.5, "zone": "Z1", "notes": "Very easy jog, stay loose" },
+        { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sat", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+        { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+      ]
+    },
+    "recovery": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.65, "zone": "Z1-Z2", "notes": "Easy recovery run, keep effort low" },
+      { "day": "Wed", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.6, "zone": "Z1", "notes": "Very easy jog or walk-run" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sat", "type": "🏃 Long Run", "durationKey": "longRun", "durationMultiplier": 0.65, "zone": "Z1-Z2", "notes": "Shortened easy long run" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "taper": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.5, "zone": "Z1-Z2", "notes": "Short easy run with strides" },
+      { "day": "Wed", "type": "🏃 Intervals", "durationKey": "intervals", "durationMultiplier": 0.4, "zone": "Z4", "notes": "Brief race-pace openers" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.35, "zone": "Z1", "notes": "10-min shakeout jog" },
+      { "day": "Sat", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sun", "type": "Rest", "durationMultiplier": 0, "zone": "-" }
+    ],
+    "raceWeek": [
+      { "day": "Mon", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Tue", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.4, "zone": "Z1-Z2", "notes": "Easy shakeout with 4 strides at race pace" },
+      { "day": "Wed", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.3, "zone": "Z1", "notes": "10-min easy jog" },
+      { "day": "Thu", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Fri", "type": "Rest", "durationMultiplier": 0, "zone": "-" },
+      { "day": "Sat", "type": "🏃 Run", "durationKey": "run", "durationMultiplier": 0.25, "zone": "Z1", "notes": "Optional 10-min shakeout with 2-3 strides" },
+      { "day": "Sun", "type": "Race", "durationMultiplier": 0, "zone": "Race", "notes": "RACE DAY — 5K" }
+    ]
+  },
+  "baseDurations": {
+    "beginner": {
+      "run": "20min",
+      "longRun": "30min",
+      "intervals": "25min",
+      "tempo": "25min"
+    },
+    "intermediate": {
+      "run": "30min",
+      "longRun": "40min",
+      "intervals": "30min",
+      "tempo": "30min"
+    },
+    "advanced": {
+      "run": "35min",
+      "longRun": "50min",
+      "intervals": "35min",
+      "tempo": "35min"
+    }
+  },
+  "phaseProgressionMultipliers": {
+    "Base": [1.0, 1.05, 1.1],
+    "Build": [1.1, 1.15, 1.2, 1.25],
+    "Peak": [1.2, 1.15],
+    "Taper": [0.7, 0.5]
+  },
+  "strengthRecommendation": "optional"
+}

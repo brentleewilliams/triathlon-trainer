@@ -1,0 +1,18 @@
+{
+  "patternId": "spread",
+  "label": "Balanced",
+  "description": "Evenly distributed across the week",
+  "daySlots": {
+    "Mon": "rest",
+    "Tue": "moderate",
+    "Wed": "hard",
+    "Thu": "moderate",
+    "Fri": "easy",
+    "Sat": "long",
+    "Sun": "moderate"
+  },
+  "restDays": ["Mon"],
+  "longSessionDays": ["Sat"],
+  "hardSessionDays": ["Wed"],
+  "doubleSessionDays": []
+}

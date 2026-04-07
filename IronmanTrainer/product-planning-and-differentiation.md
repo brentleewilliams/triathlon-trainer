@@ -1,14 +1,34 @@
 # IronmanTrainer: Product Planning & Competitive Differentiation
 
-*Last updated: 2026-04-01*
+*Last updated: 2026-04-07*
+
+## TL;DR
+
+SwiftUI iOS app for Ironman 70.3 training with HealthKit sync, Claude AI coaching, and LangSmith observability. Currently a single-athlete tool; the foundation (Firebase auth, onboarding, Firestore sync, coaching stack) is ready for a public product. The critical missing piece — AI-generated personalized training plans — is now in progress. Next milestone: template-based plan generation with LLM customization to replace the fully-custom LLM approach (too slow, ~2-5 min).
+
+---
+
+## Decision Log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-04-07 | Template-based plan gen with LLM customization pass | Fully custom LLM takes 2-5 min and produces unpredictable structure; templates guarantee sound periodization, LLM adds personalization in <30s |
+| 2026-04-07 | Launch templates for tri (all distances) + running (5K-marathon); fully custom LLM fallback for other race types | Covers ~95% of users; keeps custom path for unusual races (Ragnar, swimrun, etc.) |
+| 2026-04-07 | 3 goal tiers: Finish, Time Goal, Custom (free text) | Custom goals get LLM classification to route to template when possible; fully custom only when truly unique |
+| 2026-04-07 | Firebase Analytics for plan generation tracking | Track template vs custom path usage, generation times, goal classification accuracy |
+| 2026-04-01 | Defer Apple Watch app to V2 | Native Workout app sufficient; months of effort for marginal pre-race benefit |
+| 2026-04-01 | Defer Strava/Garmin sync to V2 | Solve own problem first (Apple Watch + HealthKit) |
+| 2026-03-23 | Add Firebase Auth + Firestore | Cloud sync needed for onboarding data persistence |
+
+---
 
 ## App Review: Current State
 
 ### What Exists
 
-A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase auth (Sign In with Apple), a 6-step onboarding flow, Firestore cloud sync, a hardcoded 17-week training plan with per-workout nutrition targets, HealthKit workout sync with compliance tracking, HR zone analytics, Claude-powered coaching chat with conversation history and plan adaptation (day swapping), LangSmith tracing, and push notification reminders. Built for one athlete (Brent), one race (Ironman 70.3 Oregon), one goal (sub-6:00).
+A fully refactored SwiftUI iOS app (31 Swift files, ~10,800 lines) with Firebase auth (Sign In with Apple), a 6-step onboarding flow, Firestore cloud sync, AI-generated training plans (in progress — 2-pass LLM via Cloud Functions with LangSmith prompt management), HealthKit workout sync with compliance tracking, HR zone analytics, Claude-powered coaching chat with conversation history and plan adaptation (day swapping), LangSmith tracing, CI scripts for Xcode Cloud, and push notification reminders. Currently built for one athlete (Brent), one race (Ironman 70.3 Oregon), one goal (sub-6:00).
 
-### Architecture (28 files)
+### Architecture (31 files)
 
 | File | Lines | Purpose |
 |------|-------|---------|
@@ -25,11 +45,14 @@ A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase 
 | AuthService.swift | 149 | Firebase Auth, Sign In with Apple, onboarding state |
 | FirestoreService.swift | 125 | Cloud sync for profiles and training plans |
 | OnboardingView.swift | 1,282 | 6-step flow (HealthKit → Profile → Race Search → Goals → Fitness Chat → Plan Review) |
-| OnboardingViewModel.swift | 281 | Onboarding state machine |
+| OnboardingViewModel.swift | 281 | Onboarding state machine, early plan generation trigger |
 | OnboardingChatHelper.swift | 247 | AI-assisted fitness assessment during onboarding |
 | HealthKitOnboardingData.swift | 437 | Pre-populate profile from HealthKit during onboarding |
+| PlanGenerationService.swift | 377 | Deprecated — old direct OpenAI plan generation (replaced by LLMProxyService) |
+| LLMProxyService.swift | 441 | Client proxy for Cloud Function plan generation (batched 2-pass LLM) |
+| OpenAIService.swift | 124 | OpenAI API client for plan generation calls |
 | SignInView.swift | 334 | Sign In with Apple UI |
-| SettingsView.swift | 254 | Notification settings, workout reminders |
+| SettingsView.swift | 254 | Notification settings, workout reminders, plan regeneration |
 | UserProfile.swift | 97 | RaceType, GoalType, Race models |
 | LangSmithTracer.swift | 117 | Conversation observability |
 | SharedComponents.swift | 186 | Reusable UI (WeekNavigationHeader, etc.) |
@@ -37,12 +60,13 @@ A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase 
 | PlanView.swift | — | Calendar overview of all 17 weeks |
 | CoreData entities | — | CompletedWorkoutEntity, WorkoutPlanVersion |
 | IronmanTrainerApp.swift | 54 | App entry: Firebase init, auth flow, deep linking |
+| ci_scripts/ci_post_clone.sh | — | Xcode Cloud post-clone script for CI builds |
 
 ### Remaining Code Issues
 
 - **Zone calculation is approximate, not exact.** Uses `%maxHR` formula (0.69/0.79/0.85/0.92 × maxHR) rather than the fixed BPM values from the original training plan (126/144/155/167). For a 38-year-old (maxHR=182), the formula produces ~126/144/155/168 — close but drifts if age input is wrong. Both analytics and Claude use the same `zoneBoundaries` computed property, so they're at least internally consistent. Would break for a public product with varying athlete ages/zones.
-- **HealthKit sync is 30-day window only.** Changed from "Feb 1 forward" to last 30 days with a 100-workout limit. This means early training weeks will drop out of Claude's context as the season progresses. Fine for coaching recency, but means you can't ask "how was my volume in March?" in June.
-- **Hardcoded plan for one athlete.** The onboarding flow exists (race search, goal setting, fitness chat) but the training plan is still the same hardcoded 17-week array. The onboarding collects data but doesn't generate a personalized plan from it yet.
+- **HealthKit sync is 30-day window only.** Changed from "Feb 1 forward" to last 30 days with a 100-workout limit. This means early training weeks will drop out of Claude's context as the season progresses. Fine for coaching recency, but means you can't ask "how was my volume in March?" in June. V2 fix: store historical weekly summaries in Firestore so Claude always has full training history.
+- **Plan generation is slow.** The current 2-pass fully-custom LLM approach takes 2-5 min across 4 batches. Being replaced with template-based generation + single LLM customization pass (target: <30s).
 
 ---
 
@@ -97,6 +121,20 @@ A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase 
 - **Weaknesses:** Workout delivery only — no coaching, no plan generation, no analytics
 - **Positioning:** The bridge between your training plan and your Apple Watch
 
+### Athletica.ai — AI-Adaptive Training (HIIT Science)
+
+- **Price:** Free (basic), $20/mo (Pro)
+- **Strengths:** Founded on HIIT Science research, AI adapts training daily based on workout responses, supports triathlon/running/cycling, strong scientific foundation for intensity distribution, growing in triathlon community
+- **Weaknesses:** Less polished UX than competitors, smaller community, no race-specific course intelligence
+- **Positioning:** Science-backed AI training that adapts daily — direct competitor to the "AI coach" positioning
+
+### Final Surge — Free Training Plan Platform
+
+- **Price:** Free (athletes), paid for coaches
+- **Strengths:** Free structured training calendar, integrates with most devices (Garmin, Wahoo, Coros), large coach/plan marketplace, popular with age-groupers on a budget
+- **Weaknesses:** No AI coaching, plans are static (follow the schedule), basic analytics compared to TrainingPeaks
+- **Positioning:** The free alternative — relevant as the low-end threat for price-sensitive athletes
+
 ---
 
 ## Differentiation Analysis
@@ -107,17 +145,19 @@ A fully refactored SwiftUI iOS app (28 Swift files, ~7,100 lines) with Firebase 
 
 No competitor app bakes a specific previous race failure analysis into AI coaching context. Your Claude prompt carries the Boise 70.3 underfueling disaster (150g carbs over 7hrs when you needed 400-500g, heat collapse at 93°F triggered by low glycogen) as permanent context that shapes every coaching response. This isn't a generic "enter your race history" field — it's a coached lesson embedded in the AI's reasoning.
 
+*Current state:* This is hardcoded in the system prompt for Brent's specific race history — not yet a user-facing feature. For V2, users would input their past race results and what went wrong; the AI builds failure-informed context that persists across training cycles.
+
 Positioning: *"An AI coach that actually knows what went wrong last time and won't let it happen again."*
 
 **2. Integrated Nutrition-Training Progression (Built)**
 
 Training apps handle training. Nutrition apps handle nutrition. RaceDay handles race-day pacing. Nobody else integrates gut training progression directly into the weekly training plan. IronmanTrainer already does this: every long ride and brick has a `nutritionTarget` field with progressive carb/hr goals (60g→70g→80g→100g across the 17 weeks), visible in the workout card UI and included in Claude's coaching context. This is not a planned feature — it's shipped and working.
 
-**3. Single-Race Specificity as a Feature**
+**3. Race-Specific Depth Over Platform Breadth**
 
-Every competitor is a platform serving all athletes at all distances. Your app knows exactly one thing: getting Brent to sub-6 at Oregon 70.3 on July 19. The AI references Oregon's downstream swim current, the shaded run course, Denver altitude advantage, cooler temps (78-85°F vs. Boise's 93°F). No generic platform carries this depth of race-specific intelligence.
+Every competitor is a platform serving all athletes at all distances with generic plans. IronmanTrainer goes deeper on one race than anyone else goes on any race — the AI references Oregon's downstream swim current, the shaded run course, Denver altitude advantage, cooler temps (78-85°F vs. Boise's 93°F). The current single-athlete version is the proof of concept for this depth.
 
-For a v2 public product: *"Your AI coach for YOUR next race"* — not a training platform, a race-specific coaching engine.
+The V2 product generalizes this: *"Your AI coach for YOUR next race"* — pick your race, and the app pulls course data, weather history, elevation profiles, and aid station details. The training plan and coaching context are specific to that course, not generic triathlon advice. No competitor does this.
 
 ---
 
@@ -127,7 +167,7 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 
 ### Remaining Gaps
 
-1. **AI-generated training plans** — The onboarding flow collects race, goals, fitness data, and HealthKit history, but the plan is still the same hardcoded 17-week array. Humango, TriDot, Athletica, and MOTTIV all generate personalized plans from athlete input. This is the biggest gap for a public product — the onboarding promises personalization that the plan doesn't deliver yet.
+1. **AI-generated training plans** — **In progress.** The 2-pass LLM generation pipeline exists (LLMProxyService → Cloud Functions → LangSmith prompts → gpt-4.1-mini), but takes 2-5 min and produces inconsistent structure. Being replaced with template-based generation (tri + running templates with short/medium/long duration buckets) plus a single LLM customization pass (<30s target). Fully custom LLM path retained as fallback for unusual race types. Humango, TriDot, Athletica, and MOTTIV all generate personalized plans — this remains the biggest gap for a public product.
 
 2. **Recovery/readiness signals** — Humango proactively adjusts based on HRV/Garmin Body Battery/WHOOP. Your app reads HR data but doesn't factor in resting HR trends, HRV, or sleep quality for recovery recommendations.
 
@@ -147,7 +187,7 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 - ~~**Per-workout nutrition targets**~~ — Done. `nutritionTarget` field on all long rides/bricks with progressive carb/hr goals (60g→100g).
 - ~~**Real workout data in Claude context**~~ — Done. `getWorkoutHistoryForClaude()` formats actual HealthKit data with stats.
 - ~~**Race countdown**~~ — Done. `daysUntilRace` banner on home screen with phase label.
-- ~~**File architecture**~~ — Done. 28 files, largest is OnboardingView at 1,282 lines.
+- ~~**File architecture**~~ — Done. 31 files (~10,800 lines), largest is OnboardingView at 1,282 lines.
 - ~~**Cloud sync**~~ — Done. Firebase Auth + Firestore for profiles and plans (was listed as V2).
 - ~~**Notifications**~~ — Done. Morning workout reminders with deep linking to specific weeks.
 
@@ -180,9 +220,10 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 | Settings tab | ✅ Done | Replaced Plan tab in navigation |
 | Per-workout zone breakdowns | ✅ Done | Zone distribution per individual workout |
 | CoreData persistence | ✅ Done | CompletedWorkoutEntity, WorkoutPlanVersion |
-| File architecture refactor | ✅ Done | 28 files, ~7,100 lines total |
+| File architecture refactor | ✅ Done | 31 files, ~10,800 lines total |
+| CI/CD pipeline | ✅ Done | ci_post_clone.sh for Xcode Cloud builds |
 | Weekly volume deviation warning | ❌ Not built | No actual-vs-planned comparison |
-| AI-generated training plans | ❌ Not built | Onboarding collects data but plan is still hardcoded |
+| AI-generated training plans | 🔄 In progress | 2-pass LLM pipeline exists but slow (2-5 min); migrating to template + LLM customization (<30s) |
 | Apple Watch app | ❌ Deferred | V2 — native Workout app sufficient |
 | Strava/Garmin sync | ❌ Deferred | V2 — HealthKit-only for now |
 | Race countdown activity checklist | ❌ Deferred | Track externally pre-race; V2 feature |
@@ -201,26 +242,49 @@ Only two features remain from the original pre-race build list:
 - **Apple Watch app** — Months of work, marginal training benefit over the native Workout app. V2.
 - **Strava/Garmin Connect sync** — You're on Apple Watch + HealthKit. Solve your own problem first. V2.
 - **Full activity checklist UI** — Valuable but trackable externally. V2 product feature.
-- **AI-generated plans from onboarding data** — The onboarding collects everything needed, but wiring Claude to generate a full 17-week plan from profile + race + goals is a significant effort. Critical for V2 public product, not needed for personal use.
+- **AI-generated plans from onboarding data** — Now in progress. Template-based approach replaces fully-custom LLM. See Decision Log.
 
 ### V2: Platform Play (Post-Race, If Going Public)
 
 *Goal: Generalize from "Brent's Oregon app" to "your coach for your next race."*
 
-The foundation is stronger than expected for a public product. Firebase auth, onboarding, Firestore sync, and the full coaching stack are already in place. The critical V2 work is:
+The foundation is stronger than expected for a public product. Firebase auth, onboarding, Firestore sync, and the full coaching stack are already in place. The critical V2 work is phased by dependency:
 
-- **Claude-generated training plans** — Wire onboarding data (profile, race, goals, HealthKit fitness assessment) into Claude to generate a personalized multi-week plan. The onboarding already collects everything needed; this is the missing link.
+**Phase 1 — Foundation (blocks everything else):**
+- **Template-based training plans** — Ship templates for triathlon (sprint/olympic/70.3/140.6) and running (5K/10K/half/marathon) with short/medium/long duration buckets. 3 goal tiers (Finish, Time Goal, Custom). LLM customization pass for personalization. Fully custom LLM fallback for unusual race types.
+- **Goal validation** — Flag unrealistic time goals based on current fitness + weeks to race. Suggest achievable alternatives or route to "Finish" tier.
+- **Firebase Analytics for plan generation** — Track template vs custom path usage, generation times, goal classification accuracy.
+
+**Phase 2 — Depth:**
 - **Race course intelligence** — "Pick your race" from Ironman calendar → auto-pull course data, weather history, aid station locations, water conditions
 - **Post-race failure analysis** — User enters past race results + what went wrong → AI builds failure-informed coaching context that persists across cycles
+
+**Phase 3 — Reach:**
 - **Apple Watch structured workout push**
 - **Strava/Garmin sync**
+- **Historical training data in Firestore** — Store weekly summaries so Claude has full training history beyond HealthKit's 30-day window
+
+**Phase 4 — Retention:**
 - **Multi-race lifecycle support** (see Retention section below)
 - **Full race countdown with activity milestone checklist**
-- **Pricing position:** $15-20/mo (undercuts TriDot significantly, matches Humango/MOTTIV, but with deeper race-specific intelligence)
+
+**Pricing position:** $15-20/mo (undercuts TriDot significantly, matches Humango/MOTTIV, but with deeper race-specific intelligence)
 
 ### The V2 Public Pitch
 
 > Most triathlon apps give you a generic training plan and wish you luck on race day. IronmanTrainer is different: tell it your race, your history, and what went wrong last time. It builds a training plan specific to your course — the elevation, the weather, the aid stations — with nutrition baked into every training session so you never bonk again. It's not a platform. It's your coach for your next race.
+
+---
+
+## Risks & Open Questions
+
+1. **Claude API cost per user.** Every coaching message hits the Claude API. Plan generation adds LLM calls on top. At scale, what's the per-user monthly API cost vs. $15-20/mo subscription revenue? Need back-of-envelope math: avg messages/user/month × cost per call, plus plan generation cost (template path: 1-2 calls; custom path: 8 calls).
+
+2. **Plan quality & liability.** AI-generated training plans need validation — a bad plan (too much volume ramp, missing recovery weeks) could injure someone. Templates mitigate this for common race types (periodization is guaranteed correct), but the fully-custom LLM path and the LLM customization pass can still produce physiologically unsound modifications. Need: structured guardrails (max volume increase per week, mandatory recovery weeks), disclaimer language, and ideally coach review of a sample of generated plans via LangSmith.
+
+3. **HealthKit 30-day data loss.** Athletes training for 17+ weeks lose early-season data from Claude's context. This is both a code issue and a product limitation — "how was my base phase?" becomes unanswerable mid-build. Fix: store weekly training summaries in Firestore so Claude always has the full picture.
+
+4. **Goal validation accuracy.** The LLM classifier for custom goals needs to be good enough that users don't get routed to a 5-minute fully-custom generation when their goal is really just "sub-2 half marathon" in different words. Track classification accuracy via Firebase Analytics and iterate on the classifier prompt.
 
 ---
 
@@ -236,6 +300,8 @@ The foundation is stronger than expected for a public product. Firebase auth, on
 | Watchletic | Limited | ~$10/mo | ~$10/mo | No | Watch-only, no coaching |
 | RaceDay | Free (basic) | One-time | One-time | No | Race-day only, not training |
 | Fuelin | No | Subscription | Subscription | Dietitian-built | Nutrition only, add-on |
+| Athletica.ai | Yes (basic) | $20/mo | $20/mo | No | HIIT Science foundation |
+| Final Surge | Yes (athletes) | Free | Free | No | Coach marketplace, broad device sync |
 | **IronmanTrainer (proposed)** | **No** | **$15/mo** | **$15-20/mo** | **AI (Claude)** | **Race-specific + nutrition** |
 
 The $15-20/mo range sits below TriDot's meaningful tier ($89) and matches Humango/MOTTIV, but with deeper per-race intelligence that neither offers.
@@ -248,12 +314,12 @@ This is the biggest unaddressed strategic question. The app is built for a singl
 
 **The risk:** If you go public, users churn after their race. A 17-week subscription at $15/mo = ~$60 LTV. That's thin.
 
-**Potential solutions:**
+**Potential solutions (in recommended priority order):**
 
-- **Next-race pipeline:** After Oregon, immediately offer "What's your next race?" and generate a new cycle. Most triathletes race 2-4 times per year. The AI coach carries forward everything learned from the previous race.
-- **Off-season base building:** Generate maintenance/base-building plans between race cycles. Humango does this well.
-- **Post-race analysis:** After race day, ingest the actual race data (splits, HR, nutrition log) and generate a detailed race report with lessons for next time. This feeds the "post-race failure analysis" differentiator and creates a reason to stay subscribed.
-- **Race selection advisor:** "Based on your Oregon 70.3 finish, here are 3 races in the next 6 months where your fitness would target a PR." Keeps athletes engaged and planning.
+1. **Next-race pipeline (recommended first move):** After Oregon, immediately offer "What's your next race?" and generate a new cycle. Most triathletes race 2-4 times per year. The AI coach carries forward everything learned from the previous race. Lowest effort, highest signal — if users pick a next race, they're retained. If they don't, no amount of off-season features would have kept them.
+2. **Post-race analysis:** After race day, ingest the actual race data (splits, HR, nutrition log) and generate a detailed race report with lessons for next time. This feeds the "post-race failure analysis" differentiator and creates a reason to stay subscribed between races.
+3. **Off-season base building:** Generate maintenance/base-building plans between race cycles. Humango does this well.
+4. **Race selection advisor:** "Based on your Oregon 70.3 finish, here are 3 races in the next 6 months where your fitness would target a PR." Keeps athletes engaged and planning.
 
 ---
 
@@ -279,6 +345,8 @@ The app already logs every Claude coaching conversation to LangSmith (run start,
 ---
 
 ## Race Countdown: Activity Milestones (Reference — Not Building in App Pre-Race)
+
+> **Note:** This section is operational/personal, not strategic. Candidate for extraction to a separate file in V2 to keep this doc focused on product planning.
 
 A structured checklist of activities grouped by time horizon for Oregon 70.3. Tracked externally for now; candidate for in-app feature in V2.
 

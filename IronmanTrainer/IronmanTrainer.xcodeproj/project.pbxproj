@@ -18,6 +18,7 @@
 		1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00014F1F1A0001 /* WorkoutMatchingTests.swift */; };
 		1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001531F1A0001 /* WeatherForecastTests.swift */; };
 		1A0001641F1A0002 /* ChatSwapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001651F1A0002 /* ChatSwapTests.swift */; };
+		1A0001661F1A0003 /* TemplateSelectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001671F1A0003 /* TemplateSelectionTests.swift */; };
 		1AA000010A0A0001 /* IronmanTrainerWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1AA000020A0A0001 /* IronmanTrainerWidget.swift */; };
 		1AA000030A0A0001 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000040A0A0001 /* WidgetKit.framework */; };
 		1AA000050A0A0001 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000060A0A0001 /* SwiftUI.framework */; };
@@ -101,6 +102,7 @@
 		1A00014F1F1A0001 /* WorkoutMatchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingTests.swift; sourceTree = "<group>"; };
 		1A0001531F1A0001 /* WeatherForecastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherForecastTests.swift; sourceTree = "<group>"; };
 		1A0001651F1A0002 /* ChatSwapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSwapTests.swift; sourceTree = "<group>"; };
+		1A0001671F1A0003 /* TemplateSelectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemplateSelectionTests.swift; sourceTree = "<group>"; };
 		1AA000020A0A0001 /* IronmanTrainerWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IronmanTrainerWidget.swift; sourceTree = "<group>"; };
 		1AA000040A0A0001 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		1AA000060A0A0001 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -241,6 +243,7 @@
 				1A00014F1F1A0001 /* WorkoutMatchingTests.swift */,
 				1A0001531F1A0001 /* WeatherForecastTests.swift */,
 				1A0001651F1A0002 /* ChatSwapTests.swift */,
+				1A0001671F1A0003 /* TemplateSelectionTests.swift */,
 				FB000007000000001 /* OnboardingTests.swift */,
 				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 				844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */,
@@ -502,6 +505,7 @@
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
 				1A0001641F1A0002 /* ChatSwapTests.swift in Sources */,
+				1A0001661F1A0003 /* TemplateSelectionTests.swift in Sources */,
 				FB000006000000001 /* OnboardingTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

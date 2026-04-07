@@ -1,6 +1,25 @@
 import Foundation
 import FirebaseAuth
 
+// MARK: - Template Params
+
+struct TemplateParams: Codable {
+    var raceCategory: String
+    var raceSubtype: String
+    var goalTier: String
+    var customGoalText: String?
+    var schedulePattern: String
+    var includeStrength: Bool
+}
+
+// MARK: - Template Plan Result
+
+struct TemplatePlanResult {
+    var weeks: [TrainingWeek]
+    var method: String
+    var warnings: [String]
+}
+
 // MARK: - LLM Proxy Service
 
 /// Routes all LLM requests through the Firebase Cloud Function proxy.
@@ -208,6 +227,44 @@ class LLMProxyService {
         let data = try await performRequest(body: body, timeout: 180)
         let planData = try extractResultData(from: data)
         return try parsePlanJSON(planData)
+    }
+
+    // MARK: - 6. Plan Generation (Template-Based)
+
+    func generatePlanFromTemplate(input: PlanGenerationInput, templateParams: TemplateParams) async throws -> TemplatePlanResult {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let inputData = try encoder.encode(input)
+        guard let inputDict = try JSONSerialization.jsonObject(with: inputData) as? [String: Any] else {
+            throw ClaudeServiceError.invalidRequest
+        }
+
+        let paramsData = try encoder.encode(templateParams)
+        guard let paramsDict = try JSONSerialization.jsonObject(with: paramsData) as? [String: Any] else {
+            throw ClaudeServiceError.invalidRequest
+        }
+
+        let body: [String: Any] = [
+            "type": "planFromTemplate",
+            "input": inputDict,
+            "templateParams": paramsDict
+        ]
+
+        let data = try await performRequest(body: body, timeout: 60)
+
+        // Parse outer response for result, method, and warnings
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw ClaudeServiceError.invalidResponse
+        }
+
+        let method = json["method"] as? String ?? "unknown"
+        let warnings = json["warnings"] as? [String] ?? []
+
+        // Extract result and parse into TrainingWeeks
+        let planData = try extractResultData(from: data)
+        let weeks = try parsePlanJSON(planData)
+
+        return TemplatePlanResult(weeks: weeks, method: method, warnings: warnings)
     }
 
     // MARK: - Request Infrastructure

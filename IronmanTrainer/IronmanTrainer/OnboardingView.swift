@@ -813,8 +813,26 @@ struct GoalSettingStep: View {
                             viewModel.goalType = .timeTarget
                         }
                     }
+
+                    // Custom Goal card
+                    GoalCard(
+                        icon: "text.bubble.fill",
+                        title: "Custom Goal",
+                        subtitle: "Describe your goal in your own words",
+                        isSelected: viewModel.goalType == .custom
+                    ) {
+                        withAnimation { viewModel.goalType = .custom }
+                    }
                 }
                 .padding(.horizontal, 16)
+
+                // Custom goal text field
+                if viewModel.goalType == .custom {
+                    TextField("e.g., Qualify for Boston, run/walk strategy...", text: $viewModel.customGoalText)
+                        .textFieldStyle(.roundedBorder)
+                        .padding(.horizontal, 16)
+                        .transition(.opacity.combined(with: .move(edge: .top)))
+                }
 
                 // Time picker (only if time target selected)
                 if viewModel.goalType == .timeTarget {
@@ -850,6 +868,22 @@ struct GoalSettingStep: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
                 }
 
+                // Goal validation warning
+                if let warning = viewModel.goalValidationWarning {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text(warning)
+                            .font(.caption)
+                            .foregroundStyle(.orange)
+                    }
+                    .padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.orange.opacity(0.1))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .padding(.horizontal, 16)
+                }
+
                 // Per-sport skill levels (only relevant sports)
                 VStack(alignment: .leading, spacing: 12) {
                     Divider().padding(.vertical, 4)
@@ -874,6 +908,57 @@ struct GoalSettingStep: View {
                 }
                 .padding(.horizontal, 16)
 
+                // Training Schedule pattern
+                VStack(alignment: .leading, spacing: 12) {
+                    Divider().padding(.vertical, 4)
+
+                    Text("Training Schedule")
+                        .font(.headline)
+
+                    HStack(spacing: 10) {
+                        ForEach(SchedulePattern.allCases, id: \.self) { pattern in
+                            Button {
+                                withAnimation { viewModel.schedulePattern = pattern }
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(systemName: pattern.icon)
+                                        .font(.title3)
+                                    Text(pattern.label)
+                                        .font(.caption.weight(.medium))
+                                    Text(pattern.description)
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                        .multilineTextAlignment(.center)
+                                        .lineLimit(2)
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .padding(.horizontal, 4)
+                                .background(viewModel.schedulePattern == pattern ? Color.blue.opacity(0.1) : Color(.systemGray6))
+                                .foregroundStyle(viewModel.schedulePattern == pattern ? .blue : .primary)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 10)
+                                        .stroke(viewModel.schedulePattern == pattern ? Color.blue : Color.clear, lineWidth: 2)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    // Strength training toggle
+                    Toggle("Include Strength Training", isOn: $viewModel.includeStrength)
+                        .font(.subheadline.weight(.medium))
+                        .padding(.top, 4)
+
+                    Text(viewModel.strengthRecommended
+                         ? "Recommended for your race distance"
+                         : "Optional for shorter races")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+
                 // Prep races section (optional)
                 PrepRacesOnboardingSection()
 
@@ -882,6 +967,9 @@ struct GoalSettingStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+        .onChange(of: viewModel.targetHours) { _, _ in viewModel.validateGoal() }
+        .onChange(of: viewModel.targetMinutes) { _, _ in viewModel.validateGoal() }
+        .onChange(of: viewModel.goalType) { _, _ in viewModel.validateGoal() }
     }
 }
 
@@ -1376,6 +1464,8 @@ struct FitnessChatStep: View {
             return .timeTarget(TimeInterval(viewModel.targetHours * 3600 + viewModel.targetMinutes * 60))
         case .justComplete:
             return .justComplete
+        case .custom:
+            return .custom(viewModel.customGoalText)
         }
     }
 
@@ -1861,17 +1951,23 @@ struct PlanReviewStep: View {
                         VStack(spacing: 16) {
                             ProgressView()
                                 .scaleEffect(1.2)
-                            Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                            if let plan = viewModel.generatedPlan, !plan.isEmpty {
-                                Text("\(plan.count) weeks loaded so far")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                            if viewModel.planMethod == "template" {
+                                Text("Building your plan...")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
                             } else {
-                                Text("This may take a minute")
-                                    .font(.caption)
-                                    .foregroundStyle(.tertiary)
+                                Text("Building your plan... (\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches))")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                                if let plan = viewModel.generatedPlan, !plan.isEmpty {
+                                    Text("\(plan.count) weeks loaded so far")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                } else {
+                                    Text("This may take a minute")
+                                        .font(.caption)
+                                        .foregroundStyle(.tertiary)
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity)
@@ -1934,6 +2030,15 @@ struct PlanReviewStep: View {
                                     .foregroundStyle(.secondary)
                                 Text("Complete the race")
                                     .font(.title3.weight(.semibold))
+                            }
+                        case .custom:
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Custom Goal")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(viewModel.customGoalText.isEmpty ? "Custom goal" : viewModel.customGoalText)
+                                    .font(.title3.weight(.semibold))
+                                    .lineLimit(2)
                             }
                         }
                         Spacer()
@@ -2032,6 +2137,27 @@ struct PlanReviewStep: View {
                     }
                 }
 
+                // Plan warnings
+                if !viewModel.planWarnings.isEmpty {
+                    VStack(spacing: 8) {
+                        ForEach(viewModel.planWarnings, id: \.self) { warning in
+                            HStack(spacing: 8) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                    .foregroundStyle(.orange)
+                                    .font(.caption)
+                                Text(warning)
+                                    .font(.caption)
+                                    .foregroundStyle(.primary)
+                            }
+                            .padding(10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color.yellow.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
                 // Action buttons
                 VStack(spacing: 12) {
                     Button {
@@ -2060,6 +2186,12 @@ struct PlanReviewStep: View {
                             .font(.body)
                             .foregroundStyle(.blue)
                     }
+
+                    Text("You can adjust your plan anytime by chatting with your AI coach.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 4)
                 }
                 .padding(.horizontal, 16)
 

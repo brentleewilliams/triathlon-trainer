@@ -1,0 +1,18 @@
+{
+  "patternId": "compressed",
+  "label": "Compressed",
+  "description": "4 training days, 3 rest days",
+  "daySlots": {
+    "Mon": "rest",
+    "Tue": "hard",
+    "Wed": "rest",
+    "Thu": "moderate",
+    "Fri": "rest",
+    "Sat": "long",
+    "Sun": "moderate"
+  },
+  "restDays": ["Mon", "Wed", "Fri"],
+  "longSessionDays": ["Sat"],
+  "hardSessionDays": ["Tue"],
+  "doubleSessionDays": []
+}
