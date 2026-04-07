@@ -579,6 +579,13 @@ struct OnboardingIntField: View {
 struct RaceSearchStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @FocusState private var searchFocused: Bool
+    @State private var localQuery: String = ""
+
+    private func performSearch() {
+        guard !localQuery.isEmpty else { return }
+        viewModel.raceSearchQuery = localQuery
+        Task { await viewModel.searchRace() }
+    }
 
     var body: some View {
         ScrollView {
@@ -601,18 +608,14 @@ struct RaceSearchStep: View {
 
                 // Search field + button
                 VStack(spacing: 12) {
-                    TextField("e.g. Ironman 70.3 Oregon 2026", text: $viewModel.raceSearchQuery)
+                    TextField("e.g. Ironman 70.3 Oregon 2026", text: $localQuery)
                         .textFieldStyle(.roundedBorder)
                         .focused($searchFocused)
                         .disabled(viewModel.isSearchingRace)
-                        .onSubmit {
-                            if !viewModel.raceSearchQuery.isEmpty {
-                                Task { await viewModel.searchRace() }
-                            }
-                        }
+                        .onSubmit { performSearch() }
 
                     Button {
-                        Task { await viewModel.searchRace() }
+                        performSearch()
                     } label: {
                         if viewModel.isSearchingRace {
                             ProgressView()
@@ -624,11 +627,11 @@ struct RaceSearchStep: View {
                                 .foregroundStyle(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(viewModel.raceSearchQuery.isEmpty ? Color(.systemGray4) : Color.blue)
+                                .background(localQuery.isEmpty ? Color(.systemGray4) : Color.blue)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
-                    .disabled(viewModel.raceSearchQuery.isEmpty || viewModel.isSearchingRace)
+                    .disabled(localQuery.isEmpty || viewModel.isSearchingRace)
                 }
                 .padding(.horizontal, 16)
 
@@ -642,6 +645,7 @@ struct RaceSearchStep: View {
                     Button {
                         viewModel.raceSearchResult = nil
                         viewModel.raceSearchQuery = ""
+                        localQuery = ""
                     } label: {
                         Text("Search again")
                             .font(.subheadline)
