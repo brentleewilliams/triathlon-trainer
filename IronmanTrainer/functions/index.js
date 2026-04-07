@@ -419,8 +419,13 @@ async function handleRaceSearch(req, res) {
   }
 
   const todayStr = new Date().toISOString().split("T")[0];
+  const currentYear = new Date().getFullYear();
+  // Append current year if no year is mentioned — helps web search find the right edition
+  const yearPattern = /\b20\d{2}\b/;
+  const augmentedQuery = yearPattern.test(query) ? query : `${query} ${currentYear}`;
+
   const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", { today: todayStr });
-  messages.push({ role: "user", content: `Today's date is ${todayStr}. Only return races that have not yet occurred (date must be after today). If the race has already happened this year, return the next future occurrence.\n\nRace search query: ${query}` });
+  messages.push({ role: "user", content: `Today's date is ${todayStr}. Search the web for the official race date — do not guess from memory. Only return races that have not yet occurred (date must be after today). If the race has already happened this year, search for the next future occurrence.\n\nRace search query: ${augmentedQuery}` });
 
   // Use Anthropic web search tool so the model can look up real race details
   // instead of hallucinating dates and locations.
