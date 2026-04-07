@@ -225,6 +225,18 @@ function sanitizeQuery(input, maxLen = 200) {
 }
 
 // ---------------------------------------------------------------------------
+// Utility: strip markdown code fences from LLM output
+// ---------------------------------------------------------------------------
+
+function stripMarkdownFences(text) {
+  let cleaned = text.trim();
+  if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);
+  else if (cleaned.startsWith("```")) cleaned = cleaned.slice(3);
+  if (cleaned.endsWith("```")) cleaned = cleaned.slice(0, -3);
+  return cleaned.trim();
+}
+
+// ---------------------------------------------------------------------------
 // Auth helper
 // ---------------------------------------------------------------------------
 
@@ -366,8 +378,11 @@ async function handleRaceSearch(req, res) {
   const { messages, model, temperature, maxTokens } = await formatPrompt("race-search", {});
   messages.push({ role: "user", content: `Race search query: ${query}` });
 
-  const result = await callLLM({ messages, model, temperature, maxTokens });
-  res.status(200).json({ result });
+  const raw = await callLLM({ messages, model, temperature, maxTokens });
+  const result = stripMarkdownFences(raw);
+  // Try to return parsed JSON so client gets a proper object
+  try { res.status(200).json({ result: JSON.parse(result) }); }
+  catch { res.status(200).json({ result }); }
 }
 
 async function handlePrepRaceSearch(req, res) {
@@ -380,8 +395,10 @@ async function handlePrepRaceSearch(req, res) {
   const { messages, model, temperature, maxTokens } = await formatPrompt("prep-race-search", {});
   messages.push({ role: "user", content: `Race search query: ${query}` });
 
-  const result = await callLLM({ messages, model, temperature, maxTokens });
-  res.status(200).json({ result });
+  const raw = await callLLM({ messages, model, temperature, maxTokens });
+  const result = stripMarkdownFences(raw);
+  try { res.status(200).json({ result: JSON.parse(result) }); }
+  catch { res.status(200).json({ result }); }
 }
 
 async function handlePlanGeneration(req, res) {
@@ -392,23 +409,40 @@ async function handlePlanGeneration(req, res) {
   }
 
   // Flatten nested input into the template variable names the prompts expect
+  console.log(`[planGen] input keys: ${Object.keys(input).join(", ")}`);
+  console.log(`[planGen] race: ${JSON.stringify(input.race || {}).substring(0, 300)}`);
+  console.log(`[planGen] profile: ${JSON.stringify(input.profile || {}).substring(0, 200)}`);
   const race = input.race || {};
   const profile = input.profile || {};
   const distances = race.distances || {};
   const distancesStr = Object.entries(distances).map(([k, v]) => `${k}: ${v} mi`).join(", ");
   const weeksAvailable = (() => {
     if (!race.date) return 12;
-    const raceDate = new Date(race.date);
+    let raceDate = new Date(race.date);
     const now = new Date();
-    return Math.max(1, Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000)));
+    // If race date is in the past, bump to next occurrence (same month/day, future year)
+    while (raceDate < now) {
+      raceDate.setFullYear(raceDate.getFullYear() + 1);
+    }
+    const weeks = Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000));
+    return weeks < 4 ? 12 : weeks;
   })();
   const planStartDate = new Date().toISOString().split("T")[0];
+  // Use the corrected race date (bumped to future if needed) for the prompt
+  const correctedRaceDate = (() => {
+    if (!race.date) return "";
+    let d = new Date(race.date);
+    const now = new Date();
+    while (d < now) d.setFullYear(d.getFullYear() + 1);
+    return d.toISOString().split("T")[0];
+  })();
 
   const goalStr = (() => {
     const g = race.userGoal;
     if (!g) return "Complete the race";
-    if (g.timeTarget) {
-      const t = typeof g.timeTarget === "number" ? g.timeTarget : 0;
+    // iOS encodes GoalType as { type: "timeTarget", targetSeconds: 19800 }
+    if (g.type === "timeTarget" && g.targetSeconds) {
+      const t = g.targetSeconds;
       const h = Math.floor(t / 3600);
       const m = Math.floor((t % 3600) / 60);
       return `Finish in ${h}h ${String(m).padStart(2, "0")}m`;
@@ -423,7 +457,7 @@ async function handlePlanGeneration(req, res) {
 
   const pass1Vars = {
     race_name: race.name || "Race",
-    race_date: race.date || "",
+    race_date: correctedRaceDate || race.date || "",
     race_location: race.location || "",
     race_type: race.type || "triathlon",
     distances: distancesStr,
@@ -451,10 +485,15 @@ async function handlePlanGeneration(req, res) {
     run_level: input.runLevel || "Not specified",
   };
 
+  console.log(`[planGen] weeks=${pass1Vars.weeks_available}, goal=${pass1Vars.goal}, race_date=${pass1Vars.race_date}`);
+
   // Pass 1: Generate plan structure
   const pass1Result = await withRetry(async () => {
     const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-summary", pass1Vars);
-    return callLLM({ messages, model, temperature, maxTokens });
+    messages.push({ role: "user", content: `Generate my ${pass1Vars.weeks_available}-week training plan.` });
+    // Plan JSON can be large — ensure enough tokens
+    const planMaxTokens = Math.max(maxTokens, 16384);
+    return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
   });
 
   // Pass 2: Expand with details/nutrition
@@ -466,16 +505,26 @@ async function handlePlanGeneration(req, res) {
   };
   const finalResult = await withRetry(async () => {
     const { messages, model, temperature, maxTokens } = await formatPrompt("plan-gen-details", pass2Vars);
-    // Append the plan summary as the user message
     messages.push({ role: "user", content: `Add detailed notes and nutrition targets to this plan:\n${pass1Result}` });
-    return callLLM({ messages, model, temperature, maxTokens });
+    const planMaxTokens = Math.max(maxTokens, 16384);
+    return callLLM({ messages, model, temperature, maxTokens: planMaxTokens });
   });
+
+  console.log(`[planGen] pass1 length=${pass1Result.length}, pass2 length=${finalResult.length}`);
 
   // Try to parse as JSON; return raw if not valid JSON
   try {
-    const parsed = JSON.parse(finalResult);
+    let cleaned = finalResult.trim();
+    if (cleaned.startsWith("```json")) cleaned = cleaned.slice(7);
+    else if (cleaned.startsWith("```")) cleaned = cleaned.slice(3);
+    if (cleaned.endsWith("```")) cleaned = cleaned.slice(0, -3);
+    cleaned = cleaned.trim();
+
+    const parsed = JSON.parse(cleaned);
+    console.log(`[planGen] parsed weeks=${Array.isArray(parsed) ? parsed.length : "not array"}`);
     res.status(200).json({ result: parsed });
   } catch {
+    console.log(`[planGen] could not parse JSON, returning raw. First 200: ${finalResult.substring(0, 200)}`);
     res.status(200).json({ result: finalResult });
   }
 }

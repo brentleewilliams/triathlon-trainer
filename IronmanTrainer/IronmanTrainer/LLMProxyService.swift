@@ -253,7 +253,7 @@ class LLMProxyService {
             throw ClaudeServiceError.invalidResponse
         }
         if let result = json["result"] as? String {
-            return result
+            return stripMarkdownFences(result)
         }
         // If result is already a JSON object/array, serialize it back to string
         if let result = json["result"] {
@@ -261,6 +261,20 @@ class LLMProxyService {
             return String(data: resultData, encoding: .utf8) ?? ""
         }
         throw ClaudeServiceError.invalidResponse
+    }
+
+    /// Strips markdown code fences (```json ... ```) that LLMs sometimes wrap around JSON.
+    private func stripMarkdownFences(_ text: String) -> String {
+        var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if cleaned.hasPrefix("```json") {
+            cleaned = String(cleaned.dropFirst(7))
+        } else if cleaned.hasPrefix("```") {
+            cleaned = String(cleaned.dropFirst(3))
+        }
+        if cleaned.hasSuffix("```") {
+            cleaned = String(cleaned.dropLast(3))
+        }
+        return cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// Extracts the `result` field from the proxy response as Data (for JSON object/array results).

@@ -48,16 +48,26 @@ class OnboardingViewModel: ObservableObject {
     @Published var targetMinutes: Int = 0
 
     /// Default finish time based on race type/distance. Returns (hours, minutes).
+    /// Check if race name/distances indicate a half-iron (70.3) vs full Ironman
+    private var isHalfIron: Bool {
+        guard let result = raceSearchResult else { return false }
+        let name = result.name.lowercased()
+        if name.contains("70.3") || name.contains("half iron") { return true }
+        let totalMiles = result.distances.values.reduce(0, +)
+        return totalMiles > 50 && totalMiles <= 100
+    }
+
     var defaultFinishTime: (hours: Int, minutes: Int) {
         guard let result = raceSearchResult else { return (6, 0) }
         let type = result.type.lowercased()
 
         if type.contains("triathlon") || type.contains("tri") {
+            if isHalfIron { return (6, 0) }                  // Half Iron (~70.3 mi)
             let totalMiles = result.distances.values.reduce(0, +)
-            if totalMiles > 100 { return (13, 0) }       // Full Ironman (~140.6 mi)
-            if totalMiles > 50 { return (6, 0) }          // Half Iron (~70.3 mi)
-            if totalMiles > 30 { return (3, 0) }           // Olympic (~31 mi)
-            return (1, 30)                                  // Sprint (~16 mi)
+            if totalMiles > 100 { return (13, 0) }           // Full Ironman (~140.6 mi)
+            if totalMiles > 50 { return (6, 0) }             // Half Iron (by distance)
+            if totalMiles > 30 { return (3, 0) }             // Olympic (~31 mi)
+            return (1, 30)                                    // Sprint (~16 mi)
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
             if runMiles >= 25 { return (4, 30) }            // Marathon
@@ -82,10 +92,11 @@ class OnboardingViewModel: ObservableObject {
         let type = result.type.lowercased()
 
         if type.contains("triathlon") || type.contains("tri") {
+            if isHalfIron { return 4...9 }             // Half Iron
             let totalMiles = result.distances.values.reduce(0, +)
-            if totalMiles > 100 { return 8...17 }   // Full Ironman
-            if totalMiles > 50 { return 4...9 }      // Half Iron
-            if totalMiles > 30 { return 1...5 }       // Olympic
+            if totalMiles > 100 { return 8...17 }      // Full Ironman
+            if totalMiles > 50 { return 4...9 }        // Half Iron (by distance)
+            if totalMiles > 30 { return 1...5 }        // Olympic
             return 0...3                                // Sprint
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
