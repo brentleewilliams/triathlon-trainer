@@ -82,9 +82,10 @@ A fully refactored SwiftUI iOS app (31 Swift files, ~10,800 lines) with Firebase
 ### TriDot — Official Ironman Partner
 
 - **Price:** $29/mo (Essentials), $89/mo (Complete), up to $199/mo (Premium with human coach access)
-- **Strengths:** EnviroNorm (auto-adjusts pace zones for temperature/humidity), proprietary Normalized Training Stress (NTS) metric, optional genetics-based optimization via DNA test (Physiogenomix), gamification for plan adherence
-- **Weaknesses:** Doesn't actually feel personalized despite AI marketing per reviewers, expensive (the $29/mo tier is barebones), limited customization at lower tiers
+- **Strengths:** EnviroNorm (auto-adjusts pace zones for temperature/humidity/elevation/terrain), proprietary Normalized Training Stress (NTS) metric, Dot Scores per discipline (SwimDot/BikeDot/RunDot on 1-100 scale with tier labels: Building→Developing→Intermediate→Competitive→Highly Competitive→Elite), TrainX execution points gamification, 6-zone system with pace/power ranges, structured interval prescriptions with zone distribution visualization, 12+ device/app integrations (Garmin, Apple Watch, COROS, Suunto, Polar, Wahoo, Strava, Zwift, TrainerRoad, FulGaz, ROUVY, Fuelin, FORM), threshold-based assessment system (bike 15mi TT, run 10k TT), drag-to-reorder weekly schedule, workout volume sliders per discipline, optional genetics-based optimization via DNA test (Physiogenomix)
+- **Weaknesses:** No coaching voice — tells you *what* to do but never *why* (workouts are "Up to 10 min @ Z4, balance @ Z2" with zero explanation of purpose or adaptation rationale). Rigid and algorithmic — can't handle "I slept terribly" or "my knee hurts" or "I have a work trip." Overwhelming for beginners (NTS, XP, TrainX, Dot Score, 6 zones, watts/kg — built for data nerds). No race-specific intelligence beyond a countdown timer. No community coaching feel — metrics dashboard, not a coach-athlete relationship. Expensive ($29/mo is barebones, meaningful features require $89/mo+).
 - **Positioning:** Data-science-driven training optimization for serious triathletes
+- **UX Notes (from hands-on review, Apr 2026):** Dark theme throughout. 5-tab nav (Home, Training, Play/Start, Community, More). Home screen centers today's workout with TRAINX circular gauge (unfilled pre-workout, motivating completion), NTS stress score, time of day, duration, est. distance. Day strip with color-coded dots per sport. Upcoming race card with photo/countdown. Weekly Progress quad (Stress, XP, Duration, Session Completion). Workout detail shows zone distribution bar (color-coded time-in-zone visualization), structured description (Warm Up → Main Set → Cool Down), zone targets with sport-specific metrics (pace/mi for run, watts for bike). Weekly schedule view is a day-by-day list with sport icon, duration, workout name, stress level color (pink=high, green=low), NTS, distance, and drag handles to reorder.
 
 ### Humango — AI-First Adaptive Coach
 
@@ -139,6 +140,28 @@ A fully refactored SwiftUI iOS app (31 Swift files, ~10,800 lines) with Firebase
 
 ## Differentiation Analysis
 
+### Strategic Positioning: Be the Coach, Not the Dashboard
+
+After hands-on review of TriDot (Apr 2026), the competitive picture is clearer. TriDot and its peers are **metrics-driven dashboards** — they score you, zone you, and prescribe workouts algorithmically. They're strong on *what* to do. They're universally weak on *why*, *how to adapt*, and *speaking like a human coach*. Your LLM foundation is a structural advantage they can't retrofit.
+
+**Core thesis:** TriDot can't add a real coaching voice without rebuilding from scratch — their entire UX is built around dashboards and numbers. You're building on an LLM, which means the coach gets smarter with every model upgrade without shipping code.
+
+### Where TriDot Is Strong (Don't Compete Head-On)
+
+- Proprietary metrics ecosystem (Dot Scores, NTS, TrainX) — years of data science
+- Device/app integrations (12+ partners) — network effects
+- Zone visualization and structured interval prescriptions — polished execution
+- Environment normalization (temp/humidity/elevation/terrain adjusting zones)
+- Gamification driving daily engagement (XP, Dot Score tiers, session completion)
+
+### Where TriDot Is Weak (Your Openings)
+
+1. **Coaching voice is absent.** TriDot tells you "Up to 10 min @ Z4, balance of time @ Z2" — no explanation of purpose, no adaptation rationale. Never explains why today is threshold intervals instead of steady state.
+2. **Rigid and algorithmic.** Can't handle "I slept terribly" or "my knee is sore" or "I have a work trip next week." No conversational interface for adjustments.
+3. **Overwhelming for beginners.** NTS, XP, TrainX, Dot Score, 6 zones, watts/kg — built for data nerds. Huge segment of triathletes just want someone to tell them what to do in plain English.
+4. **No race-specific intelligence.** Upcoming race card is just a countdown and a photo. They don't factor course elevation, historical weather, or venue altitude into the coaching narrative.
+5. **No coach-athlete relationship.** Metrics dashboard, not a coach who knows your history, celebrates your wins, and checks in proactively.
+
 ### What Nobody Else Does (Your Unique Position)
 
 **1. Post-Race Failure Analysis as Coaching Context**
@@ -158,6 +181,50 @@ Training apps handle training. Nutrition apps handle nutrition. RaceDay handles 
 Every competitor is a platform serving all athletes at all distances with generic plans. IronmanTrainer goes deeper on one race than anyone else goes on any race — the AI references Oregon's downstream swim current, the shaded run course, Denver altitude advantage, cooler temps (78-85°F vs. Boise's 93°F). The current single-athlete version is the proof of concept for this depth.
 
 The V2 product generalizes this: *"Your AI coach for YOUR next race"* — pick your race, and the app pulls course data, weather history, elevation profiles, and aid station details. The training plan and coaching context are specific to that course, not generic triathlon advice. No competitor does this.
+
+### Differentiation Features: Roadmap
+
+Features specifically designed to exploit TriDot's weaknesses and widen the coaching-voice moat. Ordered by impact and buildability.
+
+#### Tier 1 — High Impact, Buildable Now
+
+| Feature | What It Does | Why It Wins | TriDot Equivalent |
+|---------|-------------|-------------|-------------------|
+| **"Why today" card** | One sentence on each workout explaining its purpose in context of your race and training phase. E.g., "Building threshold tolerance for Oregon's hilly bike course — that's why today is Z4 intervals, not steady state." | TriDot never explains purpose. This is the single most visible differentiator. | None — workouts are "Threshold Intervals" with no context |
+| **Conversational plan adjustments** | Natural language in chat: "Move my long run to Sunday" or "I'm feeling burnt out this week" → coach adapts and explains the tradeoff ("I've shortened Thursday's bike and moved your long run — your weekly stress drops 12% but you keep the key session") | TriDot is drag-to-reorder with no coaching feedback. Humango does basic chat rescheduling but doesn't explain tradeoffs. | Drag handles to reorder sessions (no coaching rationale) |
+| **Plain English zones** | Alongside or instead of "Z2 @ 8:45-8:00/mi" → "Conversational pace — you should be able to chat with a friend. If you're breathing hard, slow down." | TriDot is pure numbers. Beginners don't know what Z2 means. | 6-zone system with pace/power ranges only |
+| **Weekly coach check-in** | Proactive message at start of each week: "You crushed your long ride last week but skipped both swims — I've adjusted this week to add a technique-focused swim on Tuesday. Here's why that matters for Oregon's river swim." | TriDot shows stats (0/11 completed, 0/474 stress) but never coaches on what the gap means. | Weekly Progress quad (Stress, XP, Duration, Completion) — numbers with no narrative |
+
+#### Tier 2 — High Impact, Requires Investment
+
+| Feature | What It Does | Why It Wins | TriDot Equivalent |
+|---------|-------------|-------------|-------------------|
+| **Race-day briefing** | As race approaches (2-4 weeks out), generate a race-specific pacing strategy, nutrition plan, and gear checklist based on course data + weather history + athlete fitness. | TriDot shows a countdown card with a stock photo. Zero race-day intelligence. | Upcoming race card with countdown ("in 103 days") |
+| **Life-aware scheduling** | Integrate with calendar (travel), sleep data (Apple Health/WHOOP), and weather to proactively adjust. "You're flying to NYC on Thursday — I've moved your long ride to Wednesday and swapped Thursday for a hotel treadmill run." | TriDot can't adapt to real life. Neither can any competitor except Humango (partial). | None — fixed weekly template |
+| **Post-workout coach debrief** | After HealthKit syncs a completed workout, the coach comments: "Your long ride averaged Z3 — that's higher than prescribed Z2. For a base ride, slow down next time. Here's why: you're burning glycogen instead of building fat oxidation." | TriDot shows NTS/XP numbers post-workout. No coaching interpretation. | NTS score + XP points (no narrative) |
+| **Environment-aware zone adjustment** | Use weather API + athlete location to adjust pace/power targets for temperature, humidity, and altitude. "It's 92°F today — your Z2 pace is 30s/mi slower than normal. This is expected, not a fitness drop." | TriDot does this (EnviroNorm) but silently adjusts numbers. Explaining *why* your zones shifted is the coaching layer they lack. | EnviroNorm (automatic, no explanation) |
+
+#### Tier 3 — Moat Deepening
+
+| Feature | What It Does | Why It Wins | TriDot Equivalent |
+|---------|-------------|-------------|-------------------|
+| **Performance score with narrative** | A fitness score similar to Dot Scores but with coaching commentary: "Your RunScore improved from 52 to 58 this month — your threshold pace dropped 15s/mi since you started the speed block. You're on track for your 2:05 half marathon split." | TriDot has Dot Scores (1-100 per sport) but they're just numbers with tier labels. The score + narrative combo makes progress tangible and motivating. | SwimDot/BikeDot/RunDot scores with tier labels (no coaching narrative) |
+| **Training stress narrative** | Instead of "NTS 68" → "Today's ride is your hardest of the week. Expect to feel spent after the Z4 intervals — that's the point. Tomorrow is recovery." | TriDot uses color-coded stress labels (High/Moderate/Low) and NTS numbers. No framing of what that means for the athlete's week. | Stress labels + NTS score per workout |
+| **Race-specific course intelligence** | Pull in course elevation profiles, aid station details, water conditions, historical weather. "Oregon's bike has a 400ft climb at mile 32 — we've been building climbing strength in your Saturday rides for exactly this." | TriDot shows race name and countdown. No course-specific training rationale. | Race countdown card only |
+| **Multi-race periodization** | After a race, carry forward everything the coach learned: "Last time you faded in the run after going too hard on the bike. For Oceanside, I've adjusted your brick pacing to hold Z2 on the bike even though the course is flat — you'll have legs for the run." | TriDot treats each training cycle independently. No cross-race learning. | None |
+
+### The Competitive Summary
+
+| Dimension | TriDot | IronmanTrainer (Target) |
+|-----------|--------|------------------------|
+| Metrics & scoring | Strong (NTS, Dot Scores, TrainX, 6 zones) | Adequate (HealthKit zones, compliance tracking) |
+| Device integrations | Strong (12+ partners) | Weak (HealthKit only, V2 for more) |
+| Coaching voice | None | **Core differentiator** — every workout explained, every adjustment narrated |
+| Adaptability | Rigid (drag to reorder) | **Conversational** — natural language, life-aware |
+| Race specificity | Countdown timer | **Deep** — course, weather, elevation, aid stations in coaching context |
+| Beginner accessibility | Overwhelming | **Plain English** — zones explained, purpose stated |
+| Nutrition integration | None (Fuelin add-on) | **Built-in** — progressive gut training in the plan |
+| Price | $29-199/mo | **$15-20/mo** |
 
 ---
 
