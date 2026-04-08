@@ -224,11 +224,14 @@ class TrainingPlanManager: ObservableObject {
         self.useInMemoryStore = useInMemoryStore
         if let externalWeeks, !externalWeeks.isEmpty {
             self.weeks = externalWeeks
+            calculateCurrentWeek()
+            // Skip Core Data restore — the generated plan takes precedence.
+            // Core Data versioning will start tracking from the first AI-coach modification.
         } else {
             setupTrainingPlan()
+            calculateCurrentWeek()
+            loadPlanVersions()
         }
-        calculateCurrentWeek()
-        loadPlanVersions()
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
