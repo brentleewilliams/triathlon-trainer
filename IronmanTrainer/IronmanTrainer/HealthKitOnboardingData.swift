@@ -49,6 +49,7 @@ struct WorkoutSummary {
 
 /// Standalone helper that creates its own HKHealthStore for onboarding data pulls.
 /// This avoids modifying the existing HealthKitManager while providing expanded data access.
+@MainActor
 class HealthKitOnboardingHelper {
     private let healthStore = HKHealthStore()
 

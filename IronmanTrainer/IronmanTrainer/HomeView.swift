@@ -1308,9 +1308,20 @@ struct WorkoutDayRows: View {
     }
 
     func workoutEmoji(_ type: String) -> String {
+        // Extract any emojis already embedded at the start of the type string
+        var emojis = ""
+        for char in type {
+            if char.isLetter { break }
+            if char.unicodeScalars.allSatisfy({ $0.properties.isEmoji }) {
+                emojis.append(char)
+            }
+        }
+        if !emojis.isEmpty { return emojis }
+
+        // Fallback for type strings without embedded emojis
         let t = type.lowercased()
         if t.contains("swim") { return "🏊" }
-        if t.contains("brick") || (t.contains("bike") && t.contains("run")) { return "🏊🚴🏃" }
+        if t.contains("brick") { return "🚴🏃" }
         if t.contains("bike") || t.contains("cycl") { return "🚴" }
         if t.contains("run") { return "🏃" }
         if t.contains("strength") || t.contains("gym") { return "💪" }

@@ -71,10 +71,11 @@ class AuthService: ObservableObject {
         do {
             let found = try await withThrowingTaskGroup(of: Bool.self) { group in
                 group.addTask { [weak self] in
+                    guard let self else { return false }
                     if let result = try await FirestoreService.shared.getTrainingPlan(for: uid) {
                         let plan = result.weeks
                         await MainActor.run {
-                            self?.savedPlan = plan
+                            self.savedPlan = plan
                             // Cache plan locally for fast future startups
                             if let data = try? JSONEncoder().encode(plan) {
                                 UserDefaults.standard.set(data, forKey: "saved_plan_\(uid)")
