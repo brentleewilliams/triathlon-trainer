@@ -274,7 +274,7 @@ struct HomeView: View {
     func workoutTypeMatches(plannedType: String, healthKitType: HKWorkoutActivityType) -> Bool {
         let planned = plannedType.lowercased()
         switch healthKitType {
-        case .cycling, .indoorCycling:
+        case .cycling:
             return planned.contains("bike") || planned.contains("cycling") || planned.contains("indoor cycling")
         case .swimming:
             return planned.contains("swim") || planned.contains("open water")
@@ -298,7 +298,7 @@ struct HomeView: View {
             return planned.contains("yoga")
         case .crossTraining:
             return planned.contains("cross") || planned.contains("crosstraining") || planned.contains("cross train")
-        case .triathlon:
+        case .swimBikeRun:
             return planned.contains("brick") || planned.contains("race sim") || planned.contains("triathlon")
         default:
             return false
@@ -590,7 +590,7 @@ struct DayDetailView: View {
     func workoutTypeMatches(plannedType: String, healthKitType: HKWorkoutActivityType) -> Bool {
         let planned = plannedType.lowercased()
         switch healthKitType {
-        case .cycling, .indoorCycling:
+        case .cycling:
             return planned.contains("bike") || planned.contains("cycling") || planned.contains("indoor cycling")
         case .swimming:
             return planned.contains("swim") || planned.contains("open water")
@@ -614,7 +614,7 @@ struct DayDetailView: View {
             return planned.contains("yoga")
         case .crossTraining:
             return planned.contains("cross") || planned.contains("crosstraining") || planned.contains("cross train")
-        case .triathlon:
+        case .swimBikeRun:
             return planned.contains("brick") || planned.contains("race sim") || planned.contains("triathlon")
         default:
             return false
