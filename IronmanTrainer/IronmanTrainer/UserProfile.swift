@@ -233,6 +233,18 @@ struct PrepRaceSearchResult {
 }
 
 enum PrepRaceSearchHelper {
+
+    /// Parses a YYYY-MM-DD date string into a Date at noon UTC to avoid timezone day-shift bugs.
+    static func parseDate(_ string: String) -> Date? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(identifier: "UTC")
+        guard let date = formatter.date(from: string) else { return nil }
+        // Store at noon UTC so display in any timezone still shows the correct calendar day
+        return Calendar(identifier: .gregorian).date(byAdding: .hour, value: 12, to: date)
+    }
+
     static func search(query: String) async throws -> PrepRaceSearchResult {
         let apiKey = Secrets.openAIAPIKey
         guard !apiKey.isEmpty else { throw ClaudeServiceError.invalidAPIKey }
@@ -256,6 +268,7 @@ enum PrepRaceSearchHelper {
 
         let requestBody: [String: Any] = [
             "model": "gpt-4.1-mini",
+            "temperature": 0,
             "max_tokens": 512,
             "messages": [
                 ["role": "system", "content": systemPrompt],
@@ -331,9 +344,8 @@ enum PrepRaceSearchHelper {
             throw ClaudeServiceError.invalidResponse
         }
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let raceDate = formatter.date(from: raw.date) else {
+        guard let raceDate = PrepRaceSearchHelper.parseDate(raw.date) else {
+            print("[PREP RACE SEARCH] Could not parse date: \(raw.date)")
             throw ClaudeServiceError.invalidResponse
         }
 
