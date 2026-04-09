@@ -27,6 +27,7 @@
 		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */; };
+		844DF0892F8831C80092F2DD /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */; };
 		84A561E42F7D612500BA3761 /* WorkoutComplianceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */; };
 		84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E52F7D614300BA3761 /* ComplianceTests.swift */; };
 		84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */; };
@@ -113,6 +114,7 @@
 		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
 		844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIScriptTests.swift; sourceTree = "<group>"; };
+		844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VerifiedRaceDatabase.swift; path = IronmanTrainer/VerifiedRaceDatabase.swift; sourceTree = "<group>"; };
 		84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutComplianceService.swift; sourceTree = "<group>"; };
 		84A561E52F7D614300BA3761 /* ComplianceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceTests.swift; sourceTree = "<group>"; };
 		84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
@@ -170,6 +172,7 @@
 		1A0000011F1A0001 = {
 			isa = PBXGroup;
 			children = (
+				844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */,
 				1A0000EC1F1A0001 /* IronmanTrainer */,
 				1A00014A1F1A0001 /* IronmanTrainerTests */,
 				1AA0000A0A0A0001 /* IronmanTrainerWidget */,
@@ -484,6 +487,7 @@
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
 				C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */,
+				844DF0892F8831C80092F2DD /* VerifiedRaceDatabase.swift in Sources */,
 				84A561E42F7D612500BA3761 /* WorkoutComplianceService.swift in Sources */,
 				F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */,
 				625049B48489E93AE90639D7 /* UserProfile.swift in Sources */,
