@@ -33,7 +33,6 @@
 		84D0F0C62F7C343F007D9BC7 /* TrainingPlanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */; };
 		84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */; };
 		84D0F0CA2F7C3441007D9BC7 /* LangSmithTracer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */; };
-		84A1B2C42F9D4561008E3FA8 /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A1B2C32F9D4561008E3FA8 /* VerifiedRaceDatabase.swift */; };
 		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */; };
 		84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */; };
 		84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */; };
@@ -120,7 +119,6 @@
 		84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManager.swift; sourceTree = "<group>"; };
 		84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitManager.swift; sourceTree = "<group>"; };
 		84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LangSmithTracer.swift; sourceTree = "<group>"; };
-		84A1B2C32F9D4561008E3FA8 /* VerifiedRaceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerifiedRaceDatabase.swift; sourceTree = "<group>"; };
 		84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingHelpers.swift; sourceTree = "<group>"; };
 		84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
 		84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
@@ -213,7 +211,6 @@
 				84D0F0C52F7C343F007D9BC7 /* TrainingPlanManager.swift */,
 				84D0F0C72F7C3441007D9BC7 /* HealthKitManager.swift */,
 				84D0F0C92F7C3441007D9BC7 /* LangSmithTracer.swift */,
-				84A1B2C32F9D4561008E3FA8 /* VerifiedRaceDatabase.swift */,
 				84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */,
 				84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */,
 				84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */,
@@ -477,8 +474,7 @@
 				84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */,
 				84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */,
 				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
-				84A1B2C42F9D4561008E3FA8 /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A1B2C32F9D4561008E3FA8 /* VerifiedRaceDatabase.swift */; };
-		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
+				84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
 				84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */,
 				84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */,
 				84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */,
