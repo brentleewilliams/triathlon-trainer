@@ -569,7 +569,7 @@
 					"-framework",
 					HealthKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -613,7 +613,7 @@
 					"-framework",
 					HealthKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SDKROOT = iphoneos;
@@ -634,7 +634,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainertests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -654,7 +654,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainertests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
@@ -672,7 +672,7 @@
 				DEVELOPMENT_TEAM = F85CVKP4V9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainerWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = IronmanTrainerWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = Race1Widget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -681,7 +681,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer.widget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
@@ -700,7 +700,7 @@
 				DEVELOPMENT_TEAM = F85CVKP4V9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainerWidget/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = IronmanTrainerWidget;
+				INFOPLIST_KEY_CFBundleDisplayName = Race1Widget;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -709,7 +709,7 @@
 					"@executable_path/../../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.brent.ironmantrainer.widget;
+				PRODUCT_BUNDLE_IDENTIFIER = com.brent.race1.widget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;

@@ -7,7 +7,7 @@ extension Notification.Name {
 
 // MARK: - App Group Shared Data
 enum AppGroupConstants {
-    static let suiteName = "group.com.brent.ironmantrainer"
+    static let suiteName = "group.com.brent.race1"
     static let swappedWeeksKey = "swapped_weeks"
 
     static var sharedDefaults: UserDefaults? {

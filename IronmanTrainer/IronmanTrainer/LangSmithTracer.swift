@@ -6,7 +6,7 @@ class LangSmithTracer {
 
     private let langsmithAPIKey: String
     private let baseURL = "https://api.smith.langchain.com/runs"
-    private let sessionName = "IronmanTrainer"
+    private let sessionName = "Race1"
 
     init() {
         // Load API key from Secrets (Config.xcconfig)

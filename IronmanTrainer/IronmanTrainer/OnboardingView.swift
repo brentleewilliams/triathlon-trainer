@@ -19,8 +19,8 @@ extension Color {
 extension OnboardingStep {
     var gradientColors: [Color] {
         switch self {
-        case .healthKit: return [Color(hex: "F2A99A"), Color(hex: "F9C5B5")]
-        case .profile: return [Color(hex: "8DC4E8"), Color(hex: "B8D9F0")]
+        case .healthKit: return [Color(hex: "8DC4E8"), Color(hex: "B8D9F0")]
+        case .profile: return [Color(hex: "F2A99A"), Color(hex: "F9C5B5")]
         case .raceSearch: return [Color(hex: "3A3D8A"), Color(hex: "4A4DA0")]
         case .goalSetting: return [Color(hex: "6DBF5E"), Color(hex: "8FD17A")]
         case .tutorial: return [Color(hex: "3DBFB4"), Color(hex: "5ECFC4")]
@@ -35,8 +35,8 @@ extension OnboardingStep {
     // Saturated version of the step color for use as text/icon accent on white backgrounds
     var accentColor: Color {
         switch self {
-        case .healthKit: return Color(hex: "D9706A")
-        case .profile: return Color(hex: "4A90D9")
+        case .healthKit: return Color(hex: "4A90D9")
+        case .profile: return Color(hex: "D9706A")
         case .raceSearch: return Color(hex: "3A3D8A")
         case .goalSetting: return Color(hex: "3DA832")
         case .tutorial: return Color(hex: "00A89E")
@@ -46,8 +46,8 @@ extension OnboardingStep {
 
     var illustrationName: String {
         switch self {
-        case .healthKit: return "onboarding-health"
-        case .profile: return "onboarding-profile"
+        case .healthKit: return "onboarding-profile"
+        case .profile: return "onboarding-health"
         case .raceSearch: return "onboarding-race"
         case .goalSetting: return "onboarding-goals"
         case .tutorial: return "onboarding-chat"
@@ -1253,6 +1253,7 @@ struct GoalSettingStep: View {
                 viewModel.fitnessEquipment = opts.first?.value ?? viewModel.fitnessEquipment
             }
         }
+        .onChange(of: localCustomGoal) { _, newVal in viewModel.customGoalText = newVal }
         .onDisappear { viewModel.customGoalText = localCustomGoal }
         .onChange(of: viewModel.targetHours) { _, _ in viewModel.validateGoal() }
         .onChange(of: viewModel.targetMinutes) { _, _ in viewModel.validateGoal() }

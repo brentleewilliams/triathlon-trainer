@@ -2,7 +2,7 @@ import SwiftUI
 import FirebaseCore
 
 @main
-struct IronmanTrainerApp: App {
+struct Race1App: App {
     @StateObject private var healthKitManager = HealthKitManager.shared
     @StateObject private var authService = AuthService.shared
     @Environment(\.scenePhase) var scenePhase
@@ -36,7 +36,7 @@ struct IronmanTrainerApp: App {
                             }
                         }
                         .onOpenURL { url in
-                            if url.scheme == "ironmantrainer",
+                            if url.scheme == "race1",
                                url.host == "week",
                                let weekStr = url.pathComponents.last,
                                let week = Int(weekStr) {

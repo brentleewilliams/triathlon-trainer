@@ -24,7 +24,7 @@ struct SignInView: View {
                     .font(.system(size: 80))
                     .foregroundStyle(.blue)
 
-                Text("Ironman Trainer")
+                Text("Race1")
                     .font(.largeTitle)
                     .fontWeight(.bold)
 

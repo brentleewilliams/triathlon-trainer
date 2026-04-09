@@ -29,7 +29,7 @@ struct WidgetWorkout {
 
 // MARK: - Training Plan Data
 struct WidgetTrainingPlan {
-    static let appGroupSuite = "group.com.brent.ironmantrainer"
+    static let appGroupSuite = "group.com.brent.race1"
 
     static let planStartDate: Date = {
         var components = DateComponents()
@@ -230,7 +230,7 @@ struct WorkoutTimelineProvider: TimelineProvider {
 }
 
 // MARK: - Widget View
-struct IronmanTrainerWidgetView: View {
+struct Race1WidgetView: View {
     var entry: WorkoutEntry
 
     private func workoutIcon(_ type: String) -> String {
@@ -315,17 +315,17 @@ struct IronmanTrainerWidgetView: View {
                 endPoint: .bottomTrailing
             )
         }
-        .widgetURL(URL(string: "ironmantrainer://week/\(entry.weekNumber)"))
+        .widgetURL(URL(string: "race1://week/\(entry.weekNumber)"))
     }
 }
 
 // MARK: - Widget Configuration
-struct IronmanTrainerWidget: Widget {
-    let kind: String = "IronmanTrainerWidget"
+struct Race1Widget: Widget {
+    let kind: String = "Race1Widget"
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: WorkoutTimelineProvider()) { entry in
-            IronmanTrainerWidgetView(entry: entry)
+            Race1WidgetView(entry: entry)
         }
         .configurationDisplayName("Today's Training")
         .description("See your daily workout at a glance.")
@@ -334,8 +334,8 @@ struct IronmanTrainerWidget: Widget {
 }
 
 @main
-struct IronmanTrainerWidgetBundle: WidgetBundle {
+struct Race1WidgetBundle: WidgetBundle {
     var body: some Widget {
-        IronmanTrainerWidget()
+        Race1Widget()
     }
 }

@@ -386,10 +386,52 @@ class OnboardingViewModel: ObservableObject {
 
     // MARK: - Race Search via Claude + Web Search
 
+    /// Returns a hardcoded result for known races so we never get the date wrong.
+    private func localRaceOverride(query: String) -> RaceSearchResult? {
+        let q = query.lowercased()
+            .replacingOccurrences(of: "70.2", with: "70.3")
+            .replacingOccurrences(of: "702", with: "70.3")
+            .replacingOccurrences(of: "703", with: "70.3")
+
+        let oregonTerms = ["oregon", "salem"]
+        let ironmanTerms = ["ironman", "iron man", "im ", "70.3", "half iron", "half-iron",
+                            "half triathlon", "triathlon"]
+
+        let hasOregon = oregonTerms.contains { q.contains($0) }
+        let hasIronman = ironmanTerms.contains { q.contains($0) }
+
+        guard hasOregon && hasIronman else { return nil }
+
+        // July 19, 2026
+        var comps = DateComponents()
+        comps.year = 2026; comps.month = 7; comps.day = 19
+        let raceDate = Calendar.current.date(from: comps) ?? Date()
+
+        return RaceSearchResult(
+            name: "Ironman 70.3 Oregon",
+            date: raceDate,
+            location: "Salem, Oregon",
+            type: "triathlon",
+            distances: ["swim": 1.2, "bike": 56.0, "run": 13.1],
+            courseType: "road",
+            elevationGainM: nil,
+            elevationAtVenueM: nil,
+            historicalWeather: "Mild, 65-75°F, low humidity"
+        )
+    }
+
     func searchRace() async {
         guard !raceSearchQuery.isEmpty else { return }
         isSearchingRace = true
         error = nil
+
+        // Check local overrides first — guarantees correct date for known races
+        if let override = localRaceOverride(query: raceSearchQuery) {
+            raceSearchResult = override
+            updateStrengthDefault()
+            isSearchingRace = false
+            return
+        }
 
         do {
             var result = try await searchRaceWithClaude(query: raceSearchQuery)

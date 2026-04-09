@@ -1061,13 +1061,13 @@ exports.requestOTP = onRequest(async (req, res) => {
     if (smtpConfigured) {
       try {
         await transporter.sendMail({
-          from: `"Ironman Trainer" <${process.env.SMTP_EMAIL}>`,
+          from: `"Race1" <${process.env.SMTP_EMAIL}>`,
           to: email,
-          subject: "Your Ironman Trainer sign-in code",
+          subject: "Your Race1 sign-in code",
           text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
           html: `
             <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
-              <h2>Ironman Trainer</h2>
+              <h2>Race1</h2>
               <p>Your verification code is:</p>
               <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; background: #f0f0f0; border-radius: 8px; margin: 16px 0;">
                 ${otp}

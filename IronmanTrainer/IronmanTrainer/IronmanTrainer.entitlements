@@ -10,7 +10,7 @@
 	<true/>
 	<key>com.apple.security.application-groups</key>
 	<array>
-		<string>group.com.brent.ironmantrainer</string>
+		<string>group.com.brent.race1</string>
 	</array>
 </dict>
 </plist>
