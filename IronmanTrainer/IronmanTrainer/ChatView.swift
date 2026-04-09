@@ -255,7 +255,7 @@ struct PlanChangeCard: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Color.gray)
+                        .background(Color(.systemGray3))
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }

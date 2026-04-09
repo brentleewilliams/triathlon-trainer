@@ -220,7 +220,7 @@ struct AnalyticsView: View {
                         HStack(spacing: 16) {
                             HStack(spacing: 4) {
                                 Rectangle()
-                                    .fill(.black)
+                                    .fill(Color.primary)
                                     .frame(width: 8, height: 8)
                                 Text("Planned")
                                     .font(.caption2)
@@ -228,7 +228,7 @@ struct AnalyticsView: View {
                             }
                             HStack(spacing: 4) {
                                 Rectangle()
-                                    .fill(.black.opacity(0.5))
+                                    .fill(Color.primary.opacity(0.5))
                                     .frame(width: 8, height: 8)
                                 Text("Actual")
                                     .font(.caption2)

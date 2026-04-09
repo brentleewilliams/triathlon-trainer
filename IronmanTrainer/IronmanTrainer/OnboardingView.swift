@@ -32,6 +32,18 @@ extension OnboardingStep {
         LinearGradient(colors: gradientColors, startPoint: .top, endPoint: .bottom)
     }
 
+    // Saturated version of the step color for use as text/icon accent on white backgrounds
+    var accentColor: Color {
+        switch self {
+        case .healthKit: return Color(hex: "D9706A")
+        case .profile: return Color(hex: "4A90D9")
+        case .raceSearch: return Color(hex: "3A3D8A")
+        case .goalSetting: return Color(hex: "3DA832")
+        case .tutorial: return Color(hex: "00A89E")
+        case .planReview: return Color(hex: "C88A30")
+        }
+    }
+
     var illustrationName: String {
         switch self {
         case .healthKit: return "onboarding-health"
@@ -173,6 +185,7 @@ struct OnboardingView: View {
                 .padding(.bottom, 16)
             }
         }
+        .preferredColorScheme(.light)
         .animation(.easeInOut(duration: 0.3), value: isOnGradient)
         .onChange(of: viewModel.currentStep) { _, _ in
             profileShowingForm = false
@@ -294,7 +307,7 @@ struct OnboardingNavBar: View {
                         Text("Back")
                     }
                     .font(.body.weight(.medium))
-                    .foregroundStyle(isOnGradient ? .white : .blue)
+                    .foregroundStyle(isOnGradient ? .white : viewModel.currentStep.accentColor)
                 }
                 .disabled(viewModel.isProcessing)
             }
@@ -306,7 +319,7 @@ struct OnboardingNavBar: View {
                 ForEach(OnboardingStep.allCases, id: \.rawValue) { step in
                     Circle()
                         .fill(step == viewModel.currentStep
-                              ? (isOnGradient ? Color.white : Color.blue)
+                              ? (isOnGradient ? Color.white : viewModel.currentStep.accentColor)
                               : (isOnGradient ? Color.white.opacity(0.4) : Color(.systemGray4)))
                         .frame(width: 8, height: 8)
                 }
@@ -323,12 +336,12 @@ struct OnboardingNavBar: View {
                         Image(systemName: "chevron.right")
                     }
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(isOnGradient ? (canAdvance ? .blue : .gray) : .white)
+                    .foregroundStyle(isOnGradient ? (canAdvance ? viewModel.currentStep.accentColor : .gray) : .white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
                     .background(isOnGradient
                                 ? (canAdvance ? Color.white : Color.white.opacity(0.3))
-                                : (canAdvance ? Color.blue : Color(.systemGray4)))
+                                : (canAdvance ? viewModel.currentStep.accentColor : Color(.systemGray4)))
                     .clipShape(Capsule())
                 }
                 .disabled(!canAdvance || viewModel.isProcessing)

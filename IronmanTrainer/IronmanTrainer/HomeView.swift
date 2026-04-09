@@ -1230,7 +1230,7 @@ struct WorkoutDayRows: View {
                                                     .foregroundColor(.white)
                                                     .padding(.horizontal, 5)
                                                     .padding(.vertical, 1)
-                                                    .background(Color.secondary.opacity(0.6))
+                                                    .background(Color(.systemGray2))
                                                     .cornerRadius(4)
                                             }
                                             Text(workoutEmoji(workout.type) + " " + strippedType(workout.type))
