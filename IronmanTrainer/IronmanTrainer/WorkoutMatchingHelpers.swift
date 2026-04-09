@@ -65,18 +65,32 @@ func extractWorkoutTypeFromString(_ typeString: String) -> String {
 func workoutTypeMatchesActivityType(plannedType: String, healthKitType: HKWorkoutActivityType) -> Bool {
     let planned = plannedType.lowercased()
     switch healthKitType {
-    case .cycling:
-        return planned == "bike"
+    case .cycling, .indoorCycling:
+        return planned.contains("bike") || planned.contains("cycling") || planned.contains("indoor cycling")
     case .swimming:
-        return planned == "swim"
+        return planned.contains("swim") || planned.contains("open water")
     case .running:
-        return planned == "run"
+        return planned == "run" || planned.contains("run")
     case .walking:
-        return planned == "walk"
+        return planned == "walk" || planned.contains("walk")
     case .traditionalStrengthTraining, .functionalStrengthTraining:
-        return planned == "strength"
+        return planned.contains("strength") || planned.contains("weight")
     case .hiking:
-        return planned == "hike"
+        return planned.contains("hike") || planned.contains("hiking")
+    case .rowing:
+        return planned.contains("row") || planned.contains("rowing")
+    case .paddleSports:
+        return planned.contains("paddle") || planned.contains("kayak") || planned.contains("canoe")
+    case .elliptical:
+        return planned.contains("elliptical") || planned.contains("cross train") || planned.contains("crosstraining")
+    case .stairClimbing:
+        return planned.contains("stair") || planned.contains("step")
+    case .yoga:
+        return planned.contains("yoga")
+    case .crossTraining:
+        return planned.contains("cross") || planned.contains("crosstraining") || planned.contains("cross train")
+    case .triathlon:
+        return planned.contains("brick") || planned.contains("race sim") || planned.contains("triathlon")
     default:
         return false
     }
