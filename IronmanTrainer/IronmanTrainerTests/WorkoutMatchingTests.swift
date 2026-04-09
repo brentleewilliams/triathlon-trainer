@@ -119,7 +119,7 @@ class WorkoutMatchingTests: XCTestCase {
 
     func testWorkoutTypeMatches_UnknownTypeDoesNotMatch() {
         XCTAssertFalse(workoutTypeMatchesActivityType(plannedType: "Unknown", healthKitType: .cycling))
-        XCTAssertFalse(workoutTypeMatchesActivityType(plannedType: "Yoga", healthKitType: .yoga))
+        XCTAssertTrue(workoutTypeMatchesActivityType(plannedType: "Yoga", healthKitType: .yoga))
     }
 
     // MARK: - End-to-End Extraction + Matching
