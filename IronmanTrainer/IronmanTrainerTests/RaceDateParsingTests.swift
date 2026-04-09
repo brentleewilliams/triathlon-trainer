@@ -1,5 +1,5 @@
 import XCTest
-@testable import IronmanTrainer
+@testable import Race1_Trainer
 
 /// Tests for race date parsing logic in PrepRaceSearchHelper.
 ///

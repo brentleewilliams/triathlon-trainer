@@ -1,5 +1,5 @@
 import XCTest
-@testable import IronmanTrainer
+@testable import Race1_Trainer
 
 @MainActor
 final class TemplateSelectionTests: XCTestCase {

@@ -1,6 +1,6 @@
 import XCTest
 import HealthKit
-@testable import IronmanTrainer
+@testable import Race1_Trainer
 
 /// Tests for the standalone workout matching helper functions
 /// defined in WorkoutMatchingHelpers.swift.

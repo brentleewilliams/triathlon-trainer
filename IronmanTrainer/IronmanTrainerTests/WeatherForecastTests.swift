@@ -1,5 +1,5 @@
 import XCTest
-@testable import IronmanTrainer
+@testable import Race1_Trainer
 
 // WeatherForecast is now accessed via @testable import, but keeping local copy
 // for tests that were written against it. Remove duplicate to avoid conflicts.
