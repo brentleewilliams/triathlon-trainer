@@ -96,8 +96,10 @@ class PlanGenerationService {
         - Use emoji prefixes: "\u{1F3CA} Swim", "\u{1F6B4} Bike", "\u{1F3C3} Run", "\u{1F6B4}+\u{1F3C3} Brick", "Rest"
         - Duration format: "45min", "1:00", "1,600yd" (swim), "-" (rest)
         - Zone format: "Z1"–"Z5", "-" for rest/race
+        - CRITICAL: Each week must have EXACTLY 7 workout entries, one per day of the week
+        - CRITICAL: Each entry must use a DIFFERENT "day" value: Mon, Tue, Wed, Thu, Fri, Sat, Sun — never repeat a day
         - Return ONLY a JSON array of exactly 3 weeks:
-        [{"weekNumber": N, "phase": "...", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "workouts": [...7 days]}]
+        [{"weekNumber": N, "phase": "...", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "workouts": [{"day":"Mon",...},{"day":"Tue",...},{"day":"Wed",...},{"day":"Thu",...},{"day":"Fri",...},{"day":"Sat",...},{"day":"Sun",...}]}]
         """
 
         let rawJSON = try await withRetry { [self] in
@@ -387,6 +389,17 @@ class PlanGenerationService {
                     nutritionTarget: nutritionTarget,
                     notes: notes
                 ))
+            }
+
+            // Post-process: if all workouts landed on the same day (AI failure mode),
+            // redistribute them Mon–Sun in order
+            let uniqueDays = Set(workouts.map { $0.day })
+            if uniqueDays.count == 1 && workouts.count >= 5 {
+                let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                workouts = workouts.enumerated().map { (i, w) in
+                    DayWorkout(day: dayOrder[min(i, 6)], type: w.type, duration: w.duration,
+                               zone: w.zone, status: w.status, nutritionTarget: w.nutritionTarget, notes: w.notes)
+                }
             }
 
             weeks.append(TrainingWeek(

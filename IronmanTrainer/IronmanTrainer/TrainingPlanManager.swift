@@ -306,7 +306,12 @@ class TrainingPlanManager: ObservableObject {
             notes: race.notes
         )
 
-        var updatedWorkouts = week.workouts.filter { $0.day != dayAbbrev }
+        // Remove any existing secondary race card for this race across ALL days (handles AI-injected duplicates)
+        var updatedWorkouts = week.workouts.filter { workout in
+            !(workout.status == "secondary_race" && workout.type.contains(race.name))
+        }
+        // Also remove any non-race workouts on the target day
+        updatedWorkouts = updatedWorkouts.filter { $0.day != dayAbbrev }
         updatedWorkouts.append(raceCard)
         updatedWorkouts.sort {
             (dayAbbrevs.firstIndex(of: $0.day) ?? 0) < (dayAbbrevs.firstIndex(of: $1.day) ?? 0)
