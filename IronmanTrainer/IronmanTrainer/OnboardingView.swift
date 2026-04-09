@@ -1,47 +1,217 @@
 import SwiftUI
 
+// MARK: - Color Hex Extension
+
+extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255.0
+        let g = Double((int >> 8) & 0xFF) / 255.0
+        let b = Double(int & 0xFF) / 255.0
+        self.init(red: r, green: g, blue: b)
+    }
+}
+
+// MARK: - Step Background Colors & Illustration Data
+
+extension OnboardingStep {
+    var gradientColors: [Color] {
+        switch self {
+        case .healthKit: return [Color(hex: "FF6B6B"), Color(hex: "EE5A5A")]
+        case .profile: return [Color(hex: "4A90D9"), Color(hex: "6BB5F0")]
+        case .raceSearch: return [Color(hex: "FF9500"), Color(hex: "FFB340")]
+        case .goalSetting: return [Color(hex: "34C759"), Color(hex: "5DD27A")]
+        case .tutorial: return [Color(hex: "00C7BE"), Color(hex: "32D9D1")]
+        case .planReview: return [Color(hex: "5856D6"), Color(hex: "4A90D9")]
+        }
+    }
+
+    var gradient: LinearGradient {
+        LinearGradient(colors: gradientColors, startPoint: .top, endPoint: .bottom)
+    }
+
+    var illustrationName: String {
+        switch self {
+        case .healthKit: return "onboarding-health"
+        case .profile: return "onboarding-profile"
+        case .raceSearch: return "onboarding-race"
+        case .goalSetting: return "onboarding-goals"
+        case .tutorial: return "onboarding-chat"
+        case .planReview: return "onboarding-plan"
+        }
+    }
+
+    var illustrationTitle: String {
+        switch self {
+        case .healthKit: return "Let's see where you are"
+        case .profile: return "A little about you"
+        case .raceSearch: return "Pick your race"
+        case .goalSetting: return "What does success look like?"
+        case .tutorial: return "Let's chat about your fitness"
+        case .planReview: return "Your plan is ready"
+        }
+    }
+
+    var illustrationSubtitle: String {
+        switch self {
+        case .healthKit: return "We'll pull your workouts and heart rate history to build your starting point"
+        case .profile: return "Height, weight, and location help us dial in your zones and plan for your climate"
+        case .raceSearch: return "We'll pull the course, elevation, weather, and build your plan around it"
+        case .goalSetting: return "Finish strong, hit a time goal, or tell us in your own words"
+        case .tutorial: return "A quick conversation so your coach knows your schedule, injuries, and gear"
+        case .planReview: return ""
+        }
+    }
+}
+
+// MARK: - Reusable Illustration Header
+
+struct OnboardingIllustrationHeader: View {
+    let step: OnboardingStep
+    var subtitleOverride: String? = nil
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Image(step.illustrationName)
+                .resizable()
+                .aspectRatio(contentMode: .fit)
+                .frame(maxHeight: UIScreen.main.bounds.height * 0.35)
+                .padding(.horizontal, 32)
+
+            VStack(spacing: 8) {
+                Text(step.illustrationTitle)
+                    .font(.title2.weight(.bold))
+                    .foregroundStyle(.white)
+                    .multilineTextAlignment(.center)
+
+                let subtitle = subtitleOverride ?? step.illustrationSubtitle
+                if !subtitle.isEmpty {
+                    Text(subtitle)
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.85))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Main Onboarding View
 
 struct OnboardingView: View {
     @StateObject private var viewModel = OnboardingViewModel()
     var onComplete: ([TrainingWeek]) -> Void
 
+    // Sub-screen state for steps that split into intro → form
+    @State private var profileShowingForm = false
+    @State private var goalsShowingForm = false
+
+    /// Whether the current view is showing its gradient background (vs white form)
+    private var isOnGradient: Bool {
+        switch viewModel.currentStep {
+        case .profile: return !profileShowingForm
+        case .goalSetting: return !goalsShowingForm
+        default: return true
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 0) {
-            // Progress bar
-            OnboardingProgressBar(progress: viewModel.progressPercent, currentStep: viewModel.currentStep)
+        ZStack {
+            // Dynamic background
+            if isOnGradient {
+                viewModel.currentStep.gradient
+                    .ignoresSafeArea()
+            } else {
+                Color(.systemBackground)
+                    .ignoresSafeArea()
+            }
+
+            VStack(spacing: 0) {
+                // Progress bar
+                OnboardingProgressBar(
+                    progress: viewModel.progressPercent,
+                    currentStep: viewModel.currentStep,
+                    isOnGradient: isOnGradient
+                )
                 .padding(.horizontal, 20)
                 .padding(.top, 12)
 
-            // Content area — no swipe between steps, button-only navigation
-            Group {
-                switch viewModel.currentStep {
-                case .healthKit:
-                    HealthKitPermissionStep(viewModel: viewModel)
-                case .profile:
-                    ProfileStep(viewModel: viewModel)
-                case .raceSearch:
-                    RaceSearchStep(viewModel: viewModel)
-                case .goalSetting:
-                    GoalSettingStep(viewModel: viewModel)
-                case .tutorial:
-                    TutorialStep(viewModel: viewModel)
-                case .planReview:
-                    PlanReviewStep(viewModel: viewModel, onComplete: onComplete)
+                // Content area
+                Group {
+                    switch viewModel.currentStep {
+                    case .healthKit:
+                        HealthKitPermissionStep(viewModel: viewModel)
+                    case .profile:
+                        ProfileStep(viewModel: viewModel, showingForm: $profileShowingForm)
+                    case .raceSearch:
+                        RaceSearchStep(viewModel: viewModel)
+                    case .goalSetting:
+                        GoalSettingStep(viewModel: viewModel, showingForm: $goalsShowingForm)
+                    case .tutorial:
+                        TutorialStep(viewModel: viewModel)
+                    case .planReview:
+                        PlanReviewStep(viewModel: viewModel, onComplete: onComplete)
+                    }
                 }
-            }
-            .transition(.asymmetric(
-                insertion: .move(edge: .trailing),
-                removal: .move(edge: .leading)
-            ))
-            .animation(.easeInOut(duration: 0.3), value: viewModel.currentStep)
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .leading)
+                ))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.currentStep)
 
-            // Navigation buttons
-            OnboardingNavBar(viewModel: viewModel)
+                // Navigation buttons
+                OnboardingNavBar(
+                    viewModel: viewModel,
+                    isOnGradient: isOnGradient,
+                    onAdvance: handleAdvance,
+                    onBack: handleBack
+                )
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
+            }
         }
-        .background(Color(.systemBackground))
+        .animation(.easeInOut(duration: 0.3), value: isOnGradient)
+        .onChange(of: viewModel.currentStep) { _, _ in
+            profileShowingForm = false
+            goalsShowingForm = false
+        }
+    }
+
+    private func handleAdvance() {
+        switch viewModel.currentStep {
+        case .profile:
+            if !profileShowingForm {
+                withAnimation { profileShowingForm = true }
+                return
+            }
+        case .goalSetting:
+            if !goalsShowingForm {
+                withAnimation { goalsShowingForm = true }
+                return
+            }
+        default: break
+        }
+        viewModel.advance()
+    }
+
+    private func handleBack() {
+        switch viewModel.currentStep {
+        case .profile:
+            if profileShowingForm {
+                withAnimation { profileShowingForm = false }
+                return
+            }
+        case .goalSetting:
+            if goalsShowingForm {
+                withAnimation { goalsShowingForm = false }
+                return
+            }
+        default: break
+        }
+        viewModel.goBack()
     }
 }
 
@@ -50,6 +220,7 @@ struct OnboardingView: View {
 struct OnboardingProgressBar: View {
     let progress: Double
     let currentStep: OnboardingStep
+    var isOnGradient: Bool = false
 
     private var stepLabel: String {
         switch currentStep {
@@ -67,11 +238,11 @@ struct OnboardingProgressBar: View {
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemGray5))
+                        .fill(isOnGradient ? Color.white.opacity(0.3) : Color(.systemGray5))
                         .frame(height: 6)
 
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(Color.blue)
+                        .fill(isOnGradient ? Color.white : Color.blue)
                         .frame(width: geo.size.width * progress, height: 6)
                         .animation(.easeInOut(duration: 0.3), value: progress)
                 }
@@ -80,7 +251,7 @@ struct OnboardingProgressBar: View {
 
             Text("Step \(currentStep.rawValue + 1) of \(OnboardingStep.allCases.count): \(stepLabel)")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(isOnGradient ? .white.opacity(0.7) : .secondary)
         }
     }
 }
@@ -89,6 +260,9 @@ struct OnboardingProgressBar: View {
 
 struct OnboardingNavBar: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    var isOnGradient: Bool = false
+    var onAdvance: (() -> Void)? = nil
+    var onBack: (() -> Void)? = nil
 
     private var canAdvance: Bool {
         switch viewModel.currentStep {
@@ -103,7 +277,7 @@ struct OnboardingNavBar: View {
         case .tutorial:
             return viewModel.minimumWeeksLoaded
         case .planReview:
-            return false // Plan review has its own buttons
+            return false
         }
     }
 
@@ -111,32 +285,48 @@ struct OnboardingNavBar: View {
         HStack {
             if viewModel.currentStep != .healthKit {
                 Button {
-                    viewModel.goBack()
+                    (onBack ?? viewModel.goBack)()
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "chevron.left")
                         Text("Back")
                     }
                     .font(.body.weight(.medium))
+                    .foregroundStyle(isOnGradient ? .white : .blue)
                 }
                 .disabled(viewModel.isProcessing)
             }
 
             Spacer()
 
+            // Step dots
+            HStack(spacing: 6) {
+                ForEach(OnboardingStep.allCases, id: \.rawValue) { step in
+                    Circle()
+                        .fill(step == viewModel.currentStep
+                              ? (isOnGradient ? Color.white : Color.blue)
+                              : (isOnGradient ? Color.white.opacity(0.4) : Color(.systemGray4)))
+                        .frame(width: 8, height: 8)
+                }
+            }
+
+            Spacer()
+
             if viewModel.currentStep != .planReview && viewModel.currentStep != .tutorial {
                 Button {
-                    viewModel.advance()
+                    (onAdvance ?? viewModel.advance)()
                 } label: {
                     HStack(spacing: 4) {
                         Text("Continue")
                         Image(systemName: "chevron.right")
                     }
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(isOnGradient ? (canAdvance ? .blue : .gray) : .white)
                     .padding(.horizontal, 24)
                     .padding(.vertical, 12)
-                    .background(canAdvance ? Color.blue : Color(.systemGray4))
+                    .background(isOnGradient
+                                ? (canAdvance ? Color.white : Color.white.opacity(0.3))
+                                : (canAdvance ? Color.blue : Color(.systemGray4)))
                     .clipShape(Capsule())
                 }
                 .disabled(!canAdvance || viewModel.isProcessing)
@@ -155,56 +345,39 @@ struct HealthKitPermissionStep: View {
             VStack(spacing: 24) {
                 Spacer().frame(height: 20)
 
-                Image(systemName: "heart.text.square.fill")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.red)
-
-                Text("Let's analyze your training history")
-                    .font(.title2.weight(.bold))
-                    .multilineTextAlignment(.center)
-
-                Text("We'll pull your workout data from Apple Health to understand your current fitness level and training patterns.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
-
-                VStack(alignment: .leading, spacing: 12) {
-                    HKDataRow(icon: "figure.run", text: "Running, cycling, and swimming workouts")
-                    HKDataRow(icon: "heart.fill", text: "Heart rate zones and resting HR")
-                    HKDataRow(icon: "scalemass.fill", text: "Weight and body measurements")
-                    HKDataRow(icon: "lungs.fill", text: "VO2 Max estimates")
-                }
-                .padding(.horizontal, 20)
+                OnboardingIllustrationHeader(step: .healthKit)
 
                 if viewModel.isProcessing {
                     VStack(spacing: 12) {
                         ProgressView()
+                            .tint(.white)
                             .scaleEffect(1.2)
                         Text("Analyzing your fitness data...")
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.85))
                     }
                     .padding(.top, 8)
                 } else if viewModel.hkDataLoaded {
                     VStack(spacing: 8) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 40))
-                            .foregroundStyle(.green)
+                            .foregroundStyle(.white)
 
                         if let profile = viewModel.hkProfile {
                             let totalWorkouts = profile.recentWorkoutDetails.count + profile.monthlyTrends.reduce(0) { $0 + $1.swimSessions + $1.bikeSessions + $1.runSessions }
                             Text("Found \(totalWorkouts) workouts")
                                 .font(.headline)
+                                .foregroundStyle(.white)
 
                             if !profile.monthlyTrends.isEmpty {
                                 Text("\(profile.monthlyTrends.count) months of training data")
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.white.opacity(0.85))
                             }
                         } else {
                             Text("Health data connected")
                                 .font(.headline)
+                                .foregroundStyle(.white)
                         }
                     }
                     .padding(.top, 8)
@@ -219,10 +392,10 @@ struct HealthKitPermissionStep: View {
                             Text("Connect HealthKit")
                         }
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color(hex: "FF6B6B"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(Color.red)
+                        .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
                     }
                     .padding(.horizontal, 20)
@@ -231,8 +404,11 @@ struct HealthKitPermissionStep: View {
                 if let error = viewModel.error {
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(.red)
+                        .foregroundStyle(.white)
                         .padding(.horizontal)
+                        .padding(10)
+                        .background(Color.white.opacity(0.2))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
                 }
 
                 Spacer()
@@ -264,6 +440,7 @@ struct HKDataRow: View {
 struct ProfileStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
     @EnvironmentObject var authService: AuthService
+    @Binding var showingForm: Bool
 
     private let sexOptions = ["Male", "Female", "Other"]
 
@@ -278,13 +455,25 @@ struct ProfileStep: View {
     @State private var localHomeZip: String = ""
 
     var body: some View {
+        if !showingForm {
+            // Illustration intro screen
+            ScrollView {
+                VStack(spacing: 24) {
+                    Spacer().frame(height: 20)
+                    OnboardingIllustrationHeader(step: .profile)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+            }
+        } else {
+            profileFormView
+        }
+    }
+
+    private var profileFormView: some View {
         ScrollView {
             VStack(spacing: 24) {
                 Spacer().frame(height: 20)
-
-                Image(systemName: "person.crop.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.blue)
 
                 Text("Complete Your Profile")
                     .font(.title2.weight(.bold))
@@ -596,24 +785,14 @@ struct RaceSearchStep: View {
             VStack(spacing: 24) {
                 Spacer().frame(height: 20)
 
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.orange)
-
-                Text("What race are you training for?")
-                    .font(.title2.weight(.bold))
-                    .multilineTextAlignment(.center)
-
-                Text("Search for your race and we'll pull in all the details automatically.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
+                OnboardingIllustrationHeader(step: .raceSearch)
 
                 // Search field + button
                 VStack(spacing: 12) {
                     TextField("e.g. Ironman 70.3 Oregon 2026", text: $localQuery)
-                        .textFieldStyle(.roundedBorder)
+                        .padding(12)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
                         .autocorrectionDisabled()
                         .textInputAutocapitalization(.words)
                         .keyboardType(.default)
@@ -626,15 +805,16 @@ struct RaceSearchStep: View {
                     } label: {
                         if viewModel.isSearchingRace {
                             ProgressView()
+                                .tint(.white)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
                         } else {
                             Text("Search")
                                 .font(.body.weight(.semibold))
-                                .foregroundStyle(.white)
+                                .foregroundStyle(Color(hex: "FF9500"))
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(localQuery.isEmpty ? Color(.systemGray4) : Color.blue)
+                                .background(localQuery.isEmpty ? Color.white.opacity(0.3) : Color.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 10))
                         }
                     }
@@ -656,6 +836,7 @@ struct RaceSearchStep: View {
                     } label: {
                         Text("Search again")
                             .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
                     }
                 }
 
@@ -663,11 +844,11 @@ struct RaceSearchStep: View {
                     VStack(spacing: 8) {
                         Text(error)
                             .font(.caption)
-                            .foregroundStyle(.red)
+                            .foregroundStyle(.white)
 
                         Text("You can try a different search or enter details manually later.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.85))
                     }
                     .padding(.horizontal, 16)
                 }
@@ -800,29 +981,29 @@ struct RaceDetailRow: View {
 
 struct GoalSettingStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @Binding var showingForm: Bool
     @State private var localCustomGoal: String = ""
 
     var body: some View {
+        if !showingForm {
+            goalIntroView
+        } else {
+            goalFormView
+        }
+    }
+
+    // MARK: - Intro screen (gradient background)
+
+    private var goalIntroView: some View {
         ScrollView {
             VStack(spacing: 24) {
                 Spacer().frame(height: 20)
 
-                Image(systemName: "target")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.green)
-
-                Text("What's your goal?")
-                    .font(.title2.weight(.bold))
-
-                Text("This helps us tailor your training plan intensity and pacing strategy.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 16)
+                OnboardingIllustrationHeader(step: .goalSetting)
 
                 VStack(spacing: 16) {
-                    // Just Complete card (default, first)
-                    GoalCard(
+                    // Just Complete card (gradient-styled)
+                    GoalCardOnGradient(
                         icon: "flag.fill",
                         title: "Just Complete It",
                         subtitle: "I want to finish strong and have fun",
@@ -832,7 +1013,7 @@ struct GoalSettingStep: View {
                     }
 
                     // Time Target card
-                    GoalCard(
+                    GoalCardOnGradient(
                         icon: "stopwatch.fill",
                         title: "Finish Time Goal",
                         subtitle: "I have a specific time I want to hit",
@@ -847,7 +1028,7 @@ struct GoalSettingStep: View {
                     }
 
                     // Custom Goal card
-                    GoalCard(
+                    GoalCardOnGradient(
                         icon: "text.bubble.fill",
                         title: "Custom Goal",
                         subtitle: "Describe your goal in your own words",
@@ -857,6 +1038,22 @@ struct GoalSettingStep: View {
                     }
                 }
                 .padding(.horizontal, 16)
+
+                Spacer()
+            }
+            .padding(.horizontal, 16)
+        }
+    }
+
+    // MARK: - Form screen (white background)
+
+    private var goalFormView: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer().frame(height: 20)
+
+                Text("Configure Your Goal")
+                    .font(.title2.weight(.bold))
 
                 // Custom goal text field
                 if viewModel.goalType == .custom {
@@ -1365,160 +1562,107 @@ struct GoalCard: View {
     }
 }
 
+struct GoalCardOnGradient: View {
+    let icon: String
+    let title: String
+    let subtitle: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 16) {
+                Image(systemName: icon)
+                    .font(.title2)
+                    .foregroundStyle(isSelected ? Color(hex: "34C759") : .white)
+                    .frame(width: 44, height: 44)
+                    .background(isSelected ? Color.white : Color.white.opacity(0.2))
+                    .clipShape(Circle())
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.white)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+
+                Spacer()
+
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.white)
+                        .font(.title3)
+                }
+            }
+            .padding(16)
+            .background(isSelected ? Color.white.opacity(0.25) : Color.white.opacity(0.1))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.white : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - Step 5: Tutorial
 
 struct TutorialStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
-    @State private var tutorialPage = 0
-
-    private let totalPages = 3
 
     var body: some View {
         VStack(spacing: 0) {
-            // Slide content
             ScrollView {
                 VStack(spacing: 24) {
-                    Spacer().frame(height: 40)
+                    Spacer().frame(height: 20)
 
-                    if tutorialPage == 0 {
-                        // Page 1: Your Week at a Glance
-                        Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 56))
-                            .foregroundStyle(.blue)
+                    OnboardingIllustrationHeader(step: .tutorial)
 
-                        Text("Your Week at a Glance")
-                            .font(.title2.weight(.bold))
-
-                        Text("Each day shows your planned workout type at a glance")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-
-                        HStack(spacing: 0) {
-                            WeekDayBlock(day: "M", activity: "Swim", color: .cyan)
-                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
-                            WeekDayBlock(day: "W", activity: "Bike", color: .green)
-                            WeekDayBlock(day: "T", activity: "Run", color: .orange)
-                            WeekDayBlock(day: "F", activity: "Swim", color: .cyan)
-                            WeekDayBlock(day: "S", activity: "Bike", color: .green)
-                            WeekDayBlock(day: "S", activity: "Rest", color: .gray.opacity(0.3))
+                    // Plan generation status
+                    if viewModel.isGeneratingPlan {
+                        HStack(spacing: 10) {
+                            ProgressView()
+                                .tint(.white)
+                            Text("Building your plan...")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.85))
                         }
-                        .padding(.horizontal, 24)
-
-                        VStack(spacing: 8) {
-                            HStack(spacing: 16) {
-                                TutorialLegendItem(color: .cyan, label: "Swim")
-                                TutorialLegendItem(color: .green, label: "Bike")
-                                TutorialLegendItem(color: .orange, label: "Run")
-                            }
-                            HStack(spacing: 16) {
-                                TutorialLegendItem(color: .purple, label: "Brick")
-                                TutorialLegendItem(color: .yellow, label: "Strength")
-                                TutorialLegendItem(color: .gray.opacity(0.3), label: "Rest")
-                            }
-                        }
-                        .padding(.top, 8)
-
-                    } else if tutorialPage == 1 {
-                        // Page 2: Track Your Progress
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(.green)
-
-                        Text("Track Your Progress")
-                            .font(.title2.weight(.bold))
-
-                        Text("Your workouts sync automatically from Apple Health. Completed workouts show a green checkmark.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-
-                        VStack(spacing: 0) {
-                            TutorialMockWorkoutRow(type: "Run", duration: "45 min", zone: "Z2", completed: true)
-                            Divider()
-                            TutorialMockWorkoutRow(type: "Swim", duration: "30 min", zone: "Z1-Z2", completed: true)
-                            Divider()
-                            TutorialMockWorkoutRow(type: "Bike", duration: "60 min", zone: "Z2-Z3", completed: false)
-                        }
-                        .background(Color(.systemGray6))
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.15))
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 24)
-
-                        HStack(spacing: 8) {
-                            Image(systemName: "heart.text.square.fill")
-                                .foregroundStyle(.red)
-                            Text("Powered by Apple Health")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                    } else {
-                        // Page 3: Your AI Coach
-                        Image(systemName: "bubble.left.and.bubble.right.fill")
-                            .font(.system(size: 56))
-                            .foregroundStyle(.blue)
-
-                        Text("Your AI Coach")
-                            .font(.title2.weight(.bold))
-
-                        Text("Ask your coach about today's workout, get pacing advice, or reschedule training days.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-
-                        VStack(alignment: .leading, spacing: 8) {
-                            TutorialChatBubble(text: "What should I focus on in today's swim?", isUser: true)
-                            TutorialChatBubble(text: "Focus on your catch and pull technique. Aim for 1:50/100yd pace in the main set.", isUser: false)
-                        }
-                        .padding(.horizontal, 24)
-
-                        Spacer().frame(height: 16)
-
-                        // Plan generation status
-                        if viewModel.isGeneratingPlan {
-                            HStack(spacing: 10) {
-                                ProgressView()
-                                Text("Building your plan...")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.horizontal, 24)
-                        } else if viewModel.planGenerationError != nil {
-                            VStack(spacing: 10) {
-                                Image(systemName: "exclamationmark.triangle.fill")
-                                    .font(.title2)
-                                    .foregroundStyle(.orange)
-                                Text("Plan generation failed.")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                                Button {
-                                    viewModel.retryPlanGeneration()
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "arrow.clockwise")
-                                        Text("Retry")
-                                    }
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 24)
-                                    .padding(.vertical, 10)
-                                    .background(Color.blue)
-                                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding(.horizontal, 16)
+                    } else if viewModel.planGenerationError != nil {
+                        VStack(spacing: 10) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                            Text("Plan generation failed.")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.85))
+                            Button {
+                                viewModel.retryPlanGeneration()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "arrow.clockwise")
+                                    Text("Retry")
                                 }
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color(hex: "00C7BE"))
+                                .padding(.horizontal, 24)
+                                .padding(.vertical, 10)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
                             }
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color(.systemGray6))
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .padding(.horizontal, 24)
                         }
+                        .padding()
+                        .frame(maxWidth: .infinity)
+                        .background(Color.white.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
                     }
 
                     Spacer()
@@ -1526,27 +1670,20 @@ struct TutorialStep: View {
                 .padding(.horizontal, 16)
             }
 
-            // Continue button
+            // Build My Plan button
             VStack(spacing: 0) {
-                Divider()
                 Button {
-                    if tutorialPage < totalPages - 1 {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            tutorialPage += 1
-                        }
-                    } else {
-                        viewModel.advance()
-                    }
+                    viewModel.advance()
                 } label: {
-                    Text(tutorialPage < totalPages - 1 ? "Continue" : (viewModel.minimumWeeksLoaded ? "Build My Plan" : "Please wait..."))
+                    Text(viewModel.minimumWeeksLoaded ? "Build My Plan" : "Please wait...")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(viewModel.minimumWeeksLoaded ? Color(hex: "00C7BE") : .gray)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(tutorialPage == totalPages - 1 && !viewModel.minimumWeeksLoaded ? Color.gray : Color.blue)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(viewModel.minimumWeeksLoaded ? Color.white : Color.white.opacity(0.3))
+                        .clipShape(Capsule())
                 }
-                .disabled(tutorialPage == totalPages - 1 && !viewModel.minimumWeeksLoaded)
+                .disabled(!viewModel.minimumWeeksLoaded)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
             }
@@ -1693,74 +1830,52 @@ struct PlanReviewStep: View {
         return phases
     }
 
+    private var illustrationSubtitle: String {
+        let weeks: Int = {
+            if let plan = viewModel.generatedPlan { return plan.count }
+            return weeksUntilRace
+        }()
+        let raceName = viewModel.raceSearchResult?.name ?? "your race"
+        if weeks > 0 {
+            return "\(weeks) weeks of personalized training, built for \(raceName)"
+        }
+        return "Your personalized training plan"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 20) {
                 Spacer().frame(height: 12)
 
-                // Race header
-                if let race = viewModel.raceSearchResult {
-                    VStack(spacing: 6) {
-                        Image(systemName: "flag.checkered")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.blue)
-
-                        Text(race.name)
-                            .font(.title3.weight(.bold))
-
-                        HStack(spacing: 16) {
-                            Label({
-                                let f = DateFormatter()
-                                f.dateStyle = .medium
-                                return f.string(from: race.date)
-                            }(), systemImage: "calendar")
-
-                            Label(race.location, systemImage: "mappin")
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                        if let plan = viewModel.generatedPlan {
-                            Text("\(plan.count) weeks of training")
-                                .font(.headline)
-                                .foregroundStyle(.blue)
-                                .padding(.top, 2)
-                        } else if weeksUntilRace > 0 {
-                            Text("\(weeksUntilRace) weeks of training")
-                                .font(.headline)
-                                .foregroundStyle(.blue)
-                                .padding(.top, 2)
-                        }
-                    }
-                } else {
-                    Image(systemName: "calendar.badge.checkmark")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.blue)
-                    Text("Your Training Plan")
-                        .font(.title3.weight(.bold))
-                }
+                // Illustration header
+                OnboardingIllustrationHeader(
+                    step: .planReview,
+                    subtitleOverride: illustrationSubtitle
+                )
 
                 // Loading state
                 if isLoading {
                     VStack(spacing: 20) {
                         Spacer().frame(height: 40)
                         ProgressView()
+                            .tint(.white)
                             .scaleEffect(1.6)
                         VStack(spacing: 8) {
                             Text("Building your AI plan...")
                                 .font(.title3.weight(.semibold))
+                                .foregroundStyle(.white)
                             if !viewModel.isGeneratingPlan {
                                 Text("Almost ready")
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.white.opacity(0.85))
                             } else if viewModel.planMethod != "template" && viewModel.planBatchesCompleted > 0 {
                                 Text("(\(viewModel.planBatchesCompleted)/\(viewModel.planTotalBatches) sections complete)")
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.white.opacity(0.85))
                             } else {
                                 Text("Personalizing based on your profile")
                                     .font(.subheadline)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.white.opacity(0.85))
                             }
                         }
                         Spacer()
@@ -1969,11 +2084,11 @@ struct PlanReviewStep: View {
                             Text("Start Training")
                         }
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(!isLoading && viewModel.generatedPlan != nil ? Color(hex: "5856D6") : .gray)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(!isLoading && viewModel.generatedPlan != nil ? Color.blue : Color.gray)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .background(!isLoading && viewModel.generatedPlan != nil ? Color.white : Color.white.opacity(0.3))
+                        .clipShape(Capsule())
                     }
                     .disabled(isLoading || viewModel.generatedPlan == nil)
 
@@ -1983,12 +2098,12 @@ struct PlanReviewStep: View {
                         } label: {
                             Text("Go Back & Adjust")
                                 .font(.body)
-                                .foregroundStyle(.blue)
+                                .foregroundStyle(.white.opacity(0.85))
                         }
 
                         Text("You can adjust your plan anytime by chatting with your AI coach.")
                             .font(.caption)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.white.opacity(0.7))
                             .multilineTextAlignment(.center)
                             .padding(.top, 4)
                     }
