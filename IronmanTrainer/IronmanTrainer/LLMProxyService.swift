@@ -151,6 +151,11 @@ class LLMProxyService {
     // MARK: - 3. Prep Race Search
 
     func searchPrepRace(query: String) async throws -> PrepRaceSearchResult {
+        // Check local verified database first — guaranteed correct date, zero latency
+        if let local = VerifiedRaceDatabase.lookup(query: query) {
+            return local.toPrepRaceSearchResult()
+        }
+
         let sanitized = sanitizeQuery(query)
 
         let body: [String: Any] = [
@@ -174,9 +179,7 @@ class LLMProxyService {
 
         let raw = try JSONDecoder().decode(RawResult.self, from: resultData)
 
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd"
-        guard let date = formatter.date(from: raw.date) else {
+        guard let date = PrepRaceSearchHelper.parseDate(raw.date) else {
             throw ClaudeServiceError.invalidResponse
         }
 
