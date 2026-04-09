@@ -8,5 +8,9 @@
       "codebase": "default",
       "ignore": ["node_modules", ".git"]
     }
-  ]
+  ],
+  "hosting": {
+    "public": "public",
+    "ignore": ["firebase.json", "**/.*"]
+  }
 }
