@@ -36,9 +36,9 @@
 		84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */; };
 		84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */; };
 		84D0F0CF0A0B0001007D9BC7 /* OpenAIService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */; };
-		84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */; };
 		84D0F0CF0A0B0002007D9BC7 /* PlanGenerationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CE0A0B0002007D9BC7 /* PlanGenerationService.swift */; };
 		84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */; };
+		84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */; };
 		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
 		84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D32F7C3624007D9BC7 /* HomeView.swift */; };
 		84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */; };
@@ -122,9 +122,9 @@
 		84D0F0CB2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingHelpers.swift; sourceTree = "<group>"; };
 		84D0F0CD2F7C354C007D9BC7 /* ClaudeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeService.swift; sourceTree = "<group>"; };
 		84D0F0CE0A0B0001007D9BC7 /* OpenAIService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenAIService.swift; sourceTree = "<group>"; };
-		84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProxyService.swift; sourceTree = "<group>"; };
 		84D0F0CE0A0B0002007D9BC7 /* PlanGenerationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanGenerationService.swift; sourceTree = "<group>"; };
 		84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProxyService.swift; sourceTree = "<group>"; };
 		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		84D0F0D32F7C3624007D9BC7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
@@ -550,6 +550,7 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Race1;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
@@ -595,6 +596,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = IronmanTrainer/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Race1;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need access to your workout data from Apple Health to track your training progress and sync with your Ironman 70.3 training plan.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We need access to write workout data to Apple Health as part of your training tracking.";
