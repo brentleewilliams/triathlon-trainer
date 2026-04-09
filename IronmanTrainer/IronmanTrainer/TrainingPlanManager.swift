@@ -224,6 +224,7 @@ class TrainingPlanManager: ObservableObject {
         self.useInMemoryStore = useInMemoryStore
         if let externalWeeks, !externalWeeks.isEmpty {
             self.weeks = externalWeeks
+            insertAllSecondaryRaceCards()
             calculateCurrentWeek()
             // Skip Core Data restore — the generated plan takes precedence.
             // Core Data versioning will start tracking from the first AI-coach modification.
@@ -257,11 +258,20 @@ class TrainingPlanManager: ObservableObject {
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
-    /// Replace current plan with externally generated weeks
+    /// Replace current plan with externally generated weeks.
+    /// Automatically re-inserts secondary race cards so they survive regeneration.
     func loadPlan(_ newWeeks: [TrainingWeek]) {
         weeks = newWeeks
+        insertAllSecondaryRaceCards()
         calculateCurrentWeek()
         AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
+    /// Insert race cards for all known secondary races. Safe to call multiple times.
+    func insertAllSecondaryRaceCards() {
+        for race in PrepRacesManager.shared.races {
+            insertSecondaryRaceCard(race)
+        }
     }
 
     /// Insert a secondary race card on the race day, replacing any existing workouts for that day.
