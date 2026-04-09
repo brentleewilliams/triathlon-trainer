@@ -190,73 +190,68 @@ struct Race1WidgetView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Header
+        VStack(alignment: .leading, spacing: 6) {
+            // Row 1: Week + days to race
             HStack {
                 Text("Wk \(entry.weekNumber)")
-                    .font(.caption2)
+                    .font(.caption)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
                 Spacer()
-                Text("\(entry.weather.icon)\(entry.weather.highTemp)°")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-
-            HStack {
-                Text(entry.dayName)
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.5))
-                Spacer()
                 if entry.daysUntilRace > 0 {
                     Text("\(entry.daysUntilRace)d to race")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.white.opacity(0.4))
                 } else if entry.daysUntilRace == 0 {
                     Text("Race Day! 🏁")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.orange)
                 }
+            }
+
+            // Row 2: Day + weather
+            HStack {
+                Text(entry.dayName)
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.5))
+                Spacer()
+                Text("\(entry.weather.icon)\(entry.weather.highTemp)°")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
             }
 
             if entry.workouts.isEmpty {
                 Spacer()
                 Text("Rest Day")
-                    .font(.subheadline)
+                    .font(.headline)
                     .fontWeight(.medium)
                     .foregroundColor(.white.opacity(0.8))
                     .frame(maxWidth: .infinity)
                 Spacer()
             } else {
+                Spacer(minLength: 2)
                 ForEach(Array(entry.workouts.prefix(3).enumerated()), id: \.offset) { _, workout in
-                    HStack(spacing: 0) {
+                    HStack(spacing: 2) {
                         Text(workoutIcon(workout.type))
-                            .font(.caption2)
+                            .font(.body)
                         Text(" \(workout.duration)")
-                            .font(.caption2)
-                            .fontWeight(.medium)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundColor(.white)
                             .lineLimit(1)
                     }
                 }
                 if entry.workouts.count > 3 {
                     Text("+\(entry.workouts.count - 3) more")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundColor(.white.opacity(0.4))
                 }
             }
 
             Spacer(minLength: 0)
         }
-        .padding(10)
+        .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(
-            LinearGradient(
-                colors: [Color(red: 0.05, green: 0.15, blue: 0.25), Color(red: 0.02, green: 0.08, blue: 0.15)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
         .containerBackground(for: .widget) {
             LinearGradient(
                 colors: [Color(red: 0.05, green: 0.15, blue: 0.25), Color(red: 0.02, green: 0.08, blue: 0.15)],
