@@ -379,6 +379,7 @@ class ChatViewModel: ObservableObject {
         - Simple same-week day swaps → use [SWAP_DAYS] (auto-applied).
         - Everything else (add/drop/modify, multi-week changes) → use [PLAN_CHANGES] (requires user confirmation).
         - Always explain your reasoning in natural language OUTSIDE the tags.
+        - CRITICAL: For the "type" field in drop/modify actions, copy the EXACT type string from the training plan above (e.g. "🚴 Bike", "🏊 Swim", "🏃 Run", "🏊 Swim"). The app matches workouts by exact string — any deviation will cause the change to fail silently.
         - IMPORTANT: Do NOT echo or repeat the raw JSON change objects in your natural language text. The app will render them in a nice UI card. Just describe the changes conversationally (e.g. "I'd suggest adding a strength session on Thursday and swapping your Tuesday bike for swim intervals").
         """
     }
