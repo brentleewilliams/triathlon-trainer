@@ -55,17 +55,52 @@ class ChatViewModel: ObservableObject {
     // MARK: - Plan Change Parsing
 
     func parsePlanChanges(from response: String) -> PlanChangeProposal? {
-        guard let startRange = response.range(of: "[PLAN_CHANGES]"),
-              let endRange = response.range(of: "[/PLAN_CHANGES]") else { return nil }
+        guard let startRange = response.range(of: "[PLAN_CHANGES]") else { return nil }
 
         let jsonStart = startRange.upperBound
-        let jsonEnd = endRange.lowerBound
+
+        // Use closing tag if present; otherwise attempt to recover truncated JSON
+        let jsonEnd: String.Index
+        let truncated: Bool
+        if let endRange = response.range(of: "[/PLAN_CHANGES]") {
+            jsonEnd = endRange.lowerBound
+            truncated = false
+        } else {
+            jsonEnd = response.endIndex
+            truncated = true
+        }
+
         guard jsonStart < jsonEnd else { return nil }
 
-        let jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = jsonString.data(using: .utf8) else { return nil }
+        var jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
 
+        if truncated {
+            // Drop trailing comma or incomplete entry after last complete object
+            if let lastBrace = jsonString.lastIndex(of: "}") {
+                jsonString = String(jsonString[jsonString.startIndex...lastBrace])
+            }
+            // Close open arrays and objects
+            let opens = jsonString.filter { $0 == "[" }.count - jsonString.filter { $0 == "]" }.count
+            let braces = jsonString.filter { $0 == "{" }.count - jsonString.filter { $0 == "}" }.count
+            jsonString += String(repeating: "]", count: max(opens, 0))
+            jsonString += String(repeating: "}", count: max(braces, 0))
+        }
+
+        guard let data = jsonString.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(PlanChangeProposal.self, from: data)
+    }
+
+    // Extract the core activity keyword for fuzzy workout type matching
+    private func activityKeyword(from type: String) -> String {
+        let lower = type.lowercased()
+        if lower.contains("swim") { return "swim" }
+        if lower.contains("bike") || lower.contains("cycling") || lower.contains("cycle") { return "bike" }
+        if lower.contains("run") { return "run" }
+        if lower.contains("brick") { return "brick" }
+        if lower.contains("strength") { return "strength" }
+        if lower.contains("yoga") { return "yoga" }
+        if lower.contains("rest") { return "rest" }
+        return lower
     }
 
     func stripPlanChangesBlock(from response: String) -> String {
@@ -152,7 +187,12 @@ class ChatViewModel: ObservableObject {
                     continue
                 }
                 let before = workouts.count
-                workouts.removeAll { $0.day == change.day && $0.type == type }
+                // Exact match first; fall back to activity-keyword fuzzy match
+                let keyword = activityKeyword(from: type)
+                workouts.removeAll {
+                    $0.day == change.day &&
+                    ($0.type == type || activityKeyword(from: $0.type) == keyword)
+                }
                 if workouts.count < before {
                     applied += 1
                 } else {
