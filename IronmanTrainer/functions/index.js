@@ -121,6 +121,9 @@ async function formatPrompt(name, variables = {}) {
       content = content.replace(new RegExp(`\\{${key}\\}`, "g"), String(val));
     }
 
+    // Unescape double braces (LangChain escaping for literal { }) -> single braces
+    content = content.replace(/\{\{/g, "{").replace(/\}\}/g, "}");
+
     return { role, content };
   });
 
