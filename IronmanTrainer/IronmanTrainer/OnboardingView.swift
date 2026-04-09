@@ -806,7 +806,7 @@ struct RaceSearchStep: View {
 
                 // Search field + button
                 VStack(spacing: 12) {
-                    TextField("e.g. Ironman 70.3 Oregon 2026", text: $localQuery)
+                    TextField("e.g. Boston Marathon 2026, Ironman 70.3 Oregon...", text: $localQuery)
                         .padding(12)
                         .background(Color.white)
                         .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1662,7 +1662,7 @@ struct TutorialStep: View {
                                     .font(.caption)
                                     .foregroundStyle(.white.opacity(0.7))
                             }
-                            Text("Hi! I'm your AI triathlon coach. I'll ask a few quick questions about your schedule, injuries, and gear — then build your personalized plan.")
+                            Text("Hi! I'm your AI race coach. I'll ask a few quick questions about your schedule, injuries, and gear — then build your personalized plan.")
                                 .font(.subheadline)
                                 .foregroundStyle(.white.opacity(0.95))
                                 .fixedSize(horizontal: false, vertical: true)

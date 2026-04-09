@@ -30,7 +30,7 @@ struct SignInView: View {
                     .font(.largeTitle)
                     .fontWeight(.bold)
 
-                Text("Your AI-powered triathlon coach")
+                Text("Your AI-powered race coach")
                     .font(.title3)
                     .foregroundStyle(.secondary)
             }
