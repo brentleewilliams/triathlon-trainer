@@ -20,9 +20,11 @@ struct SignInView: View {
             Spacer()
 
             VStack(spacing: 12) {
-                Image(systemName: "figure.run.circle.fill")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.blue)
+                Image("app-logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 100, height: 100)
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
 
                 Text("Race1")
                     .font(.largeTitle)
