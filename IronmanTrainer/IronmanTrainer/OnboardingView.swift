@@ -1227,8 +1227,17 @@ struct GoalSettingStep: View {
                         Text("What equipment do you have access to?")
                             .font(.subheadline)
 
-                        Picker("Equipment", selection: $viewModel.fitnessEquipment) {
-                            ForEach(equipmentOptionsForRaceType(), id: \.value) { option in
+                        let equipmentOpts = equipmentOptionsForRaceType()
+                        let validatedEquipment = Binding<String>(
+                            get: {
+                                equipmentOpts.contains(where: { $0.value == viewModel.fitnessEquipment })
+                                    ? viewModel.fitnessEquipment
+                                    : (equipmentOpts.first?.value ?? viewModel.fitnessEquipment)
+                            },
+                            set: { viewModel.fitnessEquipment = $0 }
+                        )
+                        Picker("Equipment", selection: validatedEquipment) {
+                            ForEach(equipmentOpts, id: \.value) { option in
                                 Text(option.label).tag(option.value)
                             }
                         }

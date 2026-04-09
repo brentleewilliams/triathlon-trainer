@@ -2,6 +2,13 @@ import Foundation
 import HealthKit
 import SwiftUI
 
+private func mondayOfWeek(_ date: Date, calendar: Calendar = .current) -> Date {
+    var cal = Calendar(identifier: .gregorian)
+    cal.firstWeekday = 2
+    let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+    return cal.date(from: comps) ?? date
+}
+
 // MARK: - Compliance Model
 
 enum ComplianceLevel {
@@ -170,7 +177,8 @@ func calculateWeekCompliance(
         guard workout.type.lowercased() != "rest" else { continue }
 
         let dayIndex = dayOrder.firstIndex(of: workout.day) ?? 0
-        let workoutDate = calendar.date(byAdding: .day, value: dayIndex, to: week.startDate) ?? week.startDate
+        let weekMonday = mondayOfWeek(week.startDate, calendar: calendar)
+        let workoutDate = calendar.date(byAdding: .day, value: dayIndex, to: weekMonday) ?? week.startDate
 
         // Skip future days
         guard calendar.startOfDay(for: workoutDate) <= calendar.startOfDay(for: today) else { continue }

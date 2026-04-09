@@ -1,6 +1,15 @@
 import SwiftUI
 import HealthKit
 
+/// Returns the Monday of the ISO week containing the given date.
+/// Handles cases where a generated plan's startDate is not exactly Monday.
+private func mondayOfWeek(_ date: Date) -> Date {
+    var cal = Calendar(identifier: .gregorian)
+    cal.firstWeekday = 2 // Monday
+    let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+    return cal.date(from: comps) ?? date
+}
+
 // MARK: - Home View
 struct HomeView: View {
     @EnvironmentObject var healthKit: HealthKitManager
@@ -170,7 +179,7 @@ struct HomeView: View {
         let dayIndex = dayOrder.firstIndex(of: workout.day) ?? 0
 
         let calendar = Calendar.current
-        let weekStart = currentWeek?.startDate ?? Date()
+        let weekStart = mondayOfWeek(currentWeek?.startDate ?? Date())
         let daysToAdd = dayIndex
 
         return calendar.date(byAdding: .day, value: daysToAdd, to: weekStart) ?? weekStart
@@ -983,13 +992,13 @@ struct RestDayRow: View {
 
     var dayDate: String {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
-        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
         return Formatters.monthDay.string(from: date)
     }
 
     var body: some View {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
-        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
 
         // Show weather for past days and up to 7 days ahead
         let calendar = Calendar.current
@@ -1071,13 +1080,13 @@ struct WorkoutDayRows: View {
 
     var dayDate: String {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
-        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
         return Formatters.monthDay.string(from: date)
     }
 
     var isDayInPast: Bool {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
-        let date = Calendar.current.date(byAdding: .day, value: offset, to: weekStartDate) ?? weekStartDate
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
         return Calendar.current.startOfDay(for: date) < Calendar.current.startOfDay(for: Date())
     }
 
@@ -1110,7 +1119,7 @@ struct WorkoutDayRows: View {
     }
 
     var body: some View {
-        let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: weekStartDate) ?? weekStartDate
+        let date = Calendar.current.date(byAdding: .day, value: Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
 
         // Show weather for past days and up to 7 days ahead
         let calendar = Calendar.current
