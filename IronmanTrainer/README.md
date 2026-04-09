@@ -1,72 +1,89 @@
-# Ironman 70.3 Oregon Training App
+# IronmanTrainer
 
-An iOS app for tracking Ironman 70.3 Oregon training with HealthKit sync and Claude AI coaching.
+iOS app for Ironman 70.3 Oregon training with HealthKit sync, Claude AI coaching, and Firebase cloud sync.
 
-**Race:** Ironman 70.3 Oregon, July 19, 2026 (Salem, OR)
-**Goal:** Sub-6:00 finish
-**Training Duration:** 17 weeks (March 23 - July 19, 2026)
+**Race:** Ironman 70.3 Oregon — July 19, 2026 (Salem, OR)  
+**Goal:** Sub-6:00 finish  
+**Training:** 17 weeks, March 23 – July 19, 2026
+
+---
 
 ## Features
 
-- **HealthKit Integration** — Automatic workout sync from Apple Health
-- **17-Week Training Plan** — Accurate plan from official Ironman coaching PDF
-- **Week Navigation** — Switch between weeks with completion tracking
-- **Analytics Dashboard** — Volume and zone distribution tracking
-- **Claude AI Coach** — Personalized coaching with access to your training context and history
-- **Day Detail View** — Planned workouts + synced HealthKit data + notes
-- **App Icon** — Custom Ironman branding
+- **Sign In with Apple** — Firebase auth with Firestore cloud sync
+- **6-Step Onboarding** — HealthKit auto-fill → profile → race search → goals → AI fitness chat → plan review
+- **17-Week Training Plan** — Hardcoded plan from official Ironman coaching PDF; AI-generated plans in progress
+- **HealthKit Sync** — Auto-syncs swim/bike/run workouts on foreground; compliance tracking (±20%/±50% deviation)
+- **Claude AI Coach** — Multi-turn coaching chat with training context, HR zones, and real HealthKit data
+- **Plan Adaptation** — Ask Claude to swap days; undo/rollback support via CoreData versioning
+- **HR Zone Analytics** — Per-workout zone breakdowns; dynamic zones derived from max HR
+- **Per-Workout Nutrition Targets** — Progressive carb/hr goals (60g→100g) on long rides and bricks
+- **LangSmith Tracing** — All Claude API calls logged for prompt evaluation
+- **Push Notifications** — Configurable morning workout reminders with deep linking
+
+---
 
 ## Setup
 
 ### Prerequisites
 - Xcode 15.0+
 - iOS 17.0+
-- Anthropic API key (for Claude coaching)
+- Anthropic API key
+- Firebase project (Auth + Firestore) — already configured for this repo
 
-### Installation
+### API Keys
 
-1. Clone the repository
-2. **Configure API Keys:**
-   - Copy `IronmanTrainer/Config.example.plist` to `IronmanTrainer/Config.plist`
-   - Open `Config.plist` and add your API keys:
-     - `ANTHROPIC_API_KEY` — Your Anthropic Claude API key
-     - `LANGSMITH_API_KEY` — (Optional) Your LangSmith API key for evaluation
-   - **Do NOT commit `Config.plist` to version control** (it's in `.gitignore`)
-3. Open `IronmanTrainer.xcodeproj` in Xcode
-4. Build and run on simulator or device
+1. Copy `IronmanTrainer/Config.example.xcconfig` → `IronmanTrainer/Config.xcconfig`
+2. Fill in your keys:
+   ```
+   ANTHROPIC_API_KEY = sk-ant-api03-...
+   LANGSMITH_API_KEY = lsv2_...   (optional, enables LangSmith tracing)
+   ```
+3. **Never commit `Config.xcconfig`** — it's in `.gitignore`
 
-### Getting an Anthropic API Key
-1. Visit [api.anthropic.com](https://api.anthropic.com)
-2. Sign up and add credits to your account
-3. Copy your API key from the dashboard
-4. Paste the key into `IronmanTrainer/Config.plist` under `ANTHROPIC_API_KEY`
+### Build & Run
+
+```bash
+# Build
+xcodebuild build -scheme IronmanTrainer -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# Test
+xcodebuild test -scheme IronmanTrainer -destination 'platform=iOS Simulator,name=iPhone 16'
+```
+
+Or open `IronmanTrainer.xcodeproj` in Xcode and press ⌘R.
+
+---
 
 ## Architecture
 
-- **ContentView.swift** — Main app logic, all views, data managers
-- **IronmanTrainerApp.swift** — App lifecycle, HealthKit sync on foreground
-- **IronmanTrainer.entitlements** — HealthKit capability
-- **Config.plist** — API configuration (gitignored for security)
+31 Swift files (~10,800 lines). Key files:
 
-## Training Plan Structure
+| File | Purpose |
+|------|---------|
+| `IronmanTrainerApp.swift` | App entry, Firebase init, HealthKit sync on foreground |
+| `AuthService.swift` | Firebase Auth, Sign In with Apple, onboarding state |
+| `OnboardingView.swift` | 6-step onboarding flow |
+| `HomeView.swift` | Weekly plan, workout cards, race countdown, compliance status |
+| `AnalyticsView.swift` | Zone distribution, volume charts |
+| `ChatView.swift` / `ChatViewModel.swift` | Claude coaching chat with swap command parsing |
+| `TrainingPlanManager.swift` | 17-week plan data, week navigation, CoreData versioning |
+| `HealthKitManager.swift` | HealthKit sync, zone calculations |
+| `WorkoutComplianceService.swift` | Green/yellow/red deviation tracking |
+| `LLMProxyService.swift` | Cloud Function proxy for AI plan generation |
+| `LangSmithTracer.swift` | Conversation observability |
+| `FirestoreService.swift` | Cloud sync for profiles and plans |
 
-The app hardcodes all 17 weeks of training data with:
-- Daily workouts (swim, bike, run, brick)
-- Durations and training zones (Z1-Z5)
-- Rest days and recovery weeks
-- Training phases (Ramp Up → Build → Taper → Race Prep → Race Week)
+For full architecture details, see `CLAUDE.md`.  
+For product specs and roadmap, see `PRODUCT.md`.  
+For competitive analysis, see `product-planning-and-differentiation.md`.
 
-## Claude AI Coach
+---
 
-The coach has access to:
-- Your current week's planned workouts
-- Last 4 weeks of completed workouts from HealthKit
-- Training zones and race goals
-- Provides personalized feedback on compliance and strategy
+## Tests
 
-## Notes
+64 tests passing across 2 active test files:
+- `ChatSwapTests.swift` — swap parsing, HR zones, nutrition targets (42 tests)
+- `WeatherForecastTests.swift` — forecast determinism, bounds, edge cases (22 tests)
 
-- **Timezone:** App respects local device timezone for date handling
-- **HealthKit Matching:** Filters by exact workout type (no cross-matching between swim/bike/run)
-- **Week Calculation:** Automatic based on start date (Mar 23, 2026)
-- **Completion Tracking:** Green checkmarks for completed workouts from HealthKit
+Two test files are disabled (`#if false`) due to pre-existing compile errors — see `CLAUDE.md` for details.

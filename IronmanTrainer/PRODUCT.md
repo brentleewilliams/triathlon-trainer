@@ -168,3 +168,7 @@ struct AidStation: Codable {
 - [ ] Strava/Garmin Connect sync
 - [ ] Multi-race lifecycle (next-race pipeline, off-season plans)
 - [ ] Post-race analysis (ingest splits + nutrition log, generate report)
+- [ ] Mid-training plan rebuild ("I got injured, rebuild from week 8")
+- [ ] Training load tracking (TSS/ATL/CTL style metrics from HealthKit data)
+- [ ] Age-group placement goal (look up AG results from prior years, set realistic placement targets)
+- [ ] Firebase Analytics for onboarding funnel tracking

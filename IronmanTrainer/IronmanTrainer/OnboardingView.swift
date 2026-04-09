@@ -19,12 +19,12 @@ extension Color {
 extension OnboardingStep {
     var gradientColors: [Color] {
         switch self {
-        case .healthKit: return [Color(hex: "FF6B6B"), Color(hex: "EE5A5A")]
-        case .profile: return [Color(hex: "4A90D9"), Color(hex: "6BB5F0")]
-        case .raceSearch: return [Color(hex: "FF9500"), Color(hex: "FFB340")]
-        case .goalSetting: return [Color(hex: "34C759"), Color(hex: "5DD27A")]
-        case .tutorial: return [Color(hex: "00C7BE"), Color(hex: "32D9D1")]
-        case .planReview: return [Color(hex: "5856D6"), Color(hex: "4A90D9")]
+        case .healthKit: return [Color(hex: "F2A99A"), Color(hex: "F9C5B5")]
+        case .profile: return [Color(hex: "8DC4E8"), Color(hex: "B8D9F0")]
+        case .raceSearch: return [Color(hex: "3A3D8A"), Color(hex: "4A4DA0")]
+        case .goalSetting: return [Color(hex: "6DBF5E"), Color(hex: "8FD17A")]
+        case .tutorial: return [Color(hex: "3DBFB4"), Color(hex: "5ECFC4")]
+        case .planReview: return [Color(hex: "EDB870"), Color(hex: "F5CC8A")]
         }
     }
 
@@ -49,7 +49,7 @@ extension OnboardingStep {
         case .profile: return "A little about you"
         case .raceSearch: return "Pick your race"
         case .goalSetting: return "What does success look like?"
-        case .tutorial: return "Let's chat about your fitness"
+        case .tutorial: return "Meet your AI coach"
         case .planReview: return "Your plan is ready"
         }
     }
@@ -60,7 +60,7 @@ extension OnboardingStep {
         case .profile: return "Height, weight, and location help us dial in your zones and plan for your climate"
         case .raceSearch: return "We'll pull the course, elevation, weather, and build your plan around it"
         case .goalSetting: return "Finish strong, hit a time goal, or tell us in your own words"
-        case .tutorial: return "A quick conversation so your coach knows your schedule, injuries, and gear"
+        case .tutorial: return "Powered by Claude AI — your coach learns your schedule, injuries, and gear to build the perfect plan"
         case .planReview: return ""
         }
     }
@@ -787,7 +787,9 @@ struct RaceSearchStep: View {
             VStack(spacing: 24) {
                 Spacer().frame(height: 20)
 
-                OnboardingIllustrationHeader(step: .raceSearch)
+                if !searchFocused {
+                    OnboardingIllustrationHeader(step: .raceSearch)
+                }
 
                 // Search field + button
                 VStack(spacing: 12) {
@@ -860,11 +862,6 @@ struct RaceSearchStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
-        .onAppear {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                searchFocused = true
-            }
-        }
     }
 }
 
@@ -1622,6 +1619,36 @@ struct TutorialStep: View {
                     Spacer().frame(height: 20)
 
                     OnboardingIllustrationHeader(step: .tutorial)
+
+                    // AI coach identity card
+                    HStack(alignment: .top, spacing: 12) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.white.opacity(0.2))
+                                .frame(width: 40, height: 40)
+                            Image(systemName: "sparkles")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack(spacing: 6) {
+                                Text("AI Coach")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(.white)
+                                Text("• Powered by Claude")
+                                    .font(.caption)
+                                    .foregroundStyle(.white.opacity(0.7))
+                            }
+                            Text("Hi! I'm your AI triathlon coach. I'll ask a few quick questions about your schedule, injuries, and gear — then build your personalized plan.")
+                                .font(.subheadline)
+                                .foregroundStyle(.white.opacity(0.95))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color.white.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .padding(.horizontal, 16)
 
                     // Plan generation status
                     if viewModel.isGeneratingPlan {
