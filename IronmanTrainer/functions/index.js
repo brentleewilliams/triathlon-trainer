@@ -530,7 +530,7 @@ function buildPlanGenVars(input) {
     race_name: race.name || "Race",
     race_date: correctedRaceDate || race.date || "",
     race_location: race.location || "",
-    race_type: race.type || "triathlon",
+    race_type: race.type || "endurance",
     distances: distancesStr,
     course_type: race.courseType || "road",
     elevation_gain: race.elevationGainM ? `${Math.round(race.elevationGainM)}m` : "",
