@@ -28,6 +28,8 @@
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */; };
 		844DF0892F8831C80092F2DD /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */; };
+		844DF08D2F8847470092F2DD /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 844DF08C2F8847470092F2DD /* FirebaseCrashlytics */; };
+		844DF08F2F8848610092F2DD /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF08E2F8848610092F2DD /* AnalyticsService.swift */; };
 		84A561E42F7D612500BA3761 /* WorkoutComplianceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */; };
 		84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84A561E52F7D614300BA3761 /* ComplianceTests.swift */; };
 		84D0F0C42F7C343F007D9BC7 /* AppConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */; };
@@ -115,6 +117,7 @@
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
 		844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIScriptTests.swift; sourceTree = "<group>"; };
 		844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VerifiedRaceDatabase.swift; path = IronmanTrainer/VerifiedRaceDatabase.swift; sourceTree = "<group>"; };
+		844DF08E2F8848610092F2DD /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalyticsService.swift; path = IronmanTrainer/AnalyticsService.swift; sourceTree = "<group>"; };
 		84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutComplianceService.swift; sourceTree = "<group>"; };
 		84A561E52F7D614300BA3761 /* ComplianceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComplianceTests.swift; sourceTree = "<group>"; };
 		84D0F0C32F7C343F007D9BC7 /* AppConstants.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConstants.swift; sourceTree = "<group>"; };
@@ -162,6 +165,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1AA000030A0A0001 /* WidgetKit.framework in Frameworks */,
+				844DF08D2F8847470092F2DD /* FirebaseCrashlytics in Frameworks */,
 				1AA000050A0A0001 /* SwiftUI.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -172,6 +176,7 @@
 		1A0000011F1A0001 = {
 			isa = PBXGroup;
 			children = (
+				844DF08E2F8848610092F2DD /* AnalyticsService.swift */,
 				844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */,
 				1A0000EC1F1A0001 /* IronmanTrainer */,
 				1A00014A1F1A0001 /* IronmanTrainerTests */,
@@ -492,6 +497,7 @@
 				F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */,
 				625049B48489E93AE90639D7 /* UserProfile.swift in Sources */,
 				26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */,
+				844DF08F2F8848610092F2DD /* AnalyticsService.swift in Sources */,
 				F1D84CD399E2031469782E91 /* HealthKitOnboardingData.swift in Sources */,
 				1104417793A7975B4B149B6E /* OnboardingView.swift in Sources */,
 				038644CCB73FF11F044856C2 /* OnboardingViewModel.swift in Sources */,
@@ -778,6 +784,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		844DF08C2F8847470092F2DD /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
+		};
 		FB000002000000001 /* FirebaseAuth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = FB000001000000001 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;

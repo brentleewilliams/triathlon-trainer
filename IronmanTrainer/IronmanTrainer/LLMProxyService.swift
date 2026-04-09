@@ -42,7 +42,8 @@ class LLMProxyService {
         workoutHistory: String,
         zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil,
         conversationHistory: [[String: Any]] = [],
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        traceContext: LangSmithTraceContext? = nil
     ) async throws -> String {
         return try await streamCoachingMessage(
             userMessage: userMessage,
@@ -51,6 +52,7 @@ class LLMProxyService {
             zoneBoundaries: zoneBoundaries,
             conversationHistory: conversationHistory,
             imageData: imageData,
+            traceContext: traceContext,
             onToken: { _ in }
         )
     }
@@ -64,6 +66,7 @@ class LLMProxyService {
         zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil,
         conversationHistory: [[String: Any]] = [],
         imageData: Data? = nil,
+        traceContext: LangSmithTraceContext? = nil,
         onToken: @escaping (String) -> Void
     ) async throws -> String {
         var body: [String: Any] = [
@@ -87,7 +90,14 @@ class LLMProxyService {
             body["imageData"] = imageData.base64EncodedString()
         }
 
-        let request = try await buildRequest(body: body, timeout: 120)
+        var traceHeaders: [String: String] = [:]
+        if let ctx = traceContext {
+            traceHeaders["X-Langsmith-Trace-Id"] = ctx.traceId
+            traceHeaders["X-Langsmith-Run-Id"] = ctx.runId
+            traceHeaders["X-Langsmith-Dotted-Order"] = ctx.dottedOrder
+        }
+
+        let request = try await buildRequest(body: body, timeout: 120, extraHeaders: traceHeaders)
 
         // Use streaming via URLSession.bytes
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
@@ -272,7 +282,7 @@ class LLMProxyService {
 
     // MARK: - Request Infrastructure
 
-    private func buildRequest(body: [String: Any], timeout: TimeInterval) async throws -> URLRequest {
+    private func buildRequest(body: [String: Any], timeout: TimeInterval, extraHeaders: [String: String] = [:]) async throws -> URLRequest {
         let token = try await getFirebaseIDToken()
 
         guard let jsonData = try? JSONSerialization.data(withJSONObject: body) else {
@@ -285,6 +295,9 @@ class LLMProxyService {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = timeout
         request.httpBody = jsonData
+        for (key, value) in extraHeaders {
+            request.setValue(value, forHTTPHeaderField: key)
+        }
         return request
     }
 

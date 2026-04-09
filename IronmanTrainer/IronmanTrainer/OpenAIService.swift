@@ -16,8 +16,7 @@ class OpenAIService: NSObject, ObservableObject {
     func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil, conversationHistory: [[String: Any]] = [], imageData: Data? = nil) async throws -> String {
         let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory, zoneBoundaries: zoneBoundaries)
 
-        // Start LangSmith run
-        let runID = LangSmithTracer.shared.startRun(systemPrompt: systemPrompt, userMessage: userMessage)
+
 
         // Build messages array: system + history + current
         var messages: [[String: Any]] = [
@@ -81,7 +80,7 @@ class OpenAIService: NSObject, ObservableObject {
                   let content = message["content"] as? String else {
                 throw ClaudeServiceError.invalidResponse
             }
-            LangSmithTracer.shared.endRun(runID: runID, response: content)
+
             return content
         case 401:
             throw ClaudeServiceError.invalidAPIKey

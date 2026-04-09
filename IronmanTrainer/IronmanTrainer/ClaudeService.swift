@@ -17,8 +17,7 @@ class ClaudeService: NSObject, ObservableObject {
     func sendMessage(userMessage: String, trainingContext: String, workoutHistory: String, zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil, conversationHistory: [[String: Any]] = [], imageData: Data? = nil) async throws -> String {
         let systemPrompt = buildSystemPrompt(context: trainingContext, history: workoutHistory, zoneBoundaries: zoneBoundaries)
 
-        // Start LangSmith run
-        let runID = LangSmithTracer.shared.startRun(systemPrompt: systemPrompt, userMessage: userMessage)
+
 
         // Build messages array with conversation history + current message
         var messages: [[String: Any]] = conversationHistory
@@ -75,8 +74,7 @@ class ClaudeService: NSObject, ObservableObject {
             let decoder = JSONDecoder()
             let responseBody = try decoder.decode(ClaudeResponse.self, from: data)
             if let content = responseBody.content.first?.text {
-                // End LangSmith run with response
-                LangSmithTracer.shared.endRun(runID: runID, response: content)
+
                 return content
             }
             throw ClaudeServiceError.invalidResponse

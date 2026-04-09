@@ -26,7 +26,75 @@ function generateOTP() {
 function setCors(res) {
   res.set("Access-Control-Allow-Origin", "*");
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Langsmith-Trace-Id, X-Langsmith-Run-Id, X-Langsmith-Dotted-Order");
+}
+
+// ---------------------------------------------------------------------------
+// LangSmith tracing helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Formats a JS timestamp (ms) as the LangSmith dotted_order timestamp segment.
+ * Format: YYYYMMDDTHHmmssSSSSSSZ  (microseconds approximated from ms)
+ */
+function langsmithTimestamp(ms) {
+  const d = new Date(ms);
+  const micros = String((ms % 1000) * 1000).padStart(6, "0");
+  const y = String(d.getUTCFullYear()).padStart(4, "0");
+  const mo = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const da = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const mi = String(d.getUTCMinutes()).padStart(2, "0");
+  const s = String(d.getUTCSeconds()).padStart(2, "0");
+  return `${y}${mo}${da}T${h}${mi}${s}${micros}Z`;
+}
+
+/**
+ * Builds a child dotted_order by appending this run's segment to the parent's.
+ * parentDottedOrder: the parent run's full dotted_order string
+ * ms: current time in milliseconds
+ * uuid: this run's UUID (with or without dashes)
+ */
+function makeChildDottedOrder(parentDottedOrder, ms, uuid) {
+  const uuidNoDash = uuid.replace(/-/g, "");
+  const segment = `${langsmithTimestamp(ms)}${uuidNoDash}`;
+  return parentDottedOrder ? `${parentDottedOrder}.${segment}` : segment;
+}
+
+/**
+ * Creates a LangSmith run via REST, fire-and-forget.
+ */
+async function langsmithCreateRun(body) {
+  const apiKey = process.env.LANGSMITH_API_KEY;
+  if (!apiKey) return;
+  try {
+    const resp = await fetch("https://api.smith.langchain.com/runs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) console.warn(`[LangSmith] createRun HTTP ${resp.status}`);
+  } catch (err) {
+    console.warn("[LangSmith] createRun failed:", err.message);
+  }
+}
+
+/**
+ * Updates a LangSmith run via REST, fire-and-forget.
+ */
+async function langsmithUpdateRun(runId, body) {
+  const apiKey = process.env.LANGSMITH_API_KEY;
+  if (!apiKey) return;
+  try {
+    const resp = await fetch(`https://api.smith.langchain.com/runs/${runId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", "x-api-key": apiKey },
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) console.warn(`[LangSmith] updateRun HTTP ${resp.status}`);
+  } catch (err) {
+    console.warn("[LangSmith] updateRun failed:", err.message);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -320,13 +388,18 @@ async function withRetry(fn, maxAttempts = 3) {
 // Request handlers
 // ---------------------------------------------------------------------------
 
-async function handleCoaching(req, res) {
+async function handleCoaching(req, res, userId) {
   const { userMessage, trainingContext, workoutHistory, zoneBoundaries, conversationHistory, imageData } = req.body;
 
   if (!userMessage || typeof userMessage !== "string") {
     res.status(400).json({ error: "userMessage is required" });
     return;
   }
+
+  // --- LangSmith: read parent trace context from iOS client ---
+  const parentTraceId = req.headers["x-langsmith-trace-id"] || null;
+  const parentRunId = req.headers["x-langsmith-run-id"] || null;
+  const parentDottedOrder = req.headers["x-langsmith-dotted-order"] || null;
 
   // Build template variables for the coaching prompt.
   // The iOS app sends everything (plan, date, prep races, swap info) combined in
@@ -387,10 +460,37 @@ async function handleCoaching(req, res) {
     allMessages.push({ role: "user", content: userMessage });
   }
 
+  // --- LangSmith: create child LLM run ---
+  const llmRunId = crypto.randomUUID();
+  const llmStartMs = Date.now();
+  if (parentTraceId && parentDottedOrder) {
+    const childDottedOrder = makeChildDottedOrder(parentDottedOrder, llmStartMs, llmRunId);
+    langsmithCreateRun({
+      id: llmRunId.replace(/-/g, ""),
+      trace_id: parentTraceId,
+      parent_run_id: parentRunId,
+      dotted_order: childDottedOrder,
+      name: "llm_call",
+      run_type: "llm",
+      project_name: "IronmanTrainer",
+      session_name: userId ?? "anonymous",
+      start_time: new Date(llmStartMs).toISOString(),
+      inputs: { messages: allMessages },
+      metadata: {
+        model,
+        user_id: userId ?? "anonymous",
+        env: process.env.NODE_ENV === "production" ? "beta" : "development",
+      },
+      tags: ["ios", "coaching"],
+    });
+  }
+
   // Set up SSE headers
   res.set("Content-Type", "text/event-stream");
   res.set("Cache-Control", "no-cache");
   res.set("Connection", "keep-alive");
+
+  let accumulated = "";
 
   try {
     await streamLLM({
@@ -399,15 +499,33 @@ async function handleCoaching(req, res) {
       temperature,
       maxTokens,
       onToken: (token) => {
+        accumulated += token;
         res.write(`data: ${JSON.stringify(token)}\n\n`);
       },
       onDone: () => {
         res.write("data: [DONE]\n\n");
         res.end();
+        // --- LangSmith: close child LLM run with response ---
+        if (parentTraceId) {
+          langsmithUpdateRun(llmRunId.replace(/-/g, ""), {
+            end_time: new Date().toISOString(),
+            outputs: { response: accumulated },
+            extra: { model },
+          });
+        }
       },
     });
   } catch (err) {
     console.error("Coaching stream error:", err);
+    // --- LangSmith: close child LLM run with error ---
+    if (parentTraceId) {
+      langsmithUpdateRun(llmRunId.replace(/-/g, ""), {
+        end_time: new Date().toISOString(),
+        error: err.message,
+        status: "error",
+        outputs: { response: accumulated },
+      });
+    }
     // If headers already sent, try to signal error in stream
     res.write(`data: ${JSON.stringify("[ERROR]")}\n\n`);
     res.end();
@@ -1192,7 +1310,7 @@ exports.llmProxy = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
   try {
     switch (type) {
       case "coaching":
-        await handleCoaching(req, res);
+        await handleCoaching(req, res, user.uid);
         break;
       case "raceSearch":
         await handleRaceSearch(req, res);

@@ -1,10 +1,14 @@
 import Foundation
 
-// TODO: Add FirebaseAnalytics product to the existing firebase-ios-sdk SPM dependency,
-//       then replace the print fallback with: Analytics.logEvent(name, parameters: params)
+// MARK: - Analytics
+//
+// Firebase Analytics is not yet linked to this target due to binary dependency
+// resolution issues with the SPM build. All calls fall back to console logging.
+// To wire it up properly later:
+//   1. In Xcode target > General > Frameworks, add FirebaseAnalytics
+//   2. Also add FirebaseInstallations and GoogleAppMeasurement (required transitive deps)
+//   3. Replace the print() calls below with Analytics.logEvent / Analytics.setUserID
 
-/// Typed analytics events for plan generation tracking.
-/// Uses Firebase Analytics when available, falls back to console logging.
 enum PlanAnalytics {
 
     static func planGenerationStarted(
@@ -98,11 +102,14 @@ enum PlanAnalytics {
         ])
     }
 
+    static func setUser(id: String) {
+        // No-op until FirebaseAnalytics is properly linked
+        print("[Analytics] setUser: \(id)")
+    }
+
     // MARK: - Private
 
     private static func logEvent(_ name: String, params: [String: Any]) {
-        // TODO: Once FirebaseAnalytics SPM product is added, replace with:
-        //   Analytics.logEvent(name, parameters: params)
         print("[Analytics] \(name): \(params)")
     }
 }

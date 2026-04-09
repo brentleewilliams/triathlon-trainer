@@ -272,6 +272,12 @@ class ChatViewModel: ObservableObject {
             error = nil
         }
 
+        let traceUserId = await MainActor.run { AuthService.shared.currentUserID }
+        let traceContext = LangSmithTracer.shared.startCoachingTrace(
+            userId: traceUserId,
+            userMessage: hasText ? text : "Sent a photo"
+        )
+
         do {
             let context = getContextForClaude()
             let history = getWorkoutHistoryForClaude()
@@ -286,7 +292,16 @@ class ChatViewModel: ObservableObject {
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            let response = try await coachingService.sendCoachingMessage(userMessage: hasText ? text : "What do you see in this image?", trainingContext: updatedContext, workoutHistory: history, zoneBoundaries: healthKit?.zoneBoundaries, conversationHistory: conversationHistory, imageData: imageData)
+            let response = try await coachingService.sendCoachingMessage(
+                userMessage: hasText ? text : "What do you see in this image?",
+                trainingContext: updatedContext,
+                workoutHistory: history,
+                zoneBoundaries: healthKit?.zoneBoundaries,
+                conversationHistory: conversationHistory,
+                imageData: imageData,
+                traceContext: traceContext
+            )
+            LangSmithTracer.shared.endCoachingTrace(traceContext, response: response, error: nil)
 
             await MainActor.run {
                 // Check for plan changes proposal first
@@ -324,6 +339,7 @@ class ChatViewModel: ObservableObject {
                 isLoading = false
             }
         } catch {
+            LangSmithTracer.shared.endCoachingTrace(traceContext, response: nil, error: error.localizedDescription)
             await MainActor.run {
                 self.error = error.localizedDescription
                 isLoading = false
