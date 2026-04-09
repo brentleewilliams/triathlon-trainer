@@ -42,15 +42,20 @@ struct ChatView: View {
                                 .font(.caption)
                                 .padding(.horizontal)
                         }
+                        Color.clear.frame(height: 1).id("chat-bottom")
                     }
                     .padding()
                 }
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.immediately)
                 .onChange(of: viewModel.messages.count) {
-                    withAnimation {
-                        proxy.scrollTo(viewModel.messages.last?.id, anchor: .bottom)
-                    }
+                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                }
+                .onChange(of: viewModel.isLoading) {
+                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                }
+                .onChange(of: viewModel.pendingProposal == nil) {
+                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
                 }
                 .safeAreaInset(edge: .bottom) {
                     ChatInputBar(viewModel: viewModel)

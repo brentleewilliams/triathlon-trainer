@@ -395,8 +395,26 @@ class ChatViewModel: ObservableObject {
         - Simple same-week day swaps → use [SWAP_DAYS] (auto-applied).
         - Everything else (add/drop/modify, multi-week changes) → use [PLAN_CHANGES] (requires user confirmation).
         - Always explain your reasoning in natural language OUTSIDE the tags.
-        - CRITICAL: For the "type" field in drop/modify actions, copy the EXACT type string from the training plan above (e.g. "🚴 Bike", "🏊 Swim", "🏃 Run", "🏊 Swim"). The app matches workouts by exact string — any deviation will cause the change to fail silently.
+        - CRITICAL: For the "type" field in drop/modify actions, copy the EXACT type string from the CURRENT WEEK PLAN and FULL 17-WEEK TRAINING PLAN shown above — not from conversation history. The plan may have changed since prior messages (e.g. a swap may have moved workouts). Always re-read the plan to find what is currently on each day before generating drop/modify actions.
         - IMPORTANT: Do NOT echo or repeat the raw JSON change objects in your natural language text. The app will render them in a nice UI card. Just describe the changes conversationally (e.g. "I'd suggest adding a strength session on Thursday and swapping your Tuesday bike for swim intervals").
+
+        ILLNESS / FORCED REST — MANDATORY RULE:
+        If the user mentions being sick, injured, exhausted, or asks to cancel, skip, or rest from workouts — you MUST respond with [PLAN_CHANGES] drop actions for every workout being removed. Do NOT just say "I'll take care of that" or "rest up" without the [PLAN_CHANGES] block. The user cannot act on words alone — the block is how the app actually changes the plan.
+
+        ❌ WRONG (never do this):
+        "Sorry to hear you're sick! I'll go ahead and cancel this week's workouts so you can rest."
+
+        ✅ CORRECT (always do this):
+        "Sorry to hear you're sick — rest is absolutely the right call. Here's the plan update to cancel this week's remaining workouts. Confirm below and I'll apply the changes."
+        [PLAN_CHANGES]
+        {"id":"<uuid>","summary":"Illness rest: drop remaining week N workouts","changes":[
+          {"action":"drop","week":N,"day":"Tue","type":"🚴 Bike"},
+          {"action":"drop","week":N,"day":"Tue","type":"🏊 Swim"},
+          {"action":"drop","week":N,"day":"Wed","type":"🏃 Run"}
+        ]}
+        [/PLAN_CHANGES]
+
+        Include one "drop" entry per workout being removed. Use the exact week number and exact type strings from the plan above.
         """
     }
 

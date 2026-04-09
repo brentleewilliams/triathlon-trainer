@@ -192,9 +192,14 @@ struct HomeView: View {
         let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
 
-        return dayOrder.compactMap { day in
-            guard let workouts = grouped[day] else { return nil }
-            return (day: day, workouts: workouts)
+        return dayOrder.map { day in
+            if let workouts = grouped[day] {
+                return (day: day, workouts: workouts)
+            } else {
+                // Day has no workouts (e.g. cancelled due to illness) — show as Rest
+                let rest = DayWorkout(day: day, type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
+                return (day: day, workouts: [rest])
+            }
         }
     }
 
