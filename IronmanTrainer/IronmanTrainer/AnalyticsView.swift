@@ -141,7 +141,7 @@ struct AnalyticsView: View {
         var results: [(week: Int, percent: Double)] = []
         let currentWeekNum = trainingPlan.currentWeekNumber
         let startWeek = max(1, currentWeekNum - 5)
-        let endWeek = min(currentWeekNum, 17)
+        let endWeek = min(currentWeekNum, trainingPlan.weeks.count)
 
         for weekNum in startWeek...endWeek {
             guard let week = trainingPlan.getWeek(weekNum) else { continue }
@@ -191,10 +191,25 @@ struct AnalyticsView: View {
                     Text("Volume Summary")
                         .font(.headline)
 
-                    HStack(spacing: 20) {
-                        VolumeCard(label: "Swim", hours: cachedVolume.swim, planned: cachedPlannedVolume.swim, color: .blue)
-                        VolumeCard(label: "Bike", hours: cachedVolume.bike, planned: cachedPlannedVolume.bike, color: .orange)
-                        VolumeCard(label: "Run", hours: cachedVolume.run, planned: cachedPlannedVolume.run, color: .green)
+                    let hasAnyVolume = cachedPlannedVolume.swim > 0 || cachedPlannedVolume.bike > 0 || cachedPlannedVolume.run > 0
+                    if hasAnyVolume {
+                        HStack(spacing: 20) {
+                            if cachedPlannedVolume.swim > 0 {
+                                VolumeCard(label: "Swim", hours: cachedVolume.swim, planned: cachedPlannedVolume.swim, color: .blue)
+                            }
+                            if cachedPlannedVolume.bike > 0 {
+                                VolumeCard(label: "Bike", hours: cachedVolume.bike, planned: cachedPlannedVolume.bike, color: .orange)
+                            }
+                            if cachedPlannedVolume.run > 0 {
+                                VolumeCard(label: "Run", hours: cachedVolume.run, planned: cachedPlannedVolume.run, color: .green)
+                            }
+                        }
+                    } else {
+                        Text("Rest Week")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 8)
                     }
                 }
                 .padding()
@@ -296,7 +311,7 @@ struct AnalyticsView: View {
             .gesture(
                 DragGesture(minimumDistance: 50, coordinateSpace: .local)
                     .onEnded { value in
-                        if value.translation.width < -50 && selectedWeek < 17 {
+                        if value.translation.width < -50 && selectedWeek < trainingPlan.weeks.count {
                             withAnimation { selectedWeek += 1 }
                         } else if value.translation.width > 50 && selectedWeek > 1 {
                             withAnimation { selectedWeek -= 1 }

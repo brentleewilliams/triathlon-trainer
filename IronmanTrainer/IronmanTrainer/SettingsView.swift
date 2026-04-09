@@ -96,7 +96,7 @@ class NotificationManager: ObservableObject {
             let weekIndex = calendar.dateComponents([.weekOfYear], from: planStart, to: date).weekOfYear ?? 0
             let weekNumber = weekIndex + 1
 
-            guard weekNumber >= 1 && weekNumber <= 17,
+            guard weekNumber >= 1 && weekNumber <= plan.weeks.count,
                   let week = plan.getWeek(weekNumber) else { continue }
 
             let dayWorkouts = week.workouts.filter { $0.day == dayName && $0.type != "Rest" }
@@ -139,6 +139,16 @@ struct SettingsView: View {
     @State private var isRegeneratingPlan = false
     @State private var regenerateError: String?
     @EnvironmentObject var trainingPlan: TrainingPlanManager
+
+    var raceDateDisplay: String {
+        let savedInterval = UserDefaults.standard.double(forKey: "race_date")
+        guard savedInterval > 0 else { return "Not set" }
+        let date = Date(timeIntervalSince1970: savedInterval)
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, yyyy"
+        formatter.timeZone = TimeZone.current
+        return formatter.string(from: date)
+    }
 
     var body: some View {
         NavigationView {
@@ -184,21 +194,9 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                     HStack {
-                        Text("Race")
-                        Spacer()
-                        Text("Ironman 70.3 Oregon")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
                         Text("Race Date")
                         Spacer()
-                        Text("July 19, 2026")
-                            .foregroundColor(.secondary)
-                    }
-                    HStack {
-                        Text("Goal")
-                        Spacer()
-                        Text("Sub 6:00")
+                        Text(raceDateDisplay)
                             .foregroundColor(.secondary)
                     }
                 }
