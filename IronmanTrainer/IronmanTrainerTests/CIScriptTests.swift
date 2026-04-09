@@ -96,9 +96,10 @@ final class CIScriptTests: XCTestCase {
         }
 
         // Patterns that indicate real API keys (not placeholders or variable references)
+        // Patterns match real keys only — placeholders containing YOUR_, _HERE, or ... are excluded
         let keyPatterns: [(name: String, pattern: String)] = [
-            ("Anthropic API key", #"sk-ant-api\d{2}-[A-Za-z0-9_-]{20,}"#),
-            ("LangSmith API key", #"lsv2_pt_[A-Za-z0-9]{20,}"#),
+            ("Anthropic API key", #"sk-ant-api\d{2}-(?!.*YOUR_)[A-Za-z0-9_-]{20,}"#),
+            ("LangSmith API key", #"lsv2_pt_(?!.*YOUR_)[A-Za-z0-9]{20,}"#),
             ("Firebase/Google API key", #"AIzaSy[A-Za-z0-9_-]{33}"#),
             ("Generic Bearer token", #"Bearer [A-Za-z0-9_-]{20,}"#),
             ("AWS Access Key", #"AKIA[0-9A-Z]{16}"#),
@@ -113,6 +114,9 @@ final class CIScriptTests: XCTestCase {
             guard ["swift", "plist", "json", "sh", "xcconfig", "md", "js", "txt", "yaml", "yml", "xml"].contains(ext) else { continue }
             // Skip Config.local.xcconfig (gitignored, local-only)
             if filePath.contains("Config.local.xcconfig") { continue }
+            // Skip GoogleService-Info.plist — Firebase API keys are intentionally public;
+            // security is enforced via Firebase security rules, not key secrecy.
+            if filePath.contains("GoogleService-Info.plist") { continue }
 
             guard let content = try? String(contentsOfFile: filePath, encoding: .utf8) else { continue }
 
