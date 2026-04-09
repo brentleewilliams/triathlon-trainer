@@ -2128,6 +2128,10 @@ struct PlanReviewStep: View {
                     Button {
                         if let plan = viewModel.generatedPlan {
                             viewModel.planApproved = true
+                            // Persist race date for countdown banner
+                            if let raceDate = viewModel.raceSearchResult?.date {
+                                UserDefaults.standard.set(raceDate.timeIntervalSince1970, forKey: "race_date")
+                            }
                             onComplete(plan)
                         }
                     } label: {

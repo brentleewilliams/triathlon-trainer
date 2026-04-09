@@ -32,11 +32,15 @@ struct HomeView: View {
 
     var daysUntilRace: Int {
         let calendar = Calendar.current
-        var comps = DateComponents()
-        comps.year = 2026
-        comps.month = 7
-        comps.day = 19
-        guard let raceDate = calendar.date(from: comps) else { return 0 }
+        let raceDate: Date
+        if let saved = UserDefaults.standard.object(forKey: "race_date") as? Double {
+            raceDate = Date(timeIntervalSince1970: saved)
+        } else {
+            // Fallback to hardcoded Ironman 70.3 Oregon date
+            var comps = DateComponents()
+            comps.year = 2026; comps.month = 7; comps.day = 19
+            raceDate = calendar.date(from: comps) ?? Date()
+        }
         let today = calendar.startOfDay(for: Date())
         let race = calendar.startOfDay(for: raceDate)
         return calendar.dateComponents([.day], from: today, to: race).day ?? 0
