@@ -10,6 +10,94 @@ private func mondayOfWeek(_ date: Date) -> Date {
     return cal.date(from: comps) ?? date
 }
 
+// MARK: - Widget Tip Card
+struct WidgetTipCard: View {
+    @Binding var isVisible: Bool
+    @State private var showInstructions = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "square.grid.2x2")
+                .font(.title3)
+                .foregroundStyle(.blue)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Add the Race1 widget")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text("See today's workout on your home screen")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button { showInstructions = true } label: {
+                Text("How")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.blue)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            Button { withAnimation { isVisible = false } } label: {
+                Image(systemName: "xmark")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+        .padding(.horizontal, 12)
+        .sheet(isPresented: $showInstructions) {
+            WidgetInstructionsSheet()
+                .presentationDetents([.medium])
+        }
+    }
+}
+
+struct WidgetInstructionsSheet: View {
+    @Environment(\.dismiss) var dismiss
+
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 8) {
+                Image(systemName: "square.grid.2x2.fill")
+                    .font(.system(size: 48))
+                    .foregroundStyle(.blue)
+                Text("Add the Race1 Widget")
+                    .font(.title2)
+                    .fontWeight(.bold)
+            }
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(Array([
+                    ("1", "Long-press your home screen until icons wiggle"),
+                    ("2", "Tap the \"+\" button in the top-left corner"),
+                    ("3", "Search for \"Race1\""),
+                    ("4", "Select the widget and tap \"Add Widget\"")
+                ].enumerated()), id: \.offset) { _, step in
+                    HStack(alignment: .top, spacing: 12) {
+                        Text(step.0)
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 22)
+                            .background(Color.blue)
+                            .clipShape(Circle())
+                        Text(step.1)
+                            .font(.subheadline)
+                    }
+                }
+            }
+            .padding(.horizontal)
+            Spacer()
+            Button("Done") { dismiss() }
+                .buttonStyle(.borderedProminent)
+        }
+        .padding(.top, 32)
+    }
+}
+
 // MARK: - Home View
 struct HomeView: View {
     @EnvironmentObject var healthKit: HealthKitManager
@@ -17,6 +105,7 @@ struct HomeView: View {
     @State private var selectedWeek: Int = 1
     @State private var hasAppearedOnce = false
     @State private var draggedFromDay: String?
+    @State private var showWidgetTip: Bool = !UserDefaults.standard.bool(forKey: "widget_tip_dismissed")
     @State private var draggedWorkout: DayWorkout?
 
     var currentWeek: TrainingWeek? {
@@ -308,6 +397,17 @@ struct HomeView: View {
                 .padding(.vertical, 8)
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
+
+                // Widget tip card (shown until dismissed)
+                if showWidgetTip {
+                    WidgetTipCard(isVisible: Binding(
+                        get: { showWidgetTip },
+                        set: { newVal in
+                            showWidgetTip = newVal
+                            if !newVal { UserDefaults.standard.set(true, forKey: "widget_tip_dismissed") }
+                        }
+                    ))
+                }
 
                 // Week Navigation Header with Completion Count and Undo
                 HStack {

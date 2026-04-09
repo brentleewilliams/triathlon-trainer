@@ -31,18 +31,8 @@ struct WidgetWorkout {
 struct WidgetTrainingPlan {
     static let appGroupSuite = "group.com.brent.race1"
 
-    static let planStartDate: Date = {
-        var components = DateComponents()
-        components.year = 2026
-        components.month = 3
-        components.day = 23
-        return Calendar.current.date(from: components) ?? Date()
-    }()
-
-    static func currentWeekNumber() -> Int {
-        let calendar = Calendar.current
-        let daysSinceStart = calendar.dateComponents([.day], from: planStartDate, to: Date()).day ?? 0
-        return max(1, min(17, (daysSinceStart / 7) + 1))
+    static var sharedDefaults: UserDefaults? {
+        UserDefaults(suiteName: appGroupSuite)
     }
 
     static func todayDayName() -> String {
@@ -50,82 +40,45 @@ struct WidgetTrainingPlan {
         return ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][weekday]
     }
 
-    /// Try to load swapped weeks from App Group shared UserDefaults
     static func sharedWeeks() -> [SharedTrainingWeek]? {
-        guard let defaults = UserDefaults(suiteName: appGroupSuite),
-              let data = defaults.data(forKey: "swapped_weeks") else {
-            return nil
+        guard let defaults = sharedDefaults,
+              let data = defaults.data(forKey: "swapped_weeks") else { return nil }
+        return try? JSONDecoder().decode([SharedTrainingWeek].self, from: data)
+    }
+
+    /// Find which week contains today based on actual startDate/endDate
+    static func currentWeek(from weeks: [SharedTrainingWeek]) -> SharedTrainingWeek? {
+        let today = Calendar.current.startOfDay(for: Date())
+        // First try exact match
+        if let match = weeks.first(where: {
+            today >= Calendar.current.startOfDay(for: $0.startDate) &&
+            today <= Calendar.current.startOfDay(for: $0.endDate)
+        }) { return match }
+        // If before plan start, return first week
+        if let first = weeks.first, today < Calendar.current.startOfDay(for: first.startDate) {
+            return first
         }
-        do {
-            return try JSONDecoder().decode([SharedTrainingWeek].self, from: data)
-        } catch {
-            // If decode fails, fall back to hardcoded data
-            return nil
+        // If after plan end, return last week
+        return weeks.last
+    }
+
+    static func raceDate() -> Date {
+        if let saved = sharedDefaults?.object(forKey: "race_date") as? Double {
+            return Date(timeIntervalSince1970: saved)
         }
+        // Fallback — far future so countdown is never negative for new users
+        var comps = DateComponents()
+        comps.year = 2099; comps.month = 1; comps.day = 1
+        return Calendar.current.date(from: comps) ?? Date()
     }
 
     static func workoutsForToday() -> [WidgetWorkout] {
-        let week = currentWeekNumber()
+        guard let weeks = sharedWeeks(), let week = currentWeek(from: weeks) else { return [] }
         let day = todayDayName()
-
-        // Prefer shared (swapped) data from the main app
-        if let sharedWeeks = sharedWeeks(),
-           let weekData = sharedWeeks.first(where: { $0.weekNumber == week }) {
-            return weekData.workouts
-                .filter { $0.day == day && $0.type != "Rest" }
-                .map { WidgetWorkout(type: $0.type, duration: $0.duration, zone: $0.zone) }
-        }
-
-        // Fallback to hardcoded plan
-        let weekData = allWeeks[week - 1]
-        return weekData.filter { $0.0 == day && $0.1 != "Rest" }.map {
-            WidgetWorkout(type: $0.1, duration: $0.2, zone: $0.3)
-        }
+        return week.workouts
+            .filter { $0.day == day && !$0.type.contains("Rest") }
+            .map { WidgetWorkout(type: $0.type, duration: $0.duration, zone: $0.zone) }
     }
-
-    static func phaseForWeek(_ week: Int) -> String {
-        let phases = ["Ramp Up", "Ramp Up", "Ramp Up", "Recovery", "Build 1", "Build 1", "Build 1", "Recovery", "Build 2", "Sprint Tri", "Peak", "Recovery", "Dress Rehearsal", "Peak & Sharpen", "Last Hard", "Taper", "Race Week"]
-        guard week >= 1 && week <= 17 else { return "" }
-        return phases[week - 1]
-    }
-
-    // (day, type, duration, zone)
-    static let allWeeks: [[(String, String, String, String)]] = [
-        // Week 1
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2"),("Tue","🏊 Swim","1,600yd","Z2"),("Wed","🏃 Run","40min","Z2"),("Thu","🚴 Bike","1:00","Z2"),("Fri","🏊 Swim","1,800yd","Z2"),("Sat","🏃 Run","50min","Z2"),("Sun","🚴 Bike","1:45","Z2")],
-        // Week 2
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2"),("Tue","🏊 Swim","1,800yd","Z2"),("Wed","🏃 Run","45min","Z2"),("Thu","🚴 Bike","1:15","Z2"),("Fri","🏊 Swim","2,000yd","Z2"),("Fri","🏃 Run","30min","Z2"),("Sat","🚴+🏃 Brick","2:15","Z2"),("Sun","🏃 Long Run","55min","Z2")],
-        // Week 3
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2"),("Tue","🏊 Swim","2,000yd","Z2"),("Wed","🏃 Run","45min","Z2"),("Thu","🚴 Bike + mini-brick","1:10","Z2"),("Fri","🏊 Swim","2,200yd","Z2"),("Sat","🚴+🏃 Brick","2:35","Z2"),("Sun","🏃 Long Run","60min","Z2")],
-        // Week 4 — Recovery
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","45min","Z1-2"),("Tue","🏊 Swim","1,500yd","Z1-2"),("Wed","🏃 Run","30min","Z1-2"),("Thu","🚴 Bike","45min","Z1-2"),("Fri","🏊 Swim","1,500yd","Z1-2"),("Sat","🏃 Run","35min","Z1-2"),("Sun","Rest","-","-")],
-        // Week 5
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z4"),("Tue","🏊 Swim","2,200yd","Z2"),("Wed","🏃 Run","50min","Z2"),("Thu","🚴 Bike","1:00","Z2"),("Fri","🏊 Swim","2,400yd","Z2-3"),("Sat","🚴+🏃 Brick","2:35","Z2-3"),("Sun","🏃 Long Run","70min","Z2")],
-        // Week 6
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z4"),("Tue","🏊 Swim","2,400yd","Z2"),("Wed","🏃 Run","55min","Z2"),("Thu","🚴 Bike","1:00 + mini-brick","Z2-3"),("Fri","🏊 Swim","2,500yd","Z2-3"),("Sat","🚴+🏃 Brick","2:55","Z2-3"),("Sun","🏃 Long Run","75min","Z2")],
-        // Week 7
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z4"),("Tue","🏊 Swim","2,800yd","Z2-3"),("Wed","🏃 Tempo Run","60min","Z2-3"),("Thu","🚴 Bike + mini-brick","1:15","Z2-3"),("Fri","🏊 Swim","2,800yd","Z2-3"),("Sat","🚴+🏃 Brick","3:35","Z2-3"),("Sun","🏃 Long Run","80min","Z2")],
-        // Week 8 — Recovery
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","45min","Z1-2"),("Tue","🏊 Swim","1,800yd","Z1-2"),("Wed","🏃 Run","30min","Z1-2"),("Thu","🚴 Bike","45min","Z1-2"),("Fri","🏊 Swim","1,500yd","Z1-2"),("Sat","🏃 Run","35min","Z1-2"),("Sun","Rest","-","-")],
-        // Week 9
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z3-4"),("Tue","🏊 Swim","2,500yd","Z2-3"),("Wed","🏃 Run","55min","Z2"),("Thu","🏃 Tempo Run","65min","Z2-3"),("Fri","🏊 Swim","2,800yd","Z2-3"),("Sat","🚴+🏃 Race Sim","3:25","Z2-3"),("Sun","🏃 Long Run","90min","Z2")],
-        // Week 10
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2"),("Tue","🏊 Swim","2,200yd","Z2-3"),("Wed","🏃 Run","40min","Z2"),("Thu","🚴 Bike","45min","Z2-3"),("Fri","🏊 Swim","1,500yd","Z2"),("Fri","🏃 Run","20min","Z1-2"),("Sat","★ SPRINT TRI","Race","-"),("Sun","🏃 Run","60min","Z2")],
-        // Week 11 — Peak
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z3-4"),("Tue","🏊 Swim","3,000yd","Z2-3"),("Wed","🏃 Tempo Run","70min","Z2-3"),("Thu","🚴 Bike + mini-brick","1:15","Z2"),("Fri","🏊 Swim","2,800yd","Z2-3"),("Sat","🚴+🏃 KEY BRICK","3:50","Z2-3"),("Sun","🏃 LONGEST RUN","1:45","Z2")],
-        // Week 12 — Recovery
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","45min","Z1-2"),("Tue","🏊 Swim","2,000yd","Z1-2"),("Wed","🏃 Run","30min","Z1-2"),("Thu","🚴 Bike","45min","Z1-2"),("Fri","🏊 Swim","1,500yd","Z1-2"),("Sat","🏃 Run","35min","Z1-2"),("Sun","Rest","-","-")],
-        // Week 13
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:15","Z2-3"),("Tue","🏊 Swim","2,500yd","Z2-3"),("Wed","🏃 Run","55min","Z2"),("Thu","🏃 Run","60min","Z2-3"),("Fri","🏊 Swim","2,400yd","Z2-3"),("Sat","🚴+🏃 DRESS REHEARSAL","3:05","Z2-3"),("Sun","🏃 Long Run","75min","Z2")],
-        // Week 14
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2-3"),("Tue","🏊 Swim","2,200yd","Z2-3"),("Wed","🏃 Run","45min","Z2"),("Thu","🚴 Bike + mini-brick","55min","Z2-3"),("Fri","🏊 Swim","2,000yd","Z2-3"),("Sat","🚴+🏃 Brick","2:25","Z2-3"),("Sun","🏃 Run","60min","Z2")],
-        // Week 15
-        [("Mon","Rest","-","-"),("Tue","🚴 Bike","1:00","Z2-3"),("Tue","🏊 Swim","2,000yd","Z2-3"),("Wed","🏃 Tempo Run","50min","Z2-3"),("Thu","🚴 Bike","45min","Z2"),("Fri","🏊 Swim","1,800yd","Z2-3"),("Sat","🚴+🏃 Brick","2:05","Z2"),("Sun","🏃 Run","50min","Z2")],
-        // Week 16 — Taper
-        [("Mon","Rest","-","-"),("Tue","🏊 Swim","1,500yd","Z2"),("Tue","🚴 Bike","1:00","Z2-3"),("Wed","🏃 Run","35min","Z2"),("Thu","🚴 Bike","45min","Z2"),("Fri","🏊 Swim","1,200yd","Z1-2"),("Fri","🏃 Run","20min","Z1-2"),("Sat","Rest","-","-"),("Sun","Rest","-","-")],
-        // Week 17 — Race Week
-        [("Mon","✈️ Travel","Denver→Portland","-"),("Tue","🏊 Swim","1,000yd","Z2"),("Wed","🚴 Bike + 🏃 Run","40min + 15min","Z2"),("Thu","🏃 Easy Jog","20min","Z1"),("Fri","Rest","-","-"),("Sat","🏊 Shakeout Swim","15min","Z1"),("Sun","🏁 RACE DAY","~5:45-5:58","Race")]
-    ]
 }
 
 // MARK: - Widget Weather
@@ -152,7 +105,6 @@ struct WidgetWeather {
 
         let tempVariation = Int(seed % UInt32(baseTempVariance + 1)) - baseTempVariance / 2
         let conditionIndex = Int(seed % UInt32(conditions.count))
-
         return WidgetWeather(icon: conditions[conditionIndex].0, highTemp: baseTempHigh + tempVariation)
     }
 }
@@ -171,26 +123,19 @@ struct WorkoutEntry: TimelineEntry {
 // MARK: - Timeline Provider
 struct WorkoutTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> WorkoutEntry {
-        WorkoutEntry(date: Date(), weekNumber: 2, phase: "Ramp Up", dayName: "Tue", workouts: [
-            WidgetWorkout(type: "🚴 Bike", duration: "1:00", zone: "Z2"),
-            WidgetWorkout(type: "🏊 Swim", duration: "1,800yd", zone: "Z2")
-        ], daysUntilRace: 111, weather: WidgetWeather(icon: "⛅", highTemp: 52))
+        WorkoutEntry(date: Date(), weekNumber: 1, phase: "Base", dayName: "Mon", workouts: [
+            WidgetWorkout(type: "🏃 Run", duration: "45min", zone: "Z2")
+        ], daysUntilRace: 90, weather: WidgetWeather(icon: "⛅", highTemp: 64))
     }
 
     func getSnapshot(in context: Context, completion: @escaping (WorkoutEntry) -> Void) {
         if context.isPreview {
-            // Show realistic preview data in widget gallery
             completion(WorkoutEntry(
-                date: Date(),
-                weekNumber: 2,
-                phase: "Ramp Up",
+                date: Date(), weekNumber: 3, phase: "Build",
                 dayName: "Tue",
-                workouts: [
-                    WidgetWorkout(type: "\u{1F6B4} Bike", duration: "1:00", zone: "Z2"),
-                    WidgetWorkout(type: "\u{1F3CA} Swim", duration: "1,800yd", zone: "Z2")
-                ],
-                daysUntilRace: 108,
-                weather: WidgetWeather(icon: "\u{2600}\u{FE0F}", highTemp: 62)
+                workouts: [WidgetWorkout(type: "🏃 Run", duration: "50min", zone: "Z2")],
+                daysUntilRace: 75,
+                weather: WidgetWeather(icon: "☀️", highTemp: 68)
             ))
         } else {
             completion(makeEntry())
@@ -199,28 +144,27 @@ struct WorkoutTimelineProvider: TimelineProvider {
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<WorkoutEntry>) -> Void) {
         let entry = makeEntry()
-        // Refresh at midnight
         let tomorrow = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: Date())!)
         let timeline = Timeline(entries: [entry], policy: .after(tomorrow))
         completion(timeline)
     }
 
     private func makeEntry() -> WorkoutEntry {
-        let week = WidgetTrainingPlan.currentWeekNumber()
+        let weeks = WidgetTrainingPlan.sharedWeeks() ?? []
+        let currentWeek = WidgetTrainingPlan.currentWeek(from: weeks)
+        let weekNumber = currentWeek?.weekNumber ?? 1
+        let phase = currentWeek?.phase ?? ""
         let day = WidgetTrainingPlan.todayDayName()
         let workouts = WidgetTrainingPlan.workoutsForToday()
-
-        var raceDateComponents = DateComponents()
-        raceDateComponents.year = 2026
-        raceDateComponents.month = 7
-        raceDateComponents.day = 19
-        let raceDate = Calendar.current.date(from: raceDateComponents) ?? Date()
-        let daysUntilRace = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date()), to: raceDate).day ?? 0
+        let raceDate = WidgetTrainingPlan.raceDate()
+        let daysUntilRace = Calendar.current.dateComponents([.day],
+            from: Calendar.current.startOfDay(for: Date()),
+            to: Calendar.current.startOfDay(for: raceDate)).day ?? 0
 
         return WorkoutEntry(
             date: Date(),
-            weekNumber: week,
-            phase: WidgetTrainingPlan.phaseForWeek(week),
+            weekNumber: weekNumber,
+            phase: phase,
             dayName: day,
             workouts: workouts,
             daysUntilRace: daysUntilRace,
@@ -240,7 +184,9 @@ struct Race1WidgetView: View {
         if type.contains("Brick") { return "🚴🏃" }
         if type.contains("RACE") || type.contains("🏁") { return "🏁" }
         if type.contains("Travel") || type.contains("✈️") { return "✈️" }
-        return "💪"
+        if type.contains("Strength") || type.contains("💪") { return "💪" }
+        if type.contains("Yoga") { return "🧘" }
+        return "🏋️"
     }
 
     var body: some View {
@@ -251,9 +197,7 @@ struct Race1WidgetView: View {
                     .font(.caption2)
                     .fontWeight(.bold)
                     .foregroundColor(.white)
-
                 Spacer()
-
                 Text("\(entry.weather.icon)\(entry.weather.highTemp)°")
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.7))
@@ -264,9 +208,15 @@ struct Race1WidgetView: View {
                     .font(.caption2)
                     .foregroundColor(.white.opacity(0.5))
                 Spacer()
-                Text("\(entry.daysUntilRace)d to race")
-                    .font(.caption2)
-                    .foregroundColor(.white.opacity(0.4))
+                if entry.daysUntilRace > 0 {
+                    Text("\(entry.daysUntilRace)d to race")
+                        .font(.caption2)
+                        .foregroundColor(.white.opacity(0.4))
+                } else if entry.daysUntilRace == 0 {
+                    Text("Race Day! 🏁")
+                        .font(.caption2)
+                        .foregroundColor(.orange)
+                }
             }
 
             if entry.workouts.isEmpty {
@@ -289,7 +239,6 @@ struct Race1WidgetView: View {
                             .lineLimit(1)
                     }
                 }
-
                 if entry.workouts.count > 3 {
                     Text("+\(entry.workouts.count - 3) more")
                         .font(.caption2)

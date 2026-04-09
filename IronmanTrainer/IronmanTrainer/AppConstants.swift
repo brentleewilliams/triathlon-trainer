@@ -22,6 +22,12 @@ enum AppGroupConstants {
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    /// Sync race date to App Group so widget can show correct countdown
+    static func syncRaceDateToWidget(_ date: Date) {
+        sharedDefaults?.set(date.timeIntervalSince1970, forKey: "race_date")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
 }
 
 // MARK: - Shared Formatters
