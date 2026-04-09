@@ -273,7 +273,9 @@ struct OnboardingNavBar: View {
         case .raceSearch:
             return viewModel.raceSearchResult != nil
         case .goalSetting:
-            return viewModel.allSkillsSelected
+            // On the intro screen (gradient) the user can always advance to the form;
+            // on the form screen they need all skill levels selected.
+            return isOnGradient ? true : viewModel.allSkillsSelected
         case .tutorial:
             return viewModel.minimumWeeksLoaded
         case .planReview:
