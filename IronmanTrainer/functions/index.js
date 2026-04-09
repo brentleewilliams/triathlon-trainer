@@ -1064,7 +1064,7 @@ exports.requestOTP = onRequest(async (req, res) => {
           from: `"Race1" <${process.env.SMTP_EMAIL}>`,
           to: email,
           subject: "Your Race1 sign-in code",
-          text: `Your verification code is: ${otp}\n\nThis code expires in 10 minutes.`,
+          text: `Your Race1 verification code is: ${otp}\n\n${otp} is your Race1 code.\n\nThis code expires in 10 minutes.`,
           html: `
             <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px;">
               <h2>Race1</h2>
