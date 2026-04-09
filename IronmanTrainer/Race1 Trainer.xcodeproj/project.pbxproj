@@ -89,7 +89,7 @@
 /* Begin PBXFileReference section */
 		012B43DD81DAFFDC8DE08DFD /* HealthKitOnboardingData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HealthKitOnboardingData.swift; path = IronmanTrainer/HealthKitOnboardingData.swift; sourceTree = SOURCE_ROOT; };
 		108346CB94A363F99B289838 /* UserProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = UserProfile.swift; path = IronmanTrainer/UserProfile.swift; sourceTree = SOURCE_ROOT; };
-		1A00000A1F1A0001 /* Race1.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Race1.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A00000A1F1A0001 /* Race1 Trainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Race1 Trainer.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A0000FF1F1A0001 /* IronmanTrainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IronmanTrainerApp.swift; sourceTree = "<group>"; };
 		1A0001021F1A0001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		1A0001041F1A0001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -97,7 +97,7 @@
 		1A0001081F1A0001 /* Config.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Config.xcconfig; sourceTree = SOURCE_ROOT; };
 		1A0001091F1A0001 /* Config.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Config.plist; sourceTree = "<group>"; };
 		1A00010C1F1A0001 /* IronmanTrainer.xcdatamodeld */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodeld; path = IronmanTrainer.xcdatamodeld; sourceTree = "<group>"; };
-		1A00014B1F1A0001 /* Race1Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Race1Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1A00014B1F1A0001 /* Race1 Trainer Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "Race1 Trainer Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		1A00014E1F1A0001 /* TrainingPlanManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManagerTests.swift; sourceTree = "<group>"; };
 		1A00014F1F1A0001 /* WorkoutMatchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingTests.swift; sourceTree = "<group>"; };
 		1A0001531F1A0001 /* WeatherForecastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherForecastTests.swift; sourceTree = "<group>"; };
@@ -191,8 +191,8 @@
 		1A00000B1F1A0001 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				1A00000A1F1A0001 /* Race1.app */,
-				1A00014B1F1A0001 /* Race1Tests.xctest */,
+				1A00000A1F1A0001 /* Race1 Trainer.app */,
+				1A00014B1F1A0001 /* Race1 Trainer Tests.xctest */,
 				1AA000080A0A0001 /* Race1TrainerWidgetExtension.appex */,
 			);
 			name = Products;
@@ -280,9 +280,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		1A0000091F1A0001 /* Race1 */ = {
+		1A0000091F1A0001 /* Race1 Trainer */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1A0001401F1A0001 /* Build configuration list for PBXNativeTarget "Race1" */;
+			buildConfigurationList = 1A0001401F1A0001 /* Build configuration list for PBXNativeTarget "Race1 Trainer" */;
 			buildPhases = (
 				1A0000061F1A0001 /* Sources */,
 				1A0000071F1A0001 /* Frameworks */,
@@ -296,19 +296,19 @@
 			dependencies = (
 				1AA000110A0A0001 /* PBXTargetDependency */,
 			);
-			name = Race1;
+			name = "Race1 Trainer";
 			packageProductDependencies = (
 				FB000002000000001 /* FirebaseAuth */,
 				FB000003000000001 /* FirebaseFirestore */,
 				FB000009000000001 /* FirebaseFunctions */,
 			);
 			productName = IronmanTrainer;
-			productReference = 1A00000A1F1A0001 /* Race1.app */;
+			productReference = 1A00000A1F1A0001 /* Race1 Trainer.app */;
 			productType = "com.apple.product-type.application";
 		};
-		1A00014D1F1A0001 /* Race1Tests */ = {
+		1A00014D1F1A0001 /* Race1 Trainer Tests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1A0001541F1A0001 /* Build configuration list for PBXNativeTarget "Race1Tests" */;
+			buildConfigurationList = 1A0001541F1A0001 /* Build configuration list for PBXNativeTarget "Race1 Trainer Tests" */;
 			buildPhases = (
 				1A0001551F1A0001 /* Sources */,
 				1A00014C1F1A0001 /* Frameworks */,
@@ -318,9 +318,9 @@
 			dependencies = (
 				1A0001581F1A0001 /* PBXTargetDependency */,
 			);
-			name = Race1Tests;
+			name = "Race1 Trainer Tests";
 			productName = IronmanTrainerTests;
-			productReference = 1A00014B1F1A0001 /* Race1Tests.xctest */;
+			productReference = 1A00014B1F1A0001 /* Race1 Trainer Tests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		1AA0000C0A0A0001 /* Race1TrainerWidgetExtension */ = {
@@ -359,7 +359,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 1A0000041F1A0001 /* Build configuration list for PBXProject "IronmanTrainer" */;
+			buildConfigurationList = 1A0000041F1A0001 /* Build configuration list for PBXProject "Race1 Trainer" */;
 			compatibilityVersion = "Xcode 14.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -375,8 +375,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				1A0000091F1A0001 /* Race1 */,
-				1A00014D1F1A0001 /* Race1Tests */,
+				1A0000091F1A0001 /* Race1 Trainer */,
+				1A00014D1F1A0001 /* Race1 Trainer Tests */,
 				1AA0000C0A0A0001 /* Race1TrainerWidgetExtension */,
 			);
 		};
@@ -523,7 +523,7 @@
 /* Begin PBXTargetDependency section */
 		1A0001581F1A0001 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 1A0000091F1A0001 /* Race1 */;
+			target = 1A0000091F1A0001 /* Race1 Trainer */;
 			targetProxy = 1A0001591F1A0001 /* PBXContainerItemProxy */;
 		};
 		1AA000110A0A0001 /* PBXTargetDependency */ = {
@@ -641,7 +641,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IronmanTrainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/IronmanTrainer";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Race1 Trainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Race1 Trainer";
 			};
 			name = Debug;
 		};
@@ -661,7 +661,7 @@
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/IronmanTrainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/IronmanTrainer";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Race1 Trainer.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Race1 Trainer";
 			};
 			name = Release;
 		};
@@ -724,7 +724,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		1A0000041F1A0001 /* Build configuration list for PBXProject "IronmanTrainer" */ = {
+		1A0000041F1A0001 /* Build configuration list for PBXProject "Race1 Trainer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0001341F1A0001 /* Debug */,
@@ -733,7 +733,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1A0001401F1A0001 /* Build configuration list for PBXNativeTarget "Race1" */ = {
+		1A0001401F1A0001 /* Build configuration list for PBXNativeTarget "Race1 Trainer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0001341F1A0001 /* Debug */,
@@ -742,7 +742,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		1A0001541F1A0001 /* Build configuration list for PBXNativeTarget "Race1Tests" */ = {
+		1A0001541F1A0001 /* Build configuration list for PBXNativeTarget "Race1 Trainer Tests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				1A0001561F1A0001 /* Debug */,

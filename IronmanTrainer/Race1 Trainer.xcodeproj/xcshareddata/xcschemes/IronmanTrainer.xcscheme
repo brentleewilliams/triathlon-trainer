@@ -15,9 +15,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "1A0000091F1A0001"
-               BuildableName = "Race1.app"
-               BlueprintName = "Race1"
-               ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+               BuildableName = "Race1 Trainer.app"
+               BlueprintName = "Race1 Trainer"
+               ReferencedContainer = "container:Race1 Trainer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
          <BuildActionEntry
@@ -31,7 +31,7 @@
                BlueprintIdentifier = "1AA0000C0A0A0001"
                BuildableName = "Race1TrainerWidgetExtension.appex"
                BlueprintName = "Race1TrainerWidgetExtension"
-               ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+               ReferencedContainer = "container:Race1 Trainer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -47,9 +47,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "1A00014D1F1A0001"
-               BuildableName = "Race1Tests.xctest"
-               BlueprintName = "Race1Tests"
-               ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+               BuildableName = "Race1 Trainer Tests.xctest"
+               BlueprintName = "Race1 Trainer Tests"
+               ReferencedContainer = "container:Race1 Trainer.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -69,9 +69,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1A0000091F1A0001"
-            BuildableName = "Race1.app"
-            BlueprintName = "Race1"
-            ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+            BuildableName = "Race1 Trainer.app"
+            BlueprintName = "Race1 Trainer"
+            ReferencedContainer = "container:Race1 Trainer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -86,9 +86,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "1A0000091F1A0001"
-            BuildableName = "Race1.app"
-            BlueprintName = "Race1"
-            ReferencedContainer = "container:IronmanTrainer.xcodeproj">
+            BuildableName = "Race1 Trainer.app"
+            BlueprintName = "Race1 Trainer"
+            ReferencedContainer = "container:Race1 Trainer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>
