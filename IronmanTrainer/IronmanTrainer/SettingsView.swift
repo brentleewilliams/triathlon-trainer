@@ -200,7 +200,7 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
                 }
-                Section(header: Text("Tune-up Races")) {
+                Section(header: Text("Secondary Races")) {
                     PrepRacesSettingsSection()
                 }
 
@@ -404,14 +404,31 @@ struct DrillsDetailView: View {
     }
 }
 
-// MARK: - Prep Races Settings Section
+// MARK: - Secondary Races Settings Section
 
 struct PrepRacesSettingsSection: View {
     @ObservedObject private var prepRaces = PrepRacesManager.shared
+    @EnvironmentObject private var trainingPlan: TrainingPlanManager
     @State private var showAddSheet = false
+    @State private var isRegeneratingPlan = false
+    @State private var regenerateError: String?
 
     var body: some View {
         Group {
+            if isRegeneratingPlan {
+                HStack {
+                    ProgressView()
+                        .padding(.trailing, 6)
+                    Text("Rebuilding surrounding weeks…")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            if let error = regenerateError {
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
             if prepRaces.races.isEmpty {
                 Button {
                     showAddSheet = true
@@ -419,7 +436,7 @@ struct PrepRacesSettingsSection: View {
                     HStack {
                         Image(systemName: "flag.2.crossed")
                             .foregroundColor(.orange)
-                        Text("Add a Tune-up Race")
+                        Text("Add a Secondary Race")
                     }
                 }
             } else {
@@ -459,8 +476,33 @@ struct PrepRacesSettingsSection: View {
             }
         }
         .sheet(isPresented: $showAddSheet) {
-            AddPrepRaceSheet { race in
+            AddPrepRaceSheet { race, wantsAdjustment in
                 prepRaces.add(race)
+                trainingPlan.insertSecondaryRaceCard(race)
+                if wantsAdjustment, let input = PlanGenerationInput.load() {
+                    isRegeneratingPlan = true
+                    regenerateError = nil
+                    Task {
+                        do {
+                            let newWeeks = try await PlanGenerationService.shared.regenerateSurroundingWeeks(
+                                race: race,
+                                allWeeks: trainingPlan.weeks,
+                                input: input
+                            )
+                            await MainActor.run {
+                                trainingPlan.replaceWeeks(newWeeks)
+                                // Re-insert race card in case regeneration overwrote it
+                                trainingPlan.insertSecondaryRaceCard(race)
+                                isRegeneratingPlan = false
+                            }
+                        } catch {
+                            await MainActor.run {
+                                regenerateError = "Plan adjustment failed. Race added, plan unchanged."
+                                isRegeneratingPlan = false
+                            }
+                        }
+                    }
+                }
             }
         }
     }

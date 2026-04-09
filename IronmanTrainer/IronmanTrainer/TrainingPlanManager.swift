@@ -264,6 +264,64 @@ class TrainingPlanManager: ObservableObject {
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
+    /// Insert a secondary race card on the race day, replacing any existing workouts for that day.
+    func insertSecondaryRaceCard(_ race: PrepRace) {
+        let calendar = Calendar.current
+        let raceDay = calendar.startOfDay(for: race.date)
+        let dayAbbrevs = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+        guard let weekIdx = weeks.firstIndex(where: { week in
+            calendar.startOfDay(for: week.startDate) <= raceDay &&
+            calendar.startOfDay(for: week.endDate) >= raceDay
+        }) else { return }
+
+        let week = weeks[weekIdx]
+        // Compute Monday of the week (startDate may not be exactly Monday for generated plans)
+        var mondayCal = Calendar(identifier: .gregorian)
+        mondayCal.firstWeekday = 2
+        let mondayComps = mondayCal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: week.startDate)
+        let weekMonday = mondayCal.date(from: mondayComps) ?? week.startDate
+        let weekStart = calendar.startOfDay(for: weekMonday)
+        let dayOffset = calendar.dateComponents([.day], from: weekStart, to: raceDay).day ?? 0
+        guard dayOffset >= 0 && dayOffset < 7 else { return }
+        let dayAbbrev = dayAbbrevs[dayOffset]
+
+        let raceCard = DayWorkout(
+            day: dayAbbrev,
+            type: "\u{1F3C5} \(race.name)",
+            duration: race.distance,
+            zone: "Race",
+            status: "secondary_race",
+            nutritionTarget: nil,
+            notes: race.notes
+        )
+
+        var updatedWorkouts = week.workouts.filter { $0.day != dayAbbrev }
+        updatedWorkouts.append(raceCard)
+        updatedWorkouts.sort {
+            (dayAbbrevs.firstIndex(of: $0.day) ?? 0) < (dayAbbrevs.firstIndex(of: $1.day) ?? 0)
+        }
+
+        weeks[weekIdx] = TrainingWeek(
+            weekNumber: week.weekNumber,
+            phase: week.phase,
+            startDate: week.startDate,
+            endDate: week.endDate,
+            workouts: updatedWorkouts
+        )
+        AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
+    /// Replace specific weeks by weekNumber (used after surrounding-plan regeneration).
+    func replaceWeeks(_ newWeeks: [TrainingWeek]) {
+        for newWeek in newWeeks {
+            if let idx = weeks.firstIndex(where: { $0.weekNumber == newWeek.weekNumber }) {
+                weeks[idx] = newWeek
+            }
+        }
+        AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
     private func setupTrainingPlan() {
         let phaseNames = ["Ramp Up", "Ramp Up", "Ramp Up", "Ramp Up", "Build 1", "Build 1", "Build 2", "Build 2", "Build 3", "Taper", "Taper", "Taper", "Race Prep", "Race Prep", "Race Prep", "Rest", "Race Week"]
 

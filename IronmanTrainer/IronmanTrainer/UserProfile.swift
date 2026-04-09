@@ -138,6 +138,31 @@ struct PrepRace: Codable, Identifiable, Equatable {
     var isPast: Bool {
         date < Date()
     }
+
+    /// True for races that warrant surrounding plan adjustment:
+    /// half marathon or longer run, any triathlon, or bike >40 miles.
+    var isBigRace: Bool {
+        let d = distance.lowercased()
+        return d.contains("half marathon") || d.contains("marathon") ||
+               d.contains("tri") || d.contains("iron") ||
+               d.contains("century") || d.contains("ultra")
+    }
+
+    /// Human-readable estimated finish time for race card display.
+    var estimatedDurationString: String {
+        let d = distance.lowercased()
+        if d.contains("marathon") && !d.contains("half") { return "~3.5-5 hrs" }
+        if d.contains("half marathon") { return "~1.5-2.5 hrs" }
+        if d.contains("full iron") { return "~10-17 hrs" }
+        if d.contains("half iron") { return "~4-7 hrs" }
+        if d.contains("olympic tri") { return "~2-3 hrs" }
+        if d.contains("sprint tri") { return "~1-2 hrs" }
+        if d.contains("century") { return "~5-8 hrs" }
+        if d.contains("ultra") { return "4+ hrs" }
+        if d.contains("10k") { return "~45-70 min" }
+        if d.contains("5k") { return "~20-40 min" }
+        return distance
+    }
 }
 
 // MARK: - Prep Races Manager

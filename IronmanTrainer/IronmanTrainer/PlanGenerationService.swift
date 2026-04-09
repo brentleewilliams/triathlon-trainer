@@ -46,6 +46,78 @@ class PlanGenerationService {
 
     // MARK: - Public API
 
+    /// Regenerates the 3 weeks surrounding a secondary race (week before, race week, week after).
+    /// Inserts the race card on the race day and tapers/recovers appropriately.
+    func regenerateSurroundingWeeks(
+        race: PrepRace,
+        allWeeks: [TrainingWeek],
+        input: PlanGenerationInput
+    ) async throws -> [TrainingWeek] {
+        guard !allWeeks.isEmpty else { return [] }
+
+        let calendar = Calendar.current
+        let raceDay = calendar.startOfDay(for: race.date)
+
+        guard let raceWeekIdx = allWeeks.firstIndex(where: { week in
+            calendar.startOfDay(for: week.startDate) <= raceDay &&
+            calendar.startOfDay(for: week.endDate) >= raceDay
+        }) else { return [] }
+
+        let prevWeekIdx = max(0, raceWeekIdx - 1)
+        let nextWeekIdx = min(allWeeks.count - 1, raceWeekIdx + 1)
+        let weeksToRebuild = [allWeeks[prevWeekIdx], allWeeks[raceWeekIdx], allWeeks[nextWeekIdx]]
+        let recoveryDays = recoveryDaysForDistance(race.distance)
+
+        let weekSummaries = weeksToRebuild.map { week -> String in
+            let role: String
+            if week.weekNumber == allWeeks[prevWeekIdx].weekNumber { role = "Pre-race taper week" }
+            else if week.weekNumber == allWeeks[raceWeekIdx].weekNumber { role = "Race week" }
+            else { role = "Post-race recovery week" }
+            return "Week \(week.weekNumber) (\(role)): \(Formatters.fullDate.string(from: week.startDate)) – \(Formatters.fullDate.string(from: week.endDate)), phase: \(week.phase)"
+        }.joined(separator: "\n")
+
+        let systemPrompt = """
+        You are an expert endurance coach. Regenerate ONLY these 3 weeks around a secondary race.
+
+        SECONDARY RACE: \(race.name)
+        RACE DATE: \(Formatters.fullDate.string(from: race.date))
+        RACE DISTANCE: \(race.distance)
+        POST-RACE RECOVERY: \(recoveryDays) days of reduced training after the race
+
+        ATHLETE'S MAIN RACE: \(input.race.name) on \(Formatters.fullDate.string(from: input.race.date))
+
+        WEEKS TO REBUILD:
+        \(weekSummaries)
+
+        RULES:
+        - Week before: taper ~20% volume, keep intensity sharp; day before race must be Rest
+        - Race day: single workout, type "\u{1F3C5} \(race.name)", duration "\(race.distance)", zone "Race", status "secondary_race"
+        - Week after: \(recoveryDays) days easy recovery, then gradually rebuild
+        - Use emoji prefixes: "\u{1F3CA} Swim", "\u{1F6B4} Bike", "\u{1F3C3} Run", "\u{1F6B4}+\u{1F3C3} Brick", "Rest"
+        - Duration format: "45min", "1:00", "1,600yd" (swim), "-" (rest)
+        - Zone format: "Z1"–"Z5", "-" for rest/race
+        - Return ONLY a JSON array of exactly 3 weeks:
+        [{"weekNumber": N, "phase": "...", "startDate": "YYYY-MM-DD", "endDate": "YYYY-MM-DD", "workouts": [...7 days]}]
+        """
+
+        let rawJSON = try await withRetry { [self] in
+            try await callOpenAI(
+                systemPrompt: systemPrompt,
+                userMessage: "Regenerate the 3 weeks around my \(race.distance) \(race.name) on \(Formatters.fullDate.string(from: race.date))."
+            )
+        }
+        return try parsePlanJSON(rawJSON, raceDate: input.race.date)
+    }
+
+    private func recoveryDaysForDistance(_ distance: String) -> Int {
+        let d = distance.lowercased()
+        if d.contains("marathon") && !d.contains("half") { return 7 }
+        if d.contains("half marathon") || d.contains("half iron") || d.contains("olympic tri") { return 5 }
+        if d.contains("sprint tri") || d.contains("10k") { return 2 }
+        if d.contains("century") || d.contains("full iron") { return 7 }
+        return 2
+    }
+
     func generateFullPlan(input: PlanGenerationInput) async throws -> [TrainingWeek] {
         // Pass 1: Generate summary
         let summaryJSON = try await withRetry { [self] in

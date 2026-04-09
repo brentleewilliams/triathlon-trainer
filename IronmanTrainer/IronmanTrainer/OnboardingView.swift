@@ -1322,7 +1322,7 @@ struct PrepRacesOnboardingSection: View {
             HStack {
                 Image(systemName: "flag.2.crossed.fill")
                     .foregroundStyle(.orange)
-                Text("Tune-up Races")
+                Text("Secondary Races")
                     .font(.headline)
                 Spacer()
                 Button {
@@ -1334,12 +1334,12 @@ struct PrepRacesOnboardingSection: View {
                 }
             }
 
-            Text("Add any prep races along the way. These help structure your training peaks and tapers.")
+            Text("Add any secondary races along the way. These help structure your training peaks and tapers.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
             if prepRaces.races.isEmpty {
-                Text("No prep races added yet")
+                Text("No secondary races added yet")
                     .font(.subheadline)
                     .foregroundStyle(.tertiary)
                     .frame(maxWidth: .infinity)
@@ -1353,7 +1353,8 @@ struct PrepRacesOnboardingSection: View {
             }
         }
         .sheet(isPresented: $showAddSheet) {
-            AddPrepRaceSheet { race in
+            // During onboarding the plan hasn't been generated yet — just add the race.
+            AddPrepRaceSheet { race, _ in
                 prepRaces.add(race)
             }
         }
@@ -1401,8 +1402,11 @@ struct AddPrepRaceSheet: View {
     @State private var isSearching = false
     @State private var searchError: String?
     @State private var searchTask: Task<Void, Never>?
+    @State private var showAdjustAlert = false
+    @State private var pendingRace: PrepRace?
 
-    let onAdd: (PrepRace) -> Void
+    /// Called with the race and a Bool indicating whether the user wants surrounding plan adjustment.
+    let onAdd: (PrepRace, Bool) -> Void
 
     private let distanceOptions = ["5K", "10K", "Half Marathon", "Marathon", "Sprint Tri", "Olympic Tri", "Century Ride", "Other"]
 
@@ -1449,7 +1453,7 @@ struct AddPrepRaceSheet: View {
                     TextField("e.g. Goal pace, strategy", text: $notes)
                 }
             }
-            .navigationTitle("Add Prep Race")
+            .navigationTitle("Add Secondary Race")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1463,11 +1467,29 @@ struct AddPrepRaceSheet: View {
                             distance: distance,
                             notes: notes.isEmpty ? nil : notes
                         )
-                        onAdd(race)
-                        dismiss()
+                        if race.isBigRace {
+                            pendingRace = race
+                            showAdjustAlert = true
+                        } else {
+                            onAdd(race, false)
+                            dismiss()
+                        }
                     }
                     .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
+            }
+            .alert("Adjust Surrounding Plan?", isPresented: $showAdjustAlert, presenting: pendingRace) { race in
+                Button("Adjust Plan") {
+                    onAdd(race, true)
+                    dismiss()
+                }
+                Button("Just Add Race") {
+                    onAdd(race, false)
+                    dismiss()
+                }
+                Button("Cancel", role: .cancel) { pendingRace = nil }
+            } message: { race in
+                Text("This is a \(race.distance). Would you like to rebuild the 3 surrounding training weeks to taper before and recover after?")
             }
         }
         .presentationDetents([.large])

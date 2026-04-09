@@ -1088,11 +1088,16 @@ struct DayRowView: View {
         dayGroup.workouts.allSatisfy { $0.type.contains("Rest") }
     }
 
+    var isSecondaryRaceDay: Bool {
+        dayGroup.workouts.allSatisfy { $0.status == "secondary_race" }
+    }
+
     var body: some View {
-        if isRestDay {
+        if isSecondaryRaceDay {
+            SecondaryRaceRow(dayGroup: dayGroup, weekStartDate: weekStartDate)
+        } else if isRestDay {
             RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
         } else {
-            // Workouts without any NavigationLink wrapping - test if drag works
             WorkoutDayRows(
                 dayGroup: dayGroup,
                 weekStartDate: weekStartDate,
@@ -1103,6 +1108,80 @@ struct DayRowView: View {
                 hideHeader: false,
                 selectedWeek: selectedWeek
             )
+        }
+    }
+}
+
+// MARK: - Secondary Race Row
+struct SecondaryRaceRow: View {
+    let dayGroup: (day: String, workouts: [DayWorkout])
+    let weekStartDate: Date
+
+    private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    var dayDate: String {
+        let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
+        return Formatters.monthDay.string(from: date)
+    }
+
+    var body: some View {
+        let race = dayGroup.workouts.first
+
+        VStack(alignment: .leading, spacing: 8) {
+            // Day header
+            HStack(spacing: 12) {
+                VStack(spacing: 0) {
+                    Text(dayGroup.day)
+                        .fontWeight(.bold)
+                    Text(dayDate)
+                        .font(.caption2)
+                        .foregroundColor(.gray)
+                }
+                .frame(width: 50)
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+
+            // Race card
+            HStack(spacing: 14) {
+                Text("\u{1F3C5}")
+                    .font(.title)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(race?.type.replacingOccurrences(of: "\u{1F3C5} ", with: "") ?? "Race")
+                        .font(.subheadline.weight(.semibold))
+                    Text(race?.duration ?? "")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    if let raceNotes = race?.notes, !raceNotes.isEmpty {
+                        Text(raceNotes)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
+                }
+
+                Spacer()
+
+                Image(systemName: "flag.checkered")
+                    .font(.title2)
+                    .foregroundStyle(.orange)
+            }
+            .padding(14)
+            .background(
+                LinearGradient(
+                    colors: [Color.orange.opacity(0.12), Color.yellow.opacity(0.08)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.orange.opacity(0.35), lineWidth: 1)
+            )
+            .padding(.horizontal, 12)
         }
     }
 }
