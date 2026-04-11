@@ -48,6 +48,11 @@ struct ChatView: View {
                 }
                 .defaultScrollAnchor(.bottom)
                 .scrollDismissesKeyboard(.immediately)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                    }
+                }
                 .onChange(of: viewModel.messages.count) {
                     withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
                 }
@@ -185,7 +190,7 @@ struct PlanChangeRow: View {
         switch change.action {
         case .add: return "plus.circle.fill"
         case .drop: return "minus.circle.fill"
-        case .modify: return "pencil.circle.fill"
+        case .swap: return "arrow.left.arrow.right.circle.fill"
         }
     }
 
@@ -193,22 +198,18 @@ struct PlanChangeRow: View {
         switch change.action {
         case .add: return .green
         case .drop: return .red
-        case .modify: return .orange
+        case .swap: return .orange
         }
     }
 
     private var label: String {
-        let type = change.type ?? "workout"
         switch change.action {
         case .add:
-            return "Add \(type) on \(change.day), Week \(change.week)"
+            return "Add \(change.type ?? "workout") on \(change.day ?? "?"), Week \(change.week)"
         case .drop:
-            return "Drop \(type) on \(change.day), Week \(change.week)"
-        case .modify:
-            let field = change.field ?? ""
-            let from = change.from ?? ""
-            let to = change.to ?? ""
-            return "Modify \(type) on \(change.day), Week \(change.week): \(field) \(from) → \(to)"
+            return "Drop all workouts on \(change.day ?? "?"), Week \(change.week)"
+        case .swap:
+            return "Swap \(change.fromDay ?? "?") \u{2194} \(change.toDay ?? "?"), Week \(change.week)"
         }
     }
 

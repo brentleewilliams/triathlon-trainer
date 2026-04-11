@@ -56,8 +56,7 @@ function langsmithTimestamp(ms) {
  * uuid: this run's UUID (with or without dashes)
  */
 function makeChildDottedOrder(parentDottedOrder, ms, uuid) {
-  const uuidNoDash = uuid.replace(/-/g, "");
-  const segment = `${langsmithTimestamp(ms)}${uuidNoDash}`;
+  const segment = `${langsmithTimestamp(ms)}${uuid}`;
   return parentDottedOrder ? `${parentDottedOrder}.${segment}` : segment;
 }
 
@@ -327,6 +326,145 @@ async function streamLLM({ messages, model, temperature, maxTokens, onToken, onD
   }
 }
 
+// Tool definition for plan changes — used by streamLLMWithTools
+const PROPOSE_PLAN_CHANGE_TOOL = {
+  name: "propose_plan_change",
+  description: "Propose changes to the user's training plan. Call this whenever the user asks to add, remove, cancel, replace, or reschedule workouts. The user sees a confirmation dialog before any changes are applied. Only target future workouts.",
+  parameters: {
+    type: "object",
+    properties: {
+      summary: {
+        type: "string",
+        description: "One-line description of what is being changed and why",
+      },
+      changes: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            action: {
+              type: "string",
+              enum: ["add", "drop", "swap"],
+              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (empty day becomes Rest). swap: exchange all workouts between two days.",
+            },
+            week: { type: "integer", description: "Training week number (1-17). Only target future weeks." },
+            day: {
+              type: "string",
+              enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+              description: "Day of week. Required for add and drop.",
+            },
+            type: { type: "string", description: "Workout type for add only, e.g. '🏃 Z2 Run'." },
+            duration: { type: "string", description: "Duration for add, e.g. '45min'." },
+            zone: { type: "string", description: "Training zone for add, e.g. 'Z2'." },
+            notes: { type: "string", description: "Optional workout notes for add." },
+            from_day: {
+              type: "string",
+              enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+              description: "Source day for swap action.",
+            },
+            to_day: {
+              type: "string",
+              enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+              description: "Destination day for swap action.",
+            },
+          },
+          required: ["action", "week"],
+        },
+      },
+    },
+    required: ["summary", "changes"],
+  },
+};
+
+/**
+ * Streaming LLM call with tool support.
+ * Calls `onToken(text)` for each text chunk, `onToolCall({name, input})` if the model calls a tool,
+ * and `onDone()` when complete.
+ */
+async function streamLLMWithTools({ messages, model, temperature, maxTokens, tools, onToken, onToolCall, onDone }) {
+  if (model.startsWith("gpt-") || model.startsWith("o")) {
+    const openaiTools = tools.map((t) => ({
+      type: "function",
+      function: { name: t.name, description: t.description, parameters: t.parameters },
+    }));
+
+    const client = getOpenAIClient();
+    const stream = await client.chat.completions.create({
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages,
+      tools: openaiTools,
+      tool_choice: "auto",
+      stream: true,
+    });
+
+    let toolCallAccum = null;
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta;
+      if (delta?.content) onToken(delta.content);
+      if (delta?.tool_calls?.[0]) {
+        const tc = delta.tool_calls[0];
+        if (!toolCallAccum) toolCallAccum = { name: "", arguments: "" };
+        if (tc.function?.name) toolCallAccum.name += tc.function.name;
+        if (tc.function?.arguments) toolCallAccum.arguments += tc.function.arguments;
+      }
+    }
+    if (toolCallAccum) {
+      try {
+        onToolCall({ name: toolCallAccum.name, input: JSON.parse(toolCallAccum.arguments) });
+      } catch (e) {
+        console.warn("[streamLLMWithTools] Failed to parse OpenAI tool arguments:", e.message);
+      }
+    }
+    onDone();
+
+  } else if (model.startsWith("claude-")) {
+    const anthropicTools = tools.map((t) => ({
+      name: t.name,
+      description: t.description,
+      input_schema: t.parameters,
+    }));
+
+    const client = getAnthropicClient();
+    const systemMsg = messages.find((m) => m.role === "system");
+    const nonSystem = messages.filter((m) => m.role !== "system");
+
+    const stream = await client.messages.stream({
+      model,
+      max_tokens: maxTokens,
+      temperature,
+      system: systemMsg ? systemMsg.content : undefined,
+      messages: nonSystem,
+      tools: anthropicTools,
+    });
+
+    let toolCallAccum = null;
+    for await (const event of stream) {
+      if (event.type === "content_block_start" && event.content_block?.type === "tool_use") {
+        toolCallAccum = { name: event.content_block.name, inputJson: "" };
+      } else if (event.type === "content_block_delta") {
+        if (event.delta?.type === "text_delta" && event.delta?.text) {
+          onToken(event.delta.text);
+        } else if (event.delta?.type === "input_json_delta" && toolCallAccum) {
+          toolCallAccum.inputJson += event.delta.partial_json;
+        }
+      }
+    }
+    if (toolCallAccum) {
+      try {
+        onToolCall({ name: toolCallAccum.name, input: JSON.parse(toolCallAccum.inputJson) });
+      } catch (e) {
+        console.warn("[streamLLMWithTools] Failed to parse Anthropic tool input:", e.message);
+      }
+    }
+    onDone();
+
+  } else {
+    throw new Error(`Unsupported model: ${model}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Input sanitization
 // ---------------------------------------------------------------------------
@@ -402,12 +540,22 @@ async function handleCoaching(req, res, userId) {
   const parentDottedOrder = req.headers["x-langsmith-dotted-order"] || null;
 
   // Build template variables for the coaching prompt.
-  // The iOS app sends everything (plan, date, prep races, swap info) combined in
+  // Strip legacy plan-change instruction block if still present (replaced by tool calling).
+  let cleanedContext = trainingContext || "";
+  const instrStart = cleanedContext.indexOf("====== PLAN CHANGE INSTRUCTIONS (READ FIRST) ======");
+  const instrEnd = cleanedContext.indexOf("====== TRAINING PLAN DATA ======");
+  if (instrStart >= 0 && instrEnd > instrStart) {
+    cleanedContext = cleanedContext.slice(0, instrStart) + cleanedContext.slice(instrEnd);
+  } else if (instrStart >= 0) {
+    cleanedContext = cleanedContext.slice(0, instrStart);
+  }
+
+  // The iOS app sends everything (plan, date, prep races) combined in
   // trainingContext, so we map it to {context} and blank out the other prompt vars.
   const z = zoneBoundaries || {};
   const todayStr = new Date().toISOString().split("T")[0];
   const variables = {
-    context: trainingContext || "",
+    context: cleanedContext,
     history: workoutHistory || "",
     z2: z.z2 || "",
     z3: z.z3 || "",
@@ -466,7 +614,7 @@ async function handleCoaching(req, res, userId) {
   if (parentTraceId && parentDottedOrder) {
     const childDottedOrder = makeChildDottedOrder(parentDottedOrder, llmStartMs, llmRunId);
     langsmithCreateRun({
-      id: llmRunId.replace(/-/g, ""),
+      id: llmRunId,
       trace_id: parentTraceId,
       parent_run_id: parentRunId,
       dotted_order: childDottedOrder,
@@ -491,25 +639,37 @@ async function handleCoaching(req, res, userId) {
   res.set("Connection", "keep-alive");
 
   let accumulated = "";
+  let capturedToolCall = null;
 
   try {
-    await streamLLM({
+    await streamLLMWithTools({
       messages: allMessages,
       model,
       temperature,
       maxTokens,
+      tools: [PROPOSE_PLAN_CHANGE_TOOL],
       onToken: (token) => {
         accumulated += token;
         res.write(`data: ${JSON.stringify(token)}\n\n`);
       },
+      onToolCall: (toolCall) => {
+        capturedToolCall = toolCall;
+        console.log(`[coaching] tool called: ${toolCall.name}`);
+      },
       onDone: () => {
+        // Emit tool call event before DONE so iOS can parse it
+        if (capturedToolCall && capturedToolCall.name === "propose_plan_change") {
+          const proposal = capturedToolCall.input;
+          if (!proposal.id) proposal.id = crypto.randomUUID();
+          res.write(`data: [TOOL_CALL:${JSON.stringify(proposal)}]\n\n`);
+        }
         res.write("data: [DONE]\n\n");
         res.end();
         // --- LangSmith: close child LLM run with response ---
         if (parentTraceId) {
-          langsmithUpdateRun(llmRunId.replace(/-/g, ""), {
+          langsmithUpdateRun(llmRunId, {
             end_time: new Date().toISOString(),
-            outputs: { response: accumulated },
+            outputs: { response: accumulated, tool_call: capturedToolCall || null },
             extra: { model },
           });
         }
@@ -519,7 +679,7 @@ async function handleCoaching(req, res, userId) {
     console.error("Coaching stream error:", err);
     // --- LangSmith: close child LLM run with error ---
     if (parentTraceId) {
-      langsmithUpdateRun(llmRunId.replace(/-/g, ""), {
+      langsmithUpdateRun(llmRunId, {
         end_time: new Date().toISOString(),
         error: err.message,
         status: "error",

@@ -20,6 +20,13 @@ struct TemplatePlanResult {
     var warnings: [String]
 }
 
+// MARK: - Coaching Response
+
+struct CoachingResponse {
+    let text: String
+    let proposedChanges: PlanChangeProposal?
+}
+
 // MARK: - LLM Proxy Service
 
 /// Routes all LLM requests through the Firebase Cloud Function proxy.
@@ -35,7 +42,7 @@ class LLMProxyService {
 
     // MARK: - 1. Coaching Chat (Streaming)
 
-    /// Sends a coaching message and returns the full accumulated response.
+    /// Sends a coaching message and returns the full response including any proposed plan changes.
     func sendCoachingMessage(
         userMessage: String,
         trainingContext: String,
@@ -44,7 +51,7 @@ class LLMProxyService {
         conversationHistory: [[String: Any]] = [],
         imageData: Data? = nil,
         traceContext: LangSmithTraceContext? = nil
-    ) async throws -> String {
+    ) async throws -> CoachingResponse {
         return try await streamCoachingMessage(
             userMessage: userMessage,
             trainingContext: trainingContext,
@@ -57,8 +64,8 @@ class LLMProxyService {
         )
     }
 
-    /// Streams a coaching message, calling `onToken` for each incremental token.
-    /// Returns the full accumulated response when complete.
+    /// Streams a coaching message, calling `onToken` for each incremental text token.
+    /// Returns the full response (text + optional plan change proposal) when complete.
     func streamCoachingMessage(
         userMessage: String,
         trainingContext: String,
@@ -68,7 +75,7 @@ class LLMProxyService {
         imageData: Data? = nil,
         traceContext: LangSmithTraceContext? = nil,
         onToken: @escaping (String) -> Void
-    ) async throws -> String {
+    ) async throws -> CoachingResponse {
         var body: [String: Any] = [
             "type": "coaching",
             "userMessage": userMessage,
@@ -104,24 +111,40 @@ class LLMProxyService {
         try validateHTTPResponse(response)
 
         var accumulated = ""
+        var proposedChanges: PlanChangeProposal? = nil
+        let toolCallPrefix = "data: [TOOL_CALL:"
+
         for try await line in bytes.lines {
             if line.hasPrefix("data: ") {
                 let raw = String(line.dropFirst(6))
                 if raw == "[DONE]" { break }
+
+                // Detect tool call event: [TOOL_CALL:{...}]
+                if raw.hasPrefix("[TOOL_CALL:") {
+                    var jsonStr = String(raw.dropFirst("[TOOL_CALL:".count))
+                    if jsonStr.hasSuffix("]") { jsonStr = String(jsonStr.dropLast()) }
+                    if let data = jsonStr.data(using: .utf8),
+                       let proposal = try? JSONDecoder().decode(PlanChangeProposal.self, from: data) {
+                        proposedChanges = proposal
+                    }
+                    continue
+                }
+
                 // Server JSON-encodes each token chunk — decode it
                 if let data = raw.data(using: .utf8),
                    let decoded = try? JSONDecoder().decode(String.self, from: data) {
                     accumulated += decoded
                     onToken(decoded)
                 } else {
-                    // Fallback: use raw value
                     accumulated += raw
                     onToken(raw)
                 }
             }
         }
+        // Suppress unused variable warning
+        _ = toolCallPrefix
 
-        return accumulated
+        return CoachingResponse(text: accumulated, proposedChanges: proposedChanges)
     }
 
     // MARK: - 2. Race Search (Onboarding)

@@ -41,26 +41,26 @@ struct SwapCommand: Codable {
     let toDay: String
 }
 
-// MARK: - Plan Change Models (add/drop/modify with user confirmation)
+// MARK: - Plan Change Models (add/drop/swap with user confirmation)
 
-enum PlanChangeAction: String, Codable { case add, drop, modify }
+enum PlanChangeAction: String, Codable { case add, drop, swap }
 
 struct PlanChange: Codable, Identifiable {
     let id: UUID
     let action: PlanChangeAction
     let week: Int
-    let day: String
-    let type: String?
-    let duration: String?
-    let zone: String?
-    let notes: String?
-    let nutritionTarget: String?
-    let field: String?   // for modify: "duration", "zone", "type", "notes"
-    let from: String?    // for modify: current value
-    let to: String?      // for modify: new value
+    let day: String?       // required for add and drop; nil for swap
+    let type: String?      // for add only
+    let duration: String?  // for add
+    let zone: String?      // for add
+    let notes: String?     // for add
+    let fromDay: String?   // for swap: source day
+    let toDay: String?     // for swap: destination day
 
     enum CodingKeys: String, CodingKey {
-        case action, week, day, type, duration, zone, notes, nutritionTarget, field, from, to
+        case action, week, day, type, duration, zone, notes
+        case fromDay = "from_day"
+        case toDay = "to_day"
     }
 
     init(from decoder: Decoder) throws {
@@ -68,18 +68,16 @@ struct PlanChange: Codable, Identifiable {
         self.id = UUID()
         self.action = try container.decode(PlanChangeAction.self, forKey: .action)
         self.week = try container.decode(Int.self, forKey: .week)
-        self.day = try container.decode(String.self, forKey: .day)
+        self.day = try container.decodeIfPresent(String.self, forKey: .day)
         self.type = try container.decodeIfPresent(String.self, forKey: .type)
         self.duration = try container.decodeIfPresent(String.self, forKey: .duration)
         self.zone = try container.decodeIfPresent(String.self, forKey: .zone)
         self.notes = try container.decodeIfPresent(String.self, forKey: .notes)
-        self.nutritionTarget = try container.decodeIfPresent(String.self, forKey: .nutritionTarget)
-        self.field = try container.decodeIfPresent(String.self, forKey: .field)
-        self.from = try container.decodeIfPresent(String.self, forKey: .from)
-        self.to = try container.decodeIfPresent(String.self, forKey: .to)
+        self.fromDay = try container.decodeIfPresent(String.self, forKey: .fromDay)
+        self.toDay = try container.decodeIfPresent(String.self, forKey: .toDay)
     }
 
-    init(action: PlanChangeAction, week: Int, day: String, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, nutritionTarget: String? = nil, field: String? = nil, from: String? = nil, to: String? = nil) {
+    init(action: PlanChangeAction, week: Int, day: String? = nil, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, fromDay: String? = nil, toDay: String? = nil) {
         self.id = UUID()
         self.action = action
         self.week = week
@@ -88,10 +86,8 @@ struct PlanChange: Codable, Identifiable {
         self.duration = duration
         self.zone = zone
         self.notes = notes
-        self.nutritionTarget = nutritionTarget
-        self.field = field
-        self.from = from
-        self.to = to
+        self.fromDay = fromDay
+        self.toDay = toDay
     }
 }
 
@@ -99,6 +95,22 @@ struct PlanChangeProposal: Codable, Identifiable {
     let id: UUID
     let summary: String
     let changes: [PlanChange]
+
+    init(id: UUID = UUID(), summary: String, changes: [PlanChange]) {
+        self.id = id
+        self.summary = summary
+        self.changes = changes
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // id is optional in tool call output — generate one if missing
+        self.id = (try? container.decode(UUID.self, forKey: .id)) ?? UUID()
+        self.summary = try container.decode(String.self, forKey: .summary)
+        self.changes = try container.decode([PlanChange].self, forKey: .changes)
+    }
+
+    enum CodingKeys: String, CodingKey { case id, summary, changes }
 }
 
 struct WeatherForecast {

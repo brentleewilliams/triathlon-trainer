@@ -25,128 +25,16 @@ class ChatViewModel: ObservableObject {
     @Published var pendingProposal: PlanChangeProposal?
 
     private let coachingService = LLMProxyService.shared
-    private(set) var lastSwap: SwapCommand? {
-        didSet { saveLastSwap() }
-    }
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
 
     init(skipHistory: Bool = false) {
         if !skipHistory {
             loadChatHistory()
-            loadLastSwap()
         }
     }
 
-    private func saveLastSwap() {
-        if let swap = lastSwap, let data = try? JSONEncoder().encode(swap) {
-            UserDefaults.standard.set(data, forKey: "last_swap_command")
-        } else {
-            UserDefaults.standard.removeObject(forKey: "last_swap_command")
-        }
-    }
-
-    private func loadLastSwap() {
-        guard let data = UserDefaults.standard.data(forKey: "last_swap_command"),
-              let swap = try? JSONDecoder().decode(SwapCommand.self, from: data) else { return }
-        lastSwap = swap
-    }
-
-    // MARK: - Plan Change Parsing
-
-    func parsePlanChanges(from response: String) -> PlanChangeProposal? {
-        guard let startRange = response.range(of: "[PLAN_CHANGES]") else { return nil }
-
-        let jsonStart = startRange.upperBound
-
-        // Use closing tag if present; otherwise attempt to recover truncated JSON
-        let jsonEnd: String.Index
-        let truncated: Bool
-        if let endRange = response.range(of: "[/PLAN_CHANGES]") {
-            jsonEnd = endRange.lowerBound
-            truncated = false
-        } else {
-            jsonEnd = response.endIndex
-            truncated = true
-        }
-
-        guard jsonStart < jsonEnd else { return nil }
-
-        var jsonString = String(response[jsonStart..<jsonEnd]).trimmingCharacters(in: .whitespacesAndNewlines)
-
-        if truncated {
-            // Drop trailing comma or incomplete entry after last complete object
-            if let lastBrace = jsonString.lastIndex(of: "}") {
-                jsonString = String(jsonString[jsonString.startIndex...lastBrace])
-            }
-            // Close open arrays and objects
-            let opens = jsonString.filter { $0 == "[" }.count - jsonString.filter { $0 == "]" }.count
-            let braces = jsonString.filter { $0 == "{" }.count - jsonString.filter { $0 == "}" }.count
-            jsonString += String(repeating: "]", count: max(opens, 0))
-            jsonString += String(repeating: "}", count: max(braces, 0))
-        }
-
-        guard let data = jsonString.data(using: .utf8) else { return nil }
-        return try? JSONDecoder().decode(PlanChangeProposal.self, from: data)
-    }
-
-    // Extract the core activity keyword for fuzzy workout type matching
-    private func activityKeyword(from type: String) -> String {
-        let lower = type.lowercased()
-        if lower.contains("swim") { return "swim" }
-        if lower.contains("bike") || lower.contains("cycling") || lower.contains("cycle") { return "bike" }
-        if lower.contains("run") { return "run" }
-        if lower.contains("brick") { return "brick" }
-        if lower.contains("strength") { return "strength" }
-        if lower.contains("yoga") { return "yoga" }
-        if lower.contains("rest") { return "rest" }
-        return lower
-    }
-
-    func stripPlanChangesBlock(from response: String) -> String {
-        var result = response
-
-        // Remove [PLAN_CHANGES]...[/PLAN_CHANGES] block (or everything after [PLAN_CHANGES] if closing tag is missing/truncated)
-        if let startRange = result.range(of: "[PLAN_CHANGES]") {
-            if let endRange = result.range(of: "[/PLAN_CHANGES]") {
-                result.removeSubrange(startRange.lowerBound..<endRange.upperBound)
-            } else {
-                // Closing tag missing (likely truncated response) — strip everything from [PLAN_CHANGES] onward
-                result.removeSubrange(startRange.lowerBound..<result.endIndex)
-            }
-        }
-
-        // Remove stray JSON change objects the LLM may echo outside the tags
-        if let regex = try? NSRegularExpression(
-            pattern: #"\{"action"\s*:\s*"(?:add|drop|modify)"[^}]*\}\s*,?"#,
-            options: []
-        ) {
-            let range = NSRange(result.startIndex..., in: result)
-            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
-        }
-
-        // Remove stray JSON wrapper fragments ({"id":...,"summary":...,"changes":[ etc.)
-        if let regex = try? NSRegularExpression(
-            pattern: #"\{["\s]*id["\s]*:.*?"changes"\s*:\s*\["#,
-            options: [.dotMatchesLineSeparators]
-        ) {
-            let range = NSRange(result.startIndex..., in: result)
-            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
-        }
-
-        // Remove stray closing brackets/braces from truncated JSON
-        if let regex = try? NSRegularExpression(pattern: #"^\s*[\]\}]\s*$"#, options: [.anchorsMatchLines]) {
-            let range = NSRange(result.startIndex..., in: result)
-            result = regex.stringByReplacingMatches(in: result, options: [], range: range, withTemplate: "")
-        }
-
-        // Clean up leftover blank lines
-        while result.contains("\n\n\n") {
-            result = result.replacingOccurrences(of: "\n\n\n", with: "\n\n")
-        }
-
-        return result.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
+    // MARK: - Plan Change Execution
 
     func executePlanChanges(_ proposal: PlanChangeProposal) {
         guard let trainingPlan = trainingPlan else { return }
@@ -157,7 +45,7 @@ class ChatViewModel: ObservableObject {
 
         for change in proposal.changes {
             guard let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == change.week }) else {
-                skipped.append("Week \(change.week) not found for \(change.action.rawValue) \(change.type ?? "")")
+                skipped.append("Week \(change.week) not found")
                 continue
             }
 
@@ -165,67 +53,50 @@ class ChatViewModel: ObservableObject {
 
             switch change.action {
             case .add:
-                guard let type = change.type else {
-                    skipped.append("Missing type for add in week \(change.week)")
+                guard let day = change.day, let type = change.type else {
+                    skipped.append("Missing day/type for add in week \(change.week)")
                     continue
                 }
                 let newWorkout = DayWorkout(
-                    day: change.day,
+                    day: day,
                     type: type,
                     duration: change.duration ?? "-",
                     zone: change.zone ?? "-",
                     status: nil,
-                    nutritionTarget: change.nutritionTarget,
+                    nutritionTarget: nil,
                     notes: change.notes
                 )
                 workouts.append(newWorkout)
                 applied += 1
 
             case .drop:
-                guard let type = change.type else {
-                    skipped.append("Missing type for drop in week \(change.week)")
+                guard let day = change.day else {
+                    skipped.append("Missing day for drop in week \(change.week)")
                     continue
                 }
+                // Remove ALL workouts on this day — empty day becomes Rest
                 let before = workouts.count
-                // Exact match first; fall back to activity-keyword fuzzy match
-                let keyword = activityKeyword(from: type)
-                workouts.removeAll {
-                    $0.day == change.day &&
-                    ($0.type == type || activityKeyword(from: $0.type) == keyword)
-                }
+                workouts.removeAll { $0.day == day }
                 if workouts.count < before {
                     applied += 1
                 } else {
-                    skipped.append("No \(type) on \(change.day) in week \(change.week) to drop")
+                    skipped.append("No workouts on \(day) in week \(change.week) to drop")
                 }
 
-            case .modify:
-                guard let type = change.type,
-                      let field = change.field,
-                      let toValue = change.to else {
-                    skipped.append("Missing type/field/to for modify in week \(change.week)")
+            case .swap:
+                guard let fromDay = change.fromDay, let toDay = change.toDay else {
+                    skipped.append("Missing from_day/to_day for swap in week \(change.week)")
                     continue
                 }
-                guard let workoutIdx = workouts.firstIndex(where: { $0.day == change.day && $0.type == type }) else {
-                    skipped.append("No \(type) on \(change.day) in week \(change.week) to modify")
-                    continue
+                // Move all workouts from fromDay to toDay and vice versa
+                workouts = workouts.map { workout in
+                    if workout.day == fromDay {
+                        return DayWorkout(day: toDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
+                    } else if workout.day == toDay {
+                        return DayWorkout(day: fromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
+                    }
+                    return workout
                 }
-                let old = workouts[workoutIdx]
-                let modified: DayWorkout
-                switch field {
-                case "duration":
-                    modified = DayWorkout(day: old.day, type: old.type, duration: toValue, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
-                case "zone":
-                    modified = DayWorkout(day: old.day, type: old.type, duration: old.duration, zone: toValue, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
-                case "type":
-                    modified = DayWorkout(day: old.day, type: toValue, duration: old.duration, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: old.notes)
-                case "notes":
-                    modified = DayWorkout(day: old.day, type: old.type, duration: old.duration, zone: old.zone, status: old.status, nutritionTarget: old.nutritionTarget, notes: toValue)
-                default:
-                    skipped.append("Unknown field '\(field)' for modify in week \(change.week)")
-                    continue
-                }
-                workouts[workoutIdx] = modified
                 applied += 1
             }
 
@@ -282,17 +153,16 @@ class ChatViewModel: ObservableObject {
             let context = getContextForClaude()
             let history = getWorkoutHistoryForClaude()
 
-            // Include reschedule context for plan adaptation
+            // Include reschedule context (plan data + tool instructions)
             let updatedContext = context + "\n\n" + buildRescheduleContext()
 
             // Build conversation history from prior messages (exclude the message we just added)
             let priorMessages = messages.dropLast()
             let conversationHistory: [[String: Any]] = priorMessages.map { msg in
-                // For history, only send text (don't re-send images)
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            let response = try await coachingService.sendCoachingMessage(
+            let coachingResponse = try await coachingService.sendCoachingMessage(
                 userMessage: hasText ? text : "What do you see in this image?",
                 trainingContext: updatedContext,
                 workoutHistory: history,
@@ -301,41 +171,19 @@ class ChatViewModel: ObservableObject {
                 imageData: imageData,
                 traceContext: traceContext
             )
-            LangSmithTracer.shared.endCoachingTrace(traceContext, response: response, error: nil)
+            LangSmithTracer.shared.endCoachingTrace(
+                traceContext,
+                response: coachingResponse.text,
+                error: nil,
+                toolCallMade: coachingResponse.proposedChanges != nil
+            )
 
             await MainActor.run {
-                // Check for plan changes proposal first
-                if response.contains("[PLAN_CHANGES]") {
-                    let displayText = stripPlanChangesBlock(from: response)
-                    messages.append(ChatMessage(isUser: false, text: displayText))
-                    saveChatHistory()
-                    pendingProposal = parsePlanChanges(from: response)
-                } else {
-                    // Strip any stray JSON even when no [PLAN_CHANGES] tag is present
-                    let cleanResponse = stripPlanChangesBlock(from: response)
-                    messages.append(ChatMessage(isUser: false, text: cleanResponse))
-                    saveChatHistory()
-
-                    // Check for undo swap command
-                    if response.contains("[UNDO_SWAP]"), let prev = lastSwap {
-                        let undoCommand = SwapCommand(weekNumber: prev.weekNumber, fromDay: prev.toDay, toDay: prev.fromDay)
-                        if let result = executeSwap(undoCommand) {
-                            lastSwap = nil
-                            let confirmMsg = ChatMessage(isUser: false, text: "\u{21A9}\u{FE0F} Undid previous swap: \(result). Your training plan has been restored!")
-                            messages.append(confirmMsg)
-                            saveChatHistory()
-                        }
-                    }
-                    // Check for swap command in response and execute it
-                    else if let command = parseSwapCommand(from: response),
-                       let result = executeSwap(command) {
-                        lastSwap = command
-                        let confirmMsg = ChatMessage(isUser: false, text: "\u{2705} \(result). Your training plan has been updated!")
-                        messages.append(confirmMsg)
-                        saveChatHistory()
-                    }
+                messages.append(ChatMessage(isUser: false, text: coachingResponse.text))
+                saveChatHistory()
+                if let proposal = coachingResponse.proposedChanges {
+                    pendingProposal = proposal
                 }
-
                 isLoading = false
             }
         } catch {
@@ -356,7 +204,9 @@ class ChatViewModel: ObservableObject {
         }.joined(separator: "\n")
 
         return """
-        FULL 17-WEEK TRAINING PLAN FOR RESCHEDULING:
+        ====== TRAINING PLAN DATA ======
+
+        FULL 17-WEEK TRAINING PLAN:
         \(allWeeks)
 
         Current date: \(Formatters.fullDate.string(from: Date()))
@@ -364,121 +214,12 @@ class ChatViewModel: ObservableObject {
         \(PrepRacesManager.shared.contextString().map { "\n\($0)\n" } ?? "")
 
         RESCHEDULE GUIDELINES:
-        - PREP RACE DAYS: Never schedule training on prep race day or the day before (mark as Rest)
-        - BUILD PHASE (weeks 5-9): Prioritize long/key workouts, drop short secondary runs
-        - TAPER (weeks 10-12): Reduce volume but keep pace work
-        - RACE PREP (weeks 13-15): Keep race-pace sessions, drop easy work
-        - Only reschedule FUTURE workouts, not past ones
-        - When the user asks to swap days, confirm which days and week, then INCLUDE this exact tag in your response:
-          [SWAP_DAYS:week=NUMBER:from=DAY:to=DAY]
-          Example: [SWAP_DAYS:week=2:from=Tue:to=Wed]
-          Valid days: Mon, Tue, Wed, Thu, Fri, Sat, Sun
-        - The app will automatically perform the swap when it sees this tag
-        - You can include the tag along with your coaching explanation
-        - If the user asks to undo the last swap, include this exact tag: [UNDO_SWAP]
-        \(lastSwap != nil ? "- LAST SWAP: Swapped \(lastSwap!.fromDay) and \(lastSwap!.toDay) in week \(lastSwap!.weekNumber). User can ask to undo this." : "- No recent swap to undo.")
-
-        FOR CHANGES BEYOND SIMPLE DAY SWAPS (adding, dropping, or modifying workouts):
-        Include a JSON block between [PLAN_CHANGES] and [/PLAN_CHANGES] tags.
-        Format:
-        [PLAN_CHANGES]
-        {"id":"<generate-a-uuid>","summary":"<1-line description>","changes":[
-          {"action":"add","week":5,"day":"Tue","type":"🏃 Interval Run","duration":"45min","zone":"Z4","notes":"6x800m intervals"},
-          {"action":"drop","week":5,"day":"Wed","type":"🏃 Run"},
-          {"action":"modify","week":6,"day":"Thu","type":"🚴 Bike","field":"duration","from":"1:00","to":"1:15"}
-        ]}
-        [/PLAN_CHANGES]
-        Rules:
-        - add: requires type, duration, zone. notes/nutritionTarget optional.
-        - drop: requires type to identify which workout to remove.
-        - modify: requires type (to find workout), field, from, to. field can be "duration", "zone", "type", or "notes".
-        - Simple same-week day swaps → use [SWAP_DAYS] (auto-applied).
-        - Everything else (add/drop/modify, multi-week changes) → use [PLAN_CHANGES] (requires user confirmation).
-        - Always explain your reasoning in natural language OUTSIDE the tags.
-        - CRITICAL: For the "type" field in drop/modify actions, copy the EXACT type string from the CURRENT WEEK PLAN and FULL 17-WEEK TRAINING PLAN shown above — not from conversation history. The plan may have changed since prior messages (e.g. a swap may have moved workouts). Always re-read the plan to find what is currently on each day before generating drop/modify actions.
-        - IMPORTANT: Do NOT echo or repeat the raw JSON change objects in your natural language text. The app will render them in a nice UI card. Just describe the changes conversationally (e.g. "I'd suggest adding a strength session on Thursday and swapping your Tuesday bike for swim intervals").
-
-        ILLNESS / FORCED REST — MANDATORY RULE:
-        If the user mentions being sick, injured, exhausted, or asks to cancel, skip, or rest from workouts — you MUST respond with [PLAN_CHANGES] drop actions for every workout being removed. Do NOT just say "I'll take care of that" or "rest up" without the [PLAN_CHANGES] block. The user cannot act on words alone — the block is how the app actually changes the plan.
-
-        ❌ WRONG (never do this):
-        "Sorry to hear you're sick! I'll go ahead and cancel this week's workouts so you can rest."
-
-        ✅ CORRECT (always do this):
-        "Sorry to hear you're sick — rest is absolutely the right call. Here's the plan update to cancel this week's remaining workouts. Confirm below and I'll apply the changes."
-        [PLAN_CHANGES]
-        {"id":"<uuid>","summary":"Illness rest: drop remaining week N workouts","changes":[
-          {"action":"drop","week":N,"day":"Tue","type":"🚴 Bike"},
-          {"action":"drop","week":N,"day":"Tue","type":"🏊 Swim"},
-          {"action":"drop","week":N,"day":"Wed","type":"🏃 Run"}
-        ]}
-        [/PLAN_CHANGES]
-
-        Include one "drop" entry per workout being removed. Use the exact week number and exact type strings from the plan above.
+        - Use the propose_plan_change tool whenever the user asks to add, drop, cancel, replace, or reschedule workouts.
+        - Dropping all workouts on a day leaves it as Rest — no need to add a Rest workout.
+        - Only target future workouts, not past ones.
+        - PREP RACE DAYS: Never schedule training on prep race day or the day before.
+        - Changes are additive — only touch the days/workouts the user explicitly mentioned.
         """
-    }
-
-    func parseSwapCommand(from response: String) -> SwapCommand? {
-        // Parse [SWAP_DAYS:week=2:from=Tue:to=Wed] tag from Claude response
-        guard let regex = try? NSRegularExpression(
-            pattern: "\\[SWAP_DAYS:week=(\\d+):from=(Mon|Tue|Wed|Thu|Fri|Sat|Sun):to=(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\\]",
-            options: []
-        ) else { return nil }
-
-        let range = NSRange(response.startIndex..., in: response)
-        guard let match = regex.firstMatch(in: response, options: [], range: range) else { return nil }
-
-        guard let weekRange = Range(match.range(at: 1), in: response),
-              let fromRange = Range(match.range(at: 2), in: response),
-              let toRange = Range(match.range(at: 3), in: response),
-              let weekNumber = Int(response[weekRange]) else { return nil }
-
-        return SwapCommand(
-            weekNumber: weekNumber,
-            fromDay: String(response[fromRange]),
-            toDay: String(response[toRange])
-        )
-    }
-
-    func executeSwap(_ command: SwapCommand) -> String? {
-        guard let trainingPlan = trainingPlan else { return nil }
-
-        var updatedWeeks = trainingPlan.weeks
-        guard let weekIdx = updatedWeeks.firstIndex(where: { $0.weekNumber == command.weekNumber }) else {
-            return nil
-        }
-
-        var newWorkouts = updatedWeeks[weekIdx].workouts
-        let fromWorkouts = newWorkouts.filter { $0.day == command.fromDay }
-        let toWorkouts = newWorkouts.filter { $0.day == command.toDay }
-
-        guard !fromWorkouts.isEmpty && !toWorkouts.isEmpty else { return nil }
-
-        // Swap days
-        newWorkouts = newWorkouts.map { workout in
-            if workout.day == command.fromDay {
-                return DayWorkout(day: command.toDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
-            } else if workout.day == command.toDay {
-                return DayWorkout(day: command.fromDay, type: workout.type, duration: workout.duration, zone: workout.zone, status: workout.status, nutritionTarget: workout.nutritionTarget, notes: workout.notes)
-            }
-            return workout
-        }
-
-        updatedWeeks[weekIdx] = TrainingWeek(
-            weekNumber: updatedWeeks[weekIdx].weekNumber,
-            phase: updatedWeeks[weekIdx].phase,
-            startDate: updatedWeeks[weekIdx].startDate,
-            endDate: updatedWeeks[weekIdx].endDate,
-            workouts: newWorkouts
-        )
-
-        trainingPlan.applyRescheduledPlan(
-            updatedWeeks,
-            source: "chat",
-            description: "Swapped \(command.fromDay) and \(command.toDay) in week \(command.weekNumber)"
-        )
-
-        return "Swapped \(command.fromDay) and \(command.toDay) in week \(command.weekNumber)"
     }
 
     private static let maxPersistedMessages = 50

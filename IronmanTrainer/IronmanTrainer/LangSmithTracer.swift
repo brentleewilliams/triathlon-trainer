@@ -73,12 +73,12 @@ class LangSmithTracer {
     }
 
     /// Closes the parent chain run with the final coach response or error.
-    func endCoachingTrace(_ context: LangSmithTraceContext?, response: String?, error: String?) {
+    func endCoachingTrace(_ context: LangSmithTraceContext?, response: String?, error: String?, toolCallMade: Bool = false) {
         guard isEnabled, let context else { return }
 
         var body: [String: Any] = [
             "end_time": isoNow(),
-            "outputs": ["response": response ?? ""]
+            "outputs": ["response": response ?? "", "tool_call_made": toolCallMade]
         ]
         if let error {
             body["error"] = error
@@ -91,7 +91,7 @@ class LangSmithTracer {
     // MARK: - Timestamp Helpers
 
     private func newUUID() -> String {
-        UUID().uuidString.lowercased().replacingOccurrences(of: "-", with: "")
+        UUID().uuidString.lowercased()
     }
 
     /// Produces the timestamp segment used in LangSmith `dotted_order`.
