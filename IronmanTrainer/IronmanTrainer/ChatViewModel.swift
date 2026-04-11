@@ -204,6 +204,14 @@ class ChatViewModel: ObservableObject {
         }.joined(separator: "\n")
 
         return """
+        ====== PLAN CHANGE RULES (FOLLOW THESE EXACTLY) ======
+
+        When the user wants any workout change: call propose_plan_change IMMEDIATELY.
+        Do NOT say "let me know if you want to apply this" or ask for confirmation — the app shows a confirmation dialog automatically.
+        Do NOT describe the change in text and wait. Call the tool first, then explain if needed.
+        If the user says "yes", "yea", "sure", "do it", or confirms a previously described change — call the tool NOW with those changes.
+        Only target future workouts. Changes are additive — only touch what the user explicitly mentioned.
+
         ====== TRAINING PLAN DATA ======
 
         FULL 17-WEEK TRAINING PLAN:
@@ -213,15 +221,9 @@ class ChatViewModel: ObservableObject {
 
         \(PrepRacesManager.shared.contextString().map { "\n\($0)\n" } ?? "")
 
-        PLAN CHANGE RULES — READ CAREFULLY:
-        - Call propose_plan_change IMMEDIATELY when the user asks to change, add, drop, cancel, or reschedule workouts.
-        - NEVER say "let me know if you want me to apply this" or "shall I go ahead?" — the app shows a confirmation dialog automatically. Just call the tool.
-        - NEVER describe a change in text and wait for the user to say "yes" — call the tool right away.
-        - If the user says "yes", "yea", "do it", "go ahead", or confirms a change you described — call the tool NOW with those changes.
-        - Dropping all workouts on a day leaves it as Rest — no need to add a Rest workout.
-        - Only target future workouts, not past ones.
+        RESCHEDULE NOTES:
+        - Dropping all workouts on a day leaves it as Rest.
         - PREP RACE DAYS: Never schedule training on prep race day or the day before.
-        - Changes are additive — only touch the days/workouts the user explicitly mentioned.
         """
     }
 
