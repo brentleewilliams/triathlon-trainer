@@ -344,8 +344,8 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
           properties: {
             action: {
               type: "string",
-              enum: ["add", "drop", "swap"],
-              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (empty day becomes Rest). swap: exchange all workouts between two days.",
+              enum: ["add", "drop", "swap", "replace"],
+              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (day becomes Rest). swap: exchange all workouts between two days. replace: swap one specific workout type for another on the same day (use when the day has multiple workouts and the user only wants to change one, e.g. 'change my run to a swim today').",
             },
             week: { type: "integer", description: "Training week number (1-17). Only target future weeks." },
             day: {
@@ -367,6 +367,10 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
               enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
               description: "Destination day for swap action.",
             },
+            from_type: {
+              type: "string",
+              description: "For replace: the existing workout type to replace, e.g. 'Run' or '🏃 Run'. Keyword matching is used so 'run', 'Run', '🏃 Run' all work.",
+            },
           },
           required: ["action", "week"],
         },
@@ -377,11 +381,68 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
 };
 
 /**
+ * Lightweight intent classifier: does this message require a training plan change?
+ * Uses a cheap/fast model for yes/no determination before the expensive coaching call.
+ * Returns true if a plan change is needed.
+ */
+async function classifyPlanChangeIntent(userMessage, conversationHistory = []) {
+  // Include last 2 turns for context (e.g. "yes, apply that" references prior proposal)
+  const recentHistory = conversationHistory.slice(-2);
+  const historyText = recentHistory.map((m) => `${m.role}: ${m.content}`).join("\n");
+
+  const systemPrompt = `You are a classifier. Determine if the user's message is requesting a change to their training plan (add, remove, move, cancel, swap, reschedule, or drop workouts).
+
+Reply with ONLY "yes" or "no". No other text.
+
+"yes" examples:
+- "skip my swim tomorrow"
+- "move Wednesday's run to Friday"
+- "I'm sick, cancel the next 3 days"
+- "swap Tuesday and Thursday"
+- "drop the long ride this week"
+- "can you reschedule my brick workout"
+- "replace tomorrow's run with rest"
+
+"no" examples:
+- "how is my training going?"
+- "what zone should I target?"
+- "undo"
+- "yes please apply those changes"
+- "when is my race?"`;
+
+  const classifierMessages = [{ role: "system", content: systemPrompt }];
+  if (historyText) {
+    classifierMessages.push({
+      role: "user",
+      content: `Recent conversation:\n${historyText}\n\nCurrent message: ${userMessage}`,
+    });
+  } else {
+    classifierMessages.push({ role: "user", content: userMessage });
+  }
+
+  try {
+    const result = await callLLM({
+      messages: classifierMessages,
+      model: "claude-haiku-4-5-20251001",
+      temperature: 0,
+      maxTokens: 5,
+    });
+    const yes = result.trim().toLowerCase().startsWith("yes");
+    console.log(`[classifyIntent] message="${userMessage.slice(0, 60)}" → ${yes ? "YES (force tool)" : "NO (text only)"}`);
+    return yes;
+  } catch (err) {
+    console.warn("[classifyIntent] classifier failed:", err.message);
+    return false; // on failure, fall back to auto (don't force tool)
+  }
+}
+
+/**
  * Streaming LLM call with tool support.
  * Calls `onToken(text)` for each text chunk, `onToolCall({name, input})` if the model calls a tool,
  * and `onDone()` when complete.
+ * toolChoice: "auto" (default) or "required" (forces the model to call a tool).
  */
-async function streamLLMWithTools({ messages, model, temperature, maxTokens, tools, onToken, onToolCall, onDone }) {
+async function streamLLMWithTools({ messages, model, temperature, maxTokens, tools, toolChoice = "auto", onToken, onToolCall, onDone }) {
   if (model.startsWith("gpt-") || model.startsWith("o")) {
     const openaiTools = tools.map((t) => ({
       type: "function",
@@ -395,7 +456,7 @@ async function streamLLMWithTools({ messages, model, temperature, maxTokens, too
       max_tokens: maxTokens,
       messages,
       tools: openaiTools,
-      tool_choice: "auto",
+      tool_choice: toolChoice === "required" ? "required" : "auto",
       stream: true,
     });
 
@@ -437,6 +498,7 @@ async function streamLLMWithTools({ messages, model, temperature, maxTokens, too
       system: systemMsg ? systemMsg.content : undefined,
       messages: nonSystem,
       tools: anthropicTools,
+      tool_choice: toolChoice === "required" ? { type: "any" } : { type: "auto" },
     });
 
     let toolCallAccum = null;
@@ -569,9 +631,17 @@ async function handleCoaching(req, res, userId) {
 
   console.log(`[coaching] context length=${(trainingContext || "").length}, history length=${(workoutHistory || "").length}, zones=${JSON.stringify(z)}`);
 
-  const { messages: promptMessages, model, temperature, maxTokens } = await formatPrompt("coaching-chat", variables);
+  // Run intent classification and prompt fetch in parallel to avoid added latency.
+  // The classifier decides whether to force tool_choice=required, eliminating
+  // the failure mode where the LLM describes a change in text instead of calling the tool.
+  const [needsPlanChange, promptResult] = await Promise.all([
+    classifyPlanChangeIntent(userMessage, conversationHistory || []),
+    formatPrompt("coaching-chat", variables),
+  ]);
+  const { messages: promptMessages, model, temperature, maxTokens } = promptResult;
+  const toolChoice = needsPlanChange ? "required" : "auto";
 
-  console.log(`[coaching] model=${model}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
+  console.log(`[coaching] model=${model}, toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
 
   // Append conversation history if provided
   const allMessages = [...promptMessages];
@@ -626,6 +696,8 @@ async function handleCoaching(req, res, userId) {
       inputs: { messages: allMessages },
       metadata: {
         model,
+        tool_choice: toolChoice,
+        needs_plan_change: needsPlanChange,
         user_id: userId ?? "anonymous",
         env: process.env.NODE_ENV === "production" ? "beta" : "development",
       },
@@ -648,6 +720,7 @@ async function handleCoaching(req, res, userId) {
       temperature,
       maxTokens,
       tools: [PROPOSE_PLAN_CHANGE_TOOL],
+      toolChoice,
       onToken: (token) => {
         accumulated += token;
         res.write(`data: ${JSON.stringify(token)}\n\n`);
@@ -670,7 +743,7 @@ async function handleCoaching(req, res, userId) {
           langsmithUpdateRun(llmRunId, {
             end_time: new Date().toISOString(),
             outputs: { response: accumulated, tool_call: capturedToolCall || null },
-            extra: { model },
+            extra: { model, tool_choice: toolChoice, needs_plan_change: needsPlanChange },
           });
         }
       },

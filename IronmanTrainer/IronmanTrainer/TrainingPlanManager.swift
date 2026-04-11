@@ -43,24 +43,26 @@ struct SwapCommand: Codable {
 
 // MARK: - Plan Change Models (add/drop/swap with user confirmation)
 
-enum PlanChangeAction: String, Codable { case add, drop, swap }
+enum PlanChangeAction: String, Codable { case add, drop, swap, replace }
 
 struct PlanChange: Codable, Identifiable {
     let id: UUID
     let action: PlanChangeAction
     let week: Int
-    let day: String?       // required for add and drop; nil for swap
-    let type: String?      // for add only
-    let duration: String?  // for add
-    let zone: String?      // for add
+    let day: String?       // required for add, drop, replace; nil for swap
+    let type: String?      // new workout type — for add and replace
+    let duration: String?  // for add and replace
+    let zone: String?      // for add and replace
     let notes: String?     // for add
     let fromDay: String?   // for swap: source day
     let toDay: String?     // for swap: destination day
+    let fromType: String?  // for replace: existing workout type to replace (keyword, e.g. "Run")
 
     enum CodingKeys: String, CodingKey {
         case action, week, day, type, duration, zone, notes
         case fromDay = "from_day"
         case toDay = "to_day"
+        case fromType = "from_type"
     }
 
     init(from decoder: Decoder) throws {
@@ -75,9 +77,10 @@ struct PlanChange: Codable, Identifiable {
         self.notes = try container.decodeIfPresent(String.self, forKey: .notes)
         self.fromDay = try container.decodeIfPresent(String.self, forKey: .fromDay)
         self.toDay = try container.decodeIfPresent(String.self, forKey: .toDay)
+        self.fromType = try container.decodeIfPresent(String.self, forKey: .fromType)
     }
 
-    init(action: PlanChangeAction, week: Int, day: String? = nil, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, fromDay: String? = nil, toDay: String? = nil) {
+    init(action: PlanChangeAction, week: Int, day: String? = nil, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, fromDay: String? = nil, toDay: String? = nil, fromType: String? = nil) {
         self.id = UUID()
         self.action = action
         self.week = week
@@ -88,6 +91,7 @@ struct PlanChange: Codable, Identifiable {
         self.notes = notes
         self.fromDay = fromDay
         self.toDay = toDay
+        self.fromType = fromType
     }
 }
 
@@ -656,17 +660,8 @@ class TrainingPlanManager: ObservableObject {
                 if let data = currentVersion.value(forKey: "weeklyPlanData") as? Data {
                     let decoder = JSONDecoder()
                     if let restoredWeeks = try? decoder.decode([TrainingWeek].self, from: data) {
-                        // Check if restored data is stale (missing nutritionTarget field added later)
-                        let hasNutritionData = restoredWeeks.flatMap(\.workouts).contains { $0.nutritionTarget != nil }
-                        if hasNutritionData {
-                            self.weeks = restoredWeeks
-                            print("[COREDATA] Restored current plan version from Core Data")
-                        } else {
-                            // Stale data from before nutrition targets — use fresh plan data
-                            // Re-save so future loads have the updated schema
-                            savePlanVersion(source: "schema_migration", description: "Added nutrition targets")
-                            print("[COREDATA] Skipped stale Core Data restore (missing nutrition targets), using fresh plan")
-                        }
+                        self.weeks = restoredWeeks
+                        print("[COREDATA] Restored current plan version from Core Data")
                     }
                 }
             }

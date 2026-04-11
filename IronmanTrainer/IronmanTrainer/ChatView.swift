@@ -191,6 +191,7 @@ struct PlanChangeRow: View {
         case .add: return "plus.circle.fill"
         case .drop: return "minus.circle.fill"
         case .swap: return "arrow.left.arrow.right.circle.fill"
+        case .replace: return "arrow.triangle.2.circlepath.circle.fill"
         }
     }
 
@@ -199,6 +200,7 @@ struct PlanChangeRow: View {
         case .add: return .green
         case .drop: return .red
         case .swap: return .orange
+        case .replace: return .blue
         }
     }
 
@@ -210,6 +212,8 @@ struct PlanChangeRow: View {
             return "Drop all workouts on \(change.day ?? "?"), Week \(change.week)"
         case .swap:
             return "Swap \(change.fromDay ?? "?") \u{2194} \(change.toDay ?? "?"), Week \(change.week)"
+        case .replace:
+            return "Replace \(change.fromType ?? "workout") \u{2192} \(change.type ?? "?") on \(change.day ?? "?"), Week \(change.week)"
         }
     }
 

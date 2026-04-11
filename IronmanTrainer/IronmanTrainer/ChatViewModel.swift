@@ -98,6 +98,28 @@ class ChatViewModel: ObservableObject {
                     return workout
                 }
                 applied += 1
+
+            case .replace:
+                guard let day = change.day, let fromType = change.fromType, let toType = change.type else {
+                    skipped.append("Missing day/from_type/type for replace in week \(change.week)")
+                    continue
+                }
+                // Find workout by keyword match on fromType (handles "Run", "run", "🏃 Run" etc.)
+                if let idx = workouts.firstIndex(where: { $0.day == day && workoutTypeMatches($0.type, keyword: fromType) }) {
+                    let old = workouts[idx]
+                    workouts[idx] = DayWorkout(
+                        day: day,
+                        type: toType,
+                        duration: change.duration ?? old.duration,
+                        zone: change.zone ?? old.zone,
+                        status: nil,
+                        nutritionTarget: nil,
+                        notes: change.notes ?? old.notes
+                    )
+                    applied += 1
+                } else {
+                    skipped.append("No \(fromType) workout on \(day) in week \(change.week)")
+                }
             }
 
             updatedWeeks[weekIdx] = TrainingWeek(
@@ -120,6 +142,31 @@ class ChatViewModel: ObservableObject {
         messages.append(ChatMessage(isUser: false, text: confirmText))
         saveChatHistory()
         pendingProposal = nil
+    }
+
+    /// Returns true if `workoutType` (e.g. "🏃 Run") matches a user/LLM keyword (e.g. "run", "running", "Run").
+    /// Used by `.replace` to find a specific workout on a day that has multiple workouts.
+    func workoutTypeMatches(_ workoutType: String, keyword: String) -> Bool {
+        let haystack = workoutType.lowercased()
+        let needle = keyword.lowercased()
+        if haystack.contains(needle) || needle.contains(haystack) { return true }
+        // Keyword aliases
+        let aliases: [String: [String]] = [
+            "run": ["run", "running", "jog", "🏃"],
+            "bike": ["bike", "cycling", "cycle", "ride", "🚴"],
+            "swim": ["swim", "swimming", "pool", "🏊"],
+            "brick": ["brick", "🧱"],
+            "strength": ["strength", "gym", "lift", "weights", "🏋"],
+            "yoga": ["yoga", "stretch", "🧘"],
+            "rest": ["rest"],
+        ]
+        for (_, words) in aliases {
+            if words.contains(where: { haystack.contains($0) }) &&
+               words.contains(where: { needle.contains($0) }) {
+                return true
+            }
+        }
+        return false
     }
 
     func dismissPlanChanges() {
