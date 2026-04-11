@@ -113,7 +113,7 @@ class ChatViewModel: ObservableObject {
             trainingPlan.applyRescheduledPlan(updatedWeeks, source: "chat", description: proposal.summary)
         }
 
-        var confirmText = "\u{2705} Applied \(applied) change\(applied == 1 ? "" : "s") to your training plan."
+        var confirmText = "\u{2705} Applied \(applied) change\(applied == 1 ? "" : "s") to your training plan.\n\(proposal.summary)"
         if !skipped.isEmpty {
             confirmText += "\n\u{26A0}\u{FE0F} Skipped \(skipped.count): \(skipped.joined(separator: "; "))"
         }
@@ -213,8 +213,11 @@ class ChatViewModel: ObservableObject {
 
         \(PrepRacesManager.shared.contextString().map { "\n\($0)\n" } ?? "")
 
-        RESCHEDULE GUIDELINES:
-        - Use the propose_plan_change tool whenever the user asks to add, drop, cancel, replace, or reschedule workouts.
+        PLAN CHANGE RULES — READ CAREFULLY:
+        - Call propose_plan_change IMMEDIATELY when the user asks to change, add, drop, cancel, or reschedule workouts.
+        - NEVER say "let me know if you want me to apply this" or "shall I go ahead?" — the app shows a confirmation dialog automatically. Just call the tool.
+        - NEVER describe a change in text and wait for the user to say "yes" — call the tool right away.
+        - If the user says "yes", "yea", "do it", "go ahead", or confirms a change you described — call the tool NOW with those changes.
         - Dropping all workouts on a day leaves it as Rest — no need to add a Rest workout.
         - Only target future workouts, not past ones.
         - PREP RACE DAYS: Never schedule training on prep race day or the day before.
