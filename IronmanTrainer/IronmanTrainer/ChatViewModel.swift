@@ -162,8 +162,12 @@ class ChatViewModel: ObservableObject {
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
+            // Append a one-line reminder so the tool-call rule appears right next to the request
+            let baseMessage = hasText ? text : "What do you see in this image?"
+            let userMessageWithReminder = baseMessage + "\n\n[If this requires a plan change, call propose_plan_change immediately — do not describe it in text.]"
+
             let coachingResponse = try await coachingService.sendCoachingMessage(
-                userMessage: hasText ? text : "What do you see in this image?",
+                userMessage: userMessageWithReminder,
                 trainingContext: updatedContext,
                 workoutHistory: history,
                 zoneBoundaries: healthKit?.zoneBoundaries,
@@ -198,9 +202,13 @@ class ChatViewModel: ObservableObject {
     func buildRescheduleContext() -> String {
         guard let trainingPlan = trainingPlan else { return "" }
 
-        let allWeeks = trainingPlan.weeks.map { week in
+        // Only include current week ± 2 to keep context small and tool-call rules prominent
+        let currentWeekNum = trainingPlan.currentWeekNumber
+        let relevantWeeks = trainingPlan.weeks.filter { abs($0.weekNumber - currentWeekNum) <= 2 }
+        let weeksSummary = relevantWeeks.map { week in
             let workouts = week.workouts.map { "\($0.day): \($0.type) \($0.duration) \($0.zone)" }.joined(separator: ", ")
-            return "Week \(week.weekNumber) (\(week.phase)): \(workouts)"
+            let marker = week.weekNumber == currentWeekNum ? " ← CURRENT WEEK" : ""
+            return "Week \(week.weekNumber) (\(week.phase))\(marker): \(workouts)"
         }.joined(separator: "\n")
 
         return """
@@ -212,10 +220,9 @@ class ChatViewModel: ObservableObject {
         If the user says "yes", "yea", "sure", "do it", or confirms a previously described change — call the tool NOW with those changes.
         Only target future workouts. Changes are additive — only touch what the user explicitly mentioned.
 
-        ====== TRAINING PLAN DATA ======
+        ====== TRAINING PLAN (current week ± 2) ======
 
-        FULL 17-WEEK TRAINING PLAN:
-        \(allWeeks)
+        \(weeksSummary)
 
         Current date: \(Formatters.fullDate.string(from: Date()))
 
