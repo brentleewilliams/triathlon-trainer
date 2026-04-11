@@ -191,8 +191,22 @@ struct HomeView: View {
 
         let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let weekMonday = mondayOfWeek(week.startDate)
+        let isCurrentWeek = selectedWeek == trainingPlan.currentWeekNumber
 
-        return dayOrder.map { day in
+        return dayOrder.enumerated().map { (index, day) in
+            // For the current week, days that are strictly before today show as Rest
+            // (the plan was created mid-week; those days were never actionable)
+            if isCurrentWeek {
+                let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
+                if calendar.startOfDay(for: dayDate) < todayStart {
+                    let rest = DayWorkout(day: day, type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
+                    return (day: day, workouts: [rest])
+                }
+            }
+
             if let workouts = grouped[day] {
                 return (day: day, workouts: workouts)
             } else {
