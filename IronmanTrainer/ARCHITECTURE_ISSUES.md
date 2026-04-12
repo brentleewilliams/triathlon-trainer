@@ -131,3 +131,81 @@
 ### Summary
 
 The biggest systemic issues are **god objects** and **duplication**. Three files — `OnboardingView` (2299 lines), `HomeView` (1621 lines), and `TrainingPlanManager` (677 lines) — each do the work of 3–5 classes. The same workout-matching and duration-parsing logic is implemented 3x across the codebase with diverging signatures. The quickest wins with the highest payoff: (1) delete `ClaudeService.swift` if unused, (2) consolidate the three `workoutTypeMatches`/`parseDuration` duplicates into `WorkoutMatchingHelpers`, (3) add `@MainActor` to `HealthKitManager` and remove `@unchecked Sendable`. The god objects are real problems but require larger refactors — start with the duplication and dead code, which are pure cleanup with no risk.
+
+## Review — 2026-04-11 (Status Update)
+
+The following HIGH issues from the previous review were resolved:
+- ✅ OnboardingView split into `OnboardingView.swift` (318 lines), `OnboardingComponents.swift`, `OnboardingSteps.swift`
+- ✅ HomeView split into `HomeView.swift` (442 lines), `DayDetailView.swift`, `DayRowComponents.swift`, `WorkoutDayRows.swift`
+- ✅ Duplicate `workoutTypeMatches`, `extractWorkoutType`, `parseDuration` methods removed from views — all callers use `WorkoutMatchingHelpers.swift` canonical free functions
+
+The following remain unresolved from the 2026-04-11 review:
+- ⏳ TrainingPlanManager 677-line god object (VersionManager + RaceCardService split still needed)
+- ⏳ AnalyticsView analytics calculations in view (`recalculateAnalytics` still lives in view)
+- ⏳ HealthKitManager `@unchecked Sendable` concurrency hack
+- ⏳ ChatViewModel multiple responsibilities (plan execution + context building + messaging)
+- ⏳ AuthService mixed auth + plan caching
+
+---
+
+## Review — 2026-04-11 (New Findings)
+
+### [MEDIUM] `getDateForDay` duplicated in HomeView and DayDetailView
+**File:** `IronmanTrainer/HomeView.swift:282-291`, `IronmanTrainer/DayDetailView.swift:74-83`
+**Problem:** Same day-offset-from-week-start calculation in two places with slightly different parameter styles. One takes a `DayWorkout`, the other uses `self.day`. Divergence risk if week start logic changes.
+**Fix:** Extract `dateForDay(_ dayAbbrev: String, weekStart: Date) -> Date` as a free function in `WorkoutMatchingHelpers.swift`. Both callers pass the relevant day string and week start.
+
+---
+
+### [MEDIUM] DayDetailView contains drill parsing, brick split logic, and regex in the view
+**File:** `IronmanTrainer/DayDetailView.swift:57-126`
+**Problem:** Regex parsing for brick splits, drill set detection, and workout detail extraction are business logic sitting directly in a SwiftUI view. Cannot be unit tested without instantiating the view.
+**Fix:** Extract to a `WorkoutDetailParser` struct with static methods. DayDetailView calls these and renders the results.
+
+---
+
+### [MEDIUM] `HealthKitOnboardingData.swift` is 549 lines — unclear what's actively used
+**File:** `IronmanTrainer/HealthKitOnboardingData.swift:1-549`
+**Problem:** Large file of HK onboarding model data. Not obvious which structs/arrays are referenced by OnboardingSteps vs dead weight from earlier iterations.
+**Fix:** Grep all types defined in this file against their actual usage sites. Delete any unused structs/arrays. If everything is used, add a comment at the top explaining its scope.
+
+---
+
+### [MEDIUM] 70+ `print()` statements ship in production builds
+**File:** Multiple — `HealthKitManager.swift`, `AuthService.swift`, `TrainingPlanManager.swift`, `ChatViewModel.swift` and others
+**Problem:** Debug print statements are not conditionally compiled. They run in release builds, adding noise and minor overhead.
+**Fix:** Replace with `#if DEBUG print(...) #endif` or switch to `os.log` with a subsystem. A one-line global `func debugLog(_ msg: String) { #if DEBUG print(msg) #endif }` wrapper handles most cases.
+
+---
+
+### [MEDIUM] OnboardingViewModel async closures may retain self strongly
+**File:** `IronmanTrainer/OnboardingViewModel.swift`
+**Problem:** `Task { }` blocks that call `self.` methods (e.g. in plan generation flows) create strong captures. If the user dismisses onboarding before the task completes, the ViewModel stays alive.
+**Fix:** Audit every `Task { }` block. Where the task outcome isn't needed after dealloc, use `Task { [weak self] in guard let self else { return } ... }`.
+
+---
+
+### [LOW] AppConstants.Secrets silently returns empty string for missing API keys
+**File:** `IronmanTrainer/AppConstants.swift:73-113`
+**Problem:** Each key returns `""` if not found. A missing key causes silent downstream failures (API calls fail with auth errors) rather than a loud early crash during development.
+**Fix:** In `DEBUG` builds, use `preconditionFailure("Missing API key: ANTHROPIC_API_KEY — check Config.xcconfig")` so misconfigured dev environments fail immediately instead of hours later.
+
+---
+
+### [LOW] LangSmithTracer fire-and-forget Tasks swallow network errors silently
+**File:** `IronmanTrainer/LangSmithTracer.swift`
+**Problem:** Tracing calls use `Task { await post(...) }` with no error handling. Failed traces are invisible; there's no way to know tracing is broken without watching logs.
+**Fix:** Log failures at minimum: `catch { print("[LangSmith] trace failed: \(error)") }`. Tracing is best-effort so no retry needed, but silent failure makes debugging hard.
+
+---
+
+### [LOW] `struct Race1App` name doesn't match project branding
+**File:** `IronmanTrainer/IronmanTrainerApp.swift:5`
+**Problem:** App entry point is named `Race1App` while everything else uses `IronmanTrainer`. Causes confusion when reading logs, crash reports, and Instruments traces.
+**Fix:** Rename to `IronmanTrainerApp`. One-line change, no behavior impact.
+
+---
+
+### Summary
+
+The previous review's god-object and duplication issues are largely resolved. What remains is a tier of medium-complexity issues: **business logic in views** (DayDetailView parsing, AnalyticsView calculations), **unresolved carries from last review** (TrainingPlanManager, HealthKitManager, ChatViewModel), and a cluster of low-effort hygiene fixes (print statements, silent API key fallback, naming). The highest-ROI new fix is replacing `print()` with conditional logging across the codebase — it takes 30 minutes and immediately improves release build quality. After that, extract `WorkoutDetailParser` from DayDetailView, which is small, well-scoped, and adds direct test coverage for logic that currently has none.
