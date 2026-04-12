@@ -1,6 +1,56 @@
 import SwiftUI
 import HealthKit
 
+// MARK: - Workout Detail Parser
+struct WorkoutDetailParser {
+    struct BrickSplit {
+        let bikeDuration: String
+        let runDuration: String
+        let runPace: String?
+    }
+
+    struct DrillInfo {
+        let title: String
+        let items: [(name: String, tip: String)]
+    }
+
+    static func parseBrickDetail(from notes: String) -> BrickSplit? {
+        let pattern = #"[Bb]ike\s+([\d:]+\s*(?:min)?)\s*(?:\([^)]*\))?\s*(?:[@Z][\w\s\-]*)?\s*\+\s*(?:[Bb]rick\s+)?(?:mini-brick\s+)?[Rr]un\s+([\d:]+\s*(?:min)?)\s*(?:[@(]\s*([\d:]+(?:-[\d:]+)?\s*pace))?"#
+        if let regex = try? NSRegularExpression(pattern: pattern),
+           let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)) {
+            let bikeTime = String(notes[Range(match.range(at: 1), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            let runTime = String(notes[Range(match.range(at: 2), in: notes)!]).trimmingCharacters(in: .whitespaces)
+            var runPace: String? = nil
+            if match.range(at: 3).location != NSNotFound,
+               let paceRange = Range(match.range(at: 3), in: notes) {
+                runPace = String(notes[paceRange]).trimmingCharacters(in: .whitespaces)
+            }
+            return BrickSplit(bikeDuration: bikeTime, runDuration: runTime, runPace: runPace)
+        }
+        return nil
+    }
+
+    static func drillsReferenced(in notes: String) -> DrillInfo? {
+        if notes.contains("Drill Set A") {
+            return DrillInfo(title: "Drill Set A — Catch Focus", items: [
+                (name: "Catch-Up (4x50)", tip: "One hand stays extended until the other catches up. Focus on hand entry timing and front-quadrant catch."),
+                (name: "Fingertip Drag (4x50)", tip: "Drag fingertips along the water during recovery. Builds high elbow recovery and shoulder mobility.")
+            ])
+        } else if notes.contains("Drill Set B") {
+            return DrillInfo(title: "Drill Set B — Kick & Bilateral", items: [
+                (name: "6-Kick Switch (4x50)", tip: "Six kicks on your side, then switch with one stroke. Builds kick-to-stroke coordination and rotation."),
+                (name: "Side Kick (4x50)", tip: "Kick on your side, bottom arm extended, top arm at hip. Develops balance and bilateral breathing.")
+            ])
+        } else if notes.contains("Drill Set C") {
+            return DrillInfo(title: "Drill Set C — Advanced Stroke", items: [
+                (name: "Single-Arm (4x50 alternating)", tip: "Swim with one arm, other at your side. Isolates each arm's pull pattern to find imbalances."),
+                (name: "3-Stroke Glide (4x50)", tip: "Three strokes then glide in streamline. Emphasizes distance per stroke and catch power.")
+            ])
+        }
+        return nil
+    }
+}
+
 // MARK: - Day Detail View
 struct DayDetailView: View {
     let day: DayWorkout
@@ -55,31 +105,8 @@ struct DayDetailView: View {
         }
     }
 
-    func parseBrickDetail(from notes: String) -> WorkoutDayRows.BrickSplit? {
-        let pattern = #"[Bb]ike\s+([\d:]+\s*(?:min)?)\s*(?:\([^)]*\))?\s*(?:[@Z][\w\s\-]*)?\s*\+\s*(?:[Bb]rick\s+)?(?:mini-brick\s+)?[Rr]un\s+([\d:]+\s*(?:min)?)\s*(?:[@(]\s*([\d:]+(?:-[\d:]+)?\s*pace))?"#
-        if let regex = try? NSRegularExpression(pattern: pattern),
-           let match = regex.firstMatch(in: notes, range: NSRange(notes.startIndex..., in: notes)) {
-            let bikeTime = String(notes[Range(match.range(at: 1), in: notes)!]).trimmingCharacters(in: .whitespaces)
-            let runTime = String(notes[Range(match.range(at: 2), in: notes)!]).trimmingCharacters(in: .whitespaces)
-            var runPace: String? = nil
-            if match.range(at: 3).location != NSNotFound,
-               let paceRange = Range(match.range(at: 3), in: notes) {
-                runPace = String(notes[paceRange]).trimmingCharacters(in: .whitespaces)
-            }
-            return WorkoutDayRows.BrickSplit(bikeDuration: bikeTime, runDuration: runTime, runPace: runPace)
-        }
-        return nil
-    }
-
     func getDateForDay() -> Date {
-        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        let dayIndex = dayOrder.firstIndex(of: day.day) ?? 0
-
-        let calendar = Calendar.current
-        let weekStart = week.startDate
-        let daysToAdd = dayIndex
-
-        return calendar.date(byAdding: .day, value: daysToAdd, to: weekStart) ?? weekStart
+        dateForWorkoutDay(day.day, weekStartDate: week.startDate)
     }
 
     func getWorkoutTypeName(_ workoutType: HKWorkoutActivityType) -> String {
@@ -101,38 +128,13 @@ struct DayDetailView: View {
         }
     }
 
-    struct DrillInfo {
-        let title: String
-        let items: [(name: String, tip: String)]
-    }
-
-    func drillsReferenced(in notes: String) -> DrillInfo? {
-        if notes.contains("Drill Set A") {
-            return DrillInfo(title: "Drill Set A — Catch Focus", items: [
-                (name: "Catch-Up (4x50)", tip: "One hand stays extended until the other catches up. Focus on hand entry timing and front-quadrant catch."),
-                (name: "Fingertip Drag (4x50)", tip: "Drag fingertips along the water during recovery. Builds high elbow recovery and shoulder mobility.")
-            ])
-        } else if notes.contains("Drill Set B") {
-            return DrillInfo(title: "Drill Set B — Kick & Bilateral", items: [
-                (name: "6-Kick Switch (4x50)", tip: "Six kicks on your side, then switch with one stroke. Builds kick-to-stroke coordination and rotation."),
-                (name: "Side Kick (4x50)", tip: "Kick on your side, bottom arm extended, top arm at hip. Develops balance and bilateral breathing.")
-            ])
-        } else if notes.contains("Drill Set C") {
-            return DrillInfo(title: "Drill Set C — Advanced Stroke", items: [
-                (name: "Single-Arm (4x50 alternating)", tip: "Swim with one arm, other at your side. Isolates each arm's pull pattern to find imbalances."),
-                (name: "3-Stroke Glide (4x50)", tip: "Three strokes then glide in streamline. Emphasizes distance per stroke and catch power.")
-            ])
-        }
-        return nil
-    }
-
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     // Planned Workout
                     let isBrickDetail = day.type.lowercased().contains("brick") || day.type.lowercased().contains("race sim")
-                    let brickSplit = isBrickDetail ? (day.notes.flatMap { parseBrickDetail(from: $0) }) : nil
+                    let brickSplit = isBrickDetail ? (day.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }) : nil
 
                     if isBrickDetail, let split = brickSplit {
                         // Brick: two exercise sections
@@ -281,7 +283,7 @@ struct DayDetailView: View {
                         .cornerRadius(12)
 
                         // Drill Set Info
-                        if let drills = drillsReferenced(in: notes) {
+                        if let drills = WorkoutDetailParser.drillsReferenced(in: notes) {
                             NavigationLink {
                                 DrillsDetailView()
                             } label: {

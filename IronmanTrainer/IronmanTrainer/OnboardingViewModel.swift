@@ -295,7 +295,8 @@ class OnboardingViewModel: ObservableObject {
         planMethod = "template"
         planWarnings = []
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 
             let input = buildPlanGenerationInput()
@@ -462,7 +463,8 @@ class OnboardingViewModel: ObservableObject {
         generatedPlan = nil
         planBatchesCompleted = 0
 
-        Task {
+        Task { [weak self] in
+            guard let self else { return }
             // Keep the network request alive if the user backgrounds the app
             let taskID = UIApplication.shared.beginBackgroundTask(expirationHandler: nil)
 

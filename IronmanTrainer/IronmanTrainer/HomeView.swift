@@ -280,14 +280,7 @@ struct HomeView: View {
     }
 
     func getDateForDay(_ workout: DayWorkout) -> Date {
-        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        let dayIndex = dayOrder.firstIndex(of: workout.day) ?? 0
-
-        let calendar = Calendar.current
-        let weekStart = mondayOfWeek(currentWeek?.startDate ?? Date())
-        let daysToAdd = dayIndex
-
-        return calendar.date(byAdding: .day, value: daysToAdd, to: weekStart) ?? weekStart
+        dateForWorkoutDay(workout.day, weekStartDate: mondayOfWeek(currentWeek?.startDate ?? Date()))
     }
 
     var body: some View {

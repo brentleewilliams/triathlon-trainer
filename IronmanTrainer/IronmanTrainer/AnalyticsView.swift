@@ -1,25 +1,16 @@
 import SwiftUI
 import HealthKit
 
-// MARK: - Analytics View
-struct AnalyticsView: View {
-    @EnvironmentObject var trainingPlan: TrainingPlanManager
-    @EnvironmentObject var healthKit: HealthKitManager
-    @State private var selectedWeek: Int = 1
-    @State private var hasAppearedOnce = false
-    @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
-    @State private var actualZonePercentages: [String: Double] = [:]
-    @State private var isLoadingZones = false
-    @State private var cachedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
-    @State private var cachedPlannedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
-    @State private var cachedZonePercentages: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+// MARK: - Analytics ViewModel
 
-    var currentWeek: TrainingWeek? {
-        trainingPlan.getWeek(selectedWeek)
-    }
+@MainActor
+class AnalyticsViewModel: ObservableObject {
+    @Published var cachedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
+    @Published var cachedPlannedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
+    @Published var cachedZonePercentages: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
 
-    func recalculateAnalytics() {
-        guard let week = currentWeek else {
+    func recalculate(week: TrainingWeek?, hkWorkouts: [HKWorkout]) {
+        guard let week else {
             cachedVolume = (0, 0, 0)
             cachedPlannedVolume = (0, 0, 0)
             cachedZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
@@ -32,7 +23,7 @@ struct AnalyticsView: View {
         let weekEnd = calendar.startOfDay(for: week.endDate)
         var swimH: Double = 0, bikeH: Double = 0, runH: Double = 0
 
-        for hkWorkout in healthKit.workouts {
+        for hkWorkout in hkWorkouts {
             let workoutDate = calendar.startOfDay(for: hkWorkout.startDate)
             guard workoutDate >= weekStart && workoutDate <= weekEnd else { continue }
             let hours = hkWorkout.duration / 3600
@@ -51,7 +42,7 @@ struct AnalyticsView: View {
 
         for workout in week.workouts {
             if workout.type.contains("Rest") { continue }
-            let hours = parseWorkoutDuration(workout.duration)
+            let hours = parseDurationHours(workout.duration)
 
             // Planned volume
             if workout.type.contains("\u{1F3CA}") {
@@ -82,16 +73,15 @@ struct AnalyticsView: View {
         }
     }
 
-    func parseWorkoutDuration(_ duration: String) -> Double {
+    /// Parse a duration string to hours (Double). Used for planned volume calculations.
+    func parseDurationHours(_ duration: String) -> Double {
         let trimmed = duration.trimmingCharacters(in: .whitespaces)
 
-        // Handle "min" format (e.g., "40min")
         if trimmed.contains("min") {
             let value = trimmed.replacingOccurrences(of: "min", with: "").trimmingCharacters(in: .whitespaces)
             return (Double(value) ?? 0) / 60
         }
 
-        // Handle "H:MM" format (e.g., "1:00", "2:30")
         if trimmed.contains(":") {
             let components = trimmed.split(separator: ":")
             if components.count == 2,
@@ -101,18 +91,16 @@ struct AnalyticsView: View {
             }
         }
 
-        // Handle yard format for swimming (approximate 1 yard = 1 minute in pool)
         if trimmed.contains("yd") {
             let value = trimmed.replacingOccurrences(of: "yd", with: "").trimmingCharacters(in: .whitespaces)
             let cleanValue = value.replacingOccurrences(of: ",", with: "")
             if let yardage = Double(cleanValue) {
-                return yardage / 1800 // ~1800 yards per hour
+                return yardage / 1800
             }
         }
 
-        // Handle "Race" or other text
         if trimmed.lowercased() == "race" {
-            return 3.0 // Assume sprint tri is ~3 hours
+            return 3.0
         }
 
         return 0
@@ -122,7 +110,6 @@ struct AnalyticsView: View {
         let trimmed = zone.trimmingCharacters(in: .whitespaces)
 
         if trimmed.contains("-") {
-            // Split zones like "Z2-3" or "Z1-2"
             let parts = trimmed.split(separator: "-")
             if parts.count == 2 {
                 if let firstNum = parts[0].last, let secondNum = parts[1].last {
@@ -133,8 +120,27 @@ struct AnalyticsView: View {
             }
         }
 
-        // Single zone like "Z2"
         return [trimmed]
+    }
+}
+
+// MARK: - Analytics View
+struct AnalyticsView: View {
+    @EnvironmentObject var trainingPlan: TrainingPlanManager
+    @EnvironmentObject var healthKit: HealthKitManager
+    @StateObject private var analyticsVM = AnalyticsViewModel()
+    @State private var selectedWeek: Int = 1
+    @State private var hasAppearedOnce = false
+    @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+    @State private var actualZonePercentages: [String: Double] = [:]
+    @State private var isLoadingZones = false
+
+    var currentWeek: TrainingWeek? {
+        trainingPlan.getWeek(selectedWeek)
+    }
+
+    func recalculateAnalytics() {
+        analyticsVM.recalculate(week: currentWeek, hkWorkouts: healthKit.workouts)
     }
 
     func complianceTrendData() -> [(week: Int, percent: Double)] {
@@ -191,17 +197,17 @@ struct AnalyticsView: View {
                     Text("Volume Summary")
                         .font(.headline)
 
-                    let hasAnyVolume = cachedPlannedVolume.swim > 0 || cachedPlannedVolume.bike > 0 || cachedPlannedVolume.run > 0
+                    let hasAnyVolume = analyticsVM.cachedPlannedVolume.swim > 0 || analyticsVM.cachedPlannedVolume.bike > 0 || analyticsVM.cachedPlannedVolume.run > 0
                     if hasAnyVolume {
                         HStack(spacing: 20) {
-                            if cachedPlannedVolume.swim > 0 {
-                                VolumeCard(label: "Swim", hours: cachedVolume.swim, planned: cachedPlannedVolume.swim, color: .blue)
+                            if analyticsVM.cachedPlannedVolume.swim > 0 {
+                                VolumeCard(label: "Swim", hours: analyticsVM.cachedVolume.swim, planned: analyticsVM.cachedPlannedVolume.swim, color: .blue)
                             }
-                            if cachedPlannedVolume.bike > 0 {
-                                VolumeCard(label: "Bike", hours: cachedVolume.bike, planned: cachedPlannedVolume.bike, color: .orange)
+                            if analyticsVM.cachedPlannedVolume.bike > 0 {
+                                VolumeCard(label: "Bike", hours: analyticsVM.cachedVolume.bike, planned: analyticsVM.cachedPlannedVolume.bike, color: .orange)
                             }
-                            if cachedPlannedVolume.run > 0 {
-                                VolumeCard(label: "Run", hours: cachedVolume.run, planned: cachedPlannedVolume.run, color: .green)
+                            if analyticsVM.cachedPlannedVolume.run > 0 {
+                                VolumeCard(label: "Run", hours: analyticsVM.cachedVolume.run, planned: analyticsVM.cachedPlannedVolume.run, color: .green)
                             }
                         }
                     } else {
@@ -254,11 +260,11 @@ struct AnalyticsView: View {
                         .padding(.bottom, 4)
 
                         HStack(spacing: 20) {
-                            ZoneBar(zone: "Z1", plannedPercent: cachedZonePercentages["Z1"] ?? 0, actualPercent: actualZonePercentages["Z1"] ?? 0, color: .gray)
-                            ZoneBar(zone: "Z2", plannedPercent: cachedZonePercentages["Z2"] ?? 0, actualPercent: actualZonePercentages["Z2"] ?? 0, color: .green)
-                            ZoneBar(zone: "Z3", plannedPercent: cachedZonePercentages["Z3"] ?? 0, actualPercent: actualZonePercentages["Z3"] ?? 0, color: .yellow)
-                            ZoneBar(zone: "Z4", plannedPercent: cachedZonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
-                            ZoneBar(zone: "Z5", plannedPercent: cachedZonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
+                            ZoneBar(zone: "Z1", plannedPercent: analyticsVM.cachedZonePercentages["Z1"] ?? 0, actualPercent: actualZonePercentages["Z1"] ?? 0, color: .gray)
+                            ZoneBar(zone: "Z2", plannedPercent: analyticsVM.cachedZonePercentages["Z2"] ?? 0, actualPercent: actualZonePercentages["Z2"] ?? 0, color: .green)
+                            ZoneBar(zone: "Z3", plannedPercent: analyticsVM.cachedZonePercentages["Z3"] ?? 0, actualPercent: actualZonePercentages["Z3"] ?? 0, color: .yellow)
+                            ZoneBar(zone: "Z4", plannedPercent: analyticsVM.cachedZonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
+                            ZoneBar(zone: "Z5", plannedPercent: analyticsVM.cachedZonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
                         }
                     }
                 }

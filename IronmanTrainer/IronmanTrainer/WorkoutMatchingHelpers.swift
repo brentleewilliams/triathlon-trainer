@@ -61,6 +61,16 @@ func extractWorkoutTypeFromString(_ typeString: String) -> String {
     return typeString
 }
 
+/// Compute the calendar date for a workout given its day abbreviation and the week's start date.
+/// - Parameters:
+///   - day: Three-letter abbreviation ("Mon", "Tue", …, "Sun")
+///   - weekStartDate: The Monday (or startDate) of the containing week
+func dateForWorkoutDay(_ day: String, weekStartDate: Date) -> Date {
+    let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    let dayIndex = dayOrder.firstIndex(of: day) ?? 0
+    return Calendar.current.date(byAdding: .day, value: dayIndex, to: weekStartDate) ?? weekStartDate
+}
+
 /// Check if a planned workout type matches a HealthKit workout activity type.
 func workoutTypeMatchesActivityType(plannedType: String, healthKitType: HKWorkoutActivityType) -> Bool {
     let planned = plannedType.lowercased()
