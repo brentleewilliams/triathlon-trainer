@@ -114,6 +114,11 @@ class AuthService: ObservableObject {
         guard let uid = currentUserID else { return }
         onboardingComplete = true
         UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
+        // Record onboarding date once so past days (before the user had the app)
+        // are treated as pre-plan — no missed markers, excluded from compliance.
+        if OnboardingStore.onboardingDate == nil {
+            OnboardingStore.onboardingDate = Date()
+        }
 
         if let plan {
             savedPlan = plan

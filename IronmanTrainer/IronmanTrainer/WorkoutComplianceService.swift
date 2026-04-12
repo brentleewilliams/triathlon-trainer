@@ -184,6 +184,8 @@ func calculateWeekCompliance(
         guard calendar.startOfDay(for: workoutDate) <= calendar.startOfDay(for: today) else { continue }
         // Skip today (not yet complete)
         guard !calendar.isDateInToday(workoutDate) else { continue }
+        // Skip pre-plan days: user didn't have the app yet.
+        if OnboardingStore.isPrePlan(workoutDate, calendar: calendar) { continue }
 
         let compliance = calculateCompliance(for: workout, on: workoutDate, from: hkWorkouts, today: today)
 

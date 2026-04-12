@@ -12,6 +12,35 @@ extension Notification.Name {
     static let navigateToWeek = Notification.Name("navigateToWeek")
 }
 
+// MARK: - Onboarding Date Store
+/// Tracks the date the user completed onboarding. Days before this date are
+/// "pre-plan" — the plan existed in the data model but the user didn't have
+/// the app yet, so we don't count them against compliance or flag as missed.
+enum OnboardingStore {
+    private static let key = "onboarding_date_global"
+
+    static var onboardingDate: Date? {
+        get {
+            let t = UserDefaults.standard.double(forKey: key)
+            return t > 0 ? Date(timeIntervalSince1970: t) : nil
+        }
+        set {
+            if let d = newValue {
+                UserDefaults.standard.set(d.timeIntervalSince1970, forKey: key)
+            } else {
+                UserDefaults.standard.removeObject(forKey: key)
+            }
+        }
+    }
+
+    /// True if `date` is strictly before the user's onboarding date.
+    /// Returns false when no onboarding date is recorded (legacy users pre-2026-04-12).
+    static func isPrePlan(_ date: Date, calendar: Calendar = .current) -> Bool {
+        guard let od = onboardingDate else { return false }
+        return calendar.startOfDay(for: date) < calendar.startOfDay(for: od)
+    }
+}
+
 // MARK: - App Group Shared Data
 enum AppGroupConstants {
     static let suiteName = "group.com.brent.race1"

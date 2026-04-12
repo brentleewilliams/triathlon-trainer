@@ -156,6 +156,8 @@ struct HomeView: View {
             let dayDate = getDateForDay(sampleWorkout)
             let dayStartOfDay = calendar.startOfDay(for: dayDate)
             guard dayStartOfDay <= todayStartOfDay else { continue }
+            // Skip pre-plan days: user didn't have the app yet, not counted.
+            if OnboardingStore.isPrePlan(dayDate) { continue }
 
             if let restWorkout = dayWorkouts.first(where: { $0.type.contains("Rest") }) {
                 if isRestDayCompleted(for: restWorkout) {
@@ -192,25 +194,23 @@ struct HomeView: View {
         let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
         let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
         let calendar = Calendar.current
-        let todayStart = calendar.startOfDay(for: Date())
         let weekMonday = mondayOfWeek(week.startDate)
-        let isCurrentWeek = selectedWeek == trainingPlan.currentWeekNumber
 
+        // Render the actual plan data for every day, past or future. Past days
+        // that precede the user's onboarding date render as a distinct "Pre-Plan"
+        // state — the plan didn't exist for them yet, so they aren't counted as
+        // missed. Past days after onboarding show their real plan content so
+        // edits (e.g. logging an unplanned workout) are visible.
         return dayOrder.enumerated().map { (index, day) in
-            // For the current week, days that are strictly before today show as Rest
-            // (the plan was created mid-week; those days were never actionable)
-            if isCurrentWeek {
-                let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
-                if calendar.startOfDay(for: dayDate) < todayStart {
-                    let rest = DayWorkout(day: day, type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
-                    return (day: day, workouts: [rest])
-                }
+            let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
+            if OnboardingStore.isPrePlan(dayDate) {
+                let prePlan = DayWorkout(day: day, type: "Pre-Plan", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
+                return (day: day, workouts: [prePlan])
             }
-
             if let workouts = grouped[day] {
                 return (day: day, workouts: workouts)
             } else {
-                // Day has no workouts (e.g. cancelled due to illness) — show as Rest
+                // Day has no workouts at all (e.g. dropped/cancelled) — show as Rest.
                 let rest = DayWorkout(day: day, type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
                 return (day: day, workouts: [rest])
             }
