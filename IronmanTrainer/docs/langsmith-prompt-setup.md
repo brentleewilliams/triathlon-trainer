@@ -66,13 +66,15 @@ firebase functions:config:set langsmith.api_key="lsv2_pt_..."
 
 ---
 
-## 2. Prompt 1: `ironman-coaching`
+## 2. Prompt 1: `coaching-chat`
+
+> NOTE (2026-04-12): The deployed prompt is named `coaching-chat`, not `ironman-coaching`. Plan changes now flow through the `propose_plan_change` tool call (see `functions/index.js: PROPOSE_PLAN_CHANGE_TOOL`), not the legacy `[PLAN_CHANGES]` / `[SWAP_DAYS]` tag format documented below. Actions are `add | drop | swap | replace` (not `modify`), and work on past AND future weeks. This file is kept for reference; pull the live prompt from LangSmith for the canonical template.
 
 **Purpose:** Main coaching chat. The user asks training questions and gets personalized coaching advice based on their plan, HealthKit data, and HR zones.
 
 **When called:** Every message sent in the Chat tab.
 
-**LangSmith prompt name:** `ironman-coaching`
+**LangSmith prompt name:** `coaching-chat`
 
 **Model:** `gpt-4.1-mini`
 
@@ -127,7 +129,8 @@ RESCHEDULE GUIDELINES:
 - BUILD PHASE (weeks 5-9): Prioritize long/key workouts, drop short secondary runs
 - TAPER (weeks 10-12): Reduce volume but keep pace work
 - RACE PREP (weeks 13-15): Keep race-pace sessions, drop easy work
-- Only reschedule FUTURE workouts, not past ones
+- Past workouts CAN be modified too (e.g. logging an unplanned workout the athlete actually did, correcting history, or retroactively swapping a missed session). Do NOT refuse past-dated changes.
+- All four actions (add, drop, swap, modify) work on past AND future weeks.
 - When the user asks to swap days, confirm which days and week, then INCLUDE this exact tag in your response:
   [SWAP_DAYS:week=NUMBER:from=DAY:to=DAY]
   Example: [SWAP_DAYS:week=2:from=Tue:to=Wed]

@@ -230,8 +230,15 @@ class ChatViewModel: ObservableObject {
             )
 
             await MainActor.run {
-                messages.append(ChatMessage(isUser: false, text: coachingResponse.text))
-                saveChatHistory()
+                // Only append an assistant bubble if there's real text.
+                // When the model responds with only a tool call (e.g. after a
+                // "yes, apply" confirmation), accumulated text is empty and we
+                // would otherwise render a blank bubble.
+                let trimmed = coachingResponse.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !trimmed.isEmpty {
+                    messages.append(ChatMessage(isUser: false, text: coachingResponse.text))
+                    saveChatHistory()
+                }
                 if let proposal = coachingResponse.proposedChanges {
                     pendingProposal = proposal
                 }
@@ -265,7 +272,9 @@ class ChatViewModel: ObservableObject {
         Do NOT say "let me know if you want to apply this" or ask for confirmation — the app shows a confirmation dialog automatically.
         Do NOT describe the change in text and wait. Call the tool first, then explain if needed.
         If the user says "yes", "yea", "sure", "do it", or confirms a previously described change — call the tool NOW with those changes.
-        Only target future workouts. Changes are additive — only touch what the user explicitly mentioned.
+        You CAN modify past workouts too (e.g. logging an unplanned workout the user did, correcting a missed day, or editing history). Operate on whatever week/day the user references — past or future.
+        Changes are additive — only touch what the user explicitly mentioned.
+        SWAP: swap MOVES existing workouts between two days. Never invent new workouts during a swap. If one day is Rest, the swap still works — the existing workouts move to the Rest day and the originally-scheduled day becomes Rest. Do NOT substitute a different workout type (e.g. do NOT turn a Run into a Brick during a swap).
 
         ====== TRAINING PLAN (current week ± 2) ======
 

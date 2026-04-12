@@ -329,7 +329,7 @@ async function streamLLM({ messages, model, temperature, maxTokens, onToken, onD
 // Tool definition for plan changes — used by streamLLMWithTools
 const PROPOSE_PLAN_CHANGE_TOOL = {
   name: "propose_plan_change",
-  description: "Propose changes to the user's training plan. Call this whenever the user asks to add, remove, cancel, replace, or reschedule workouts. The user sees a confirmation dialog before any changes are applied. Only target future workouts.",
+  description: "Propose changes to the user's training plan. Call this whenever the user asks to add, remove, cancel, replace, or reschedule workouts. The user sees a confirmation dialog before any changes are applied. Past workouts CAN be modified (e.g. logging an unplanned workout the user actually did, correcting history, or retroactively swapping a missed session) — do not refuse past-dated changes.",
   parameters: {
     type: "object",
     properties: {
@@ -345,9 +345,9 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
             action: {
               type: "string",
               enum: ["add", "drop", "swap", "replace"],
-              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (day becomes Rest). swap: exchange all workouts between two days. replace: swap one specific workout type for another on the same day (use when the day has multiple workouts and the user only wants to change one, e.g. 'change my run to a swim today').",
+              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (day becomes Rest). swap: exchange all workouts between two days — MOVES existing workouts ONLY, never invents new ones. If one of the two days is Rest, the swap still works: the workouts move to the Rest day and the originally-scheduled day becomes Rest. Never substitute a different workout type during a swap (e.g. do not turn a Run into a Brick). replace: swap one specific workout type for another on the same day (use when the day has multiple workouts and the user only wants to change one, e.g. 'change my run to a swim today').",
             },
-            week: { type: "integer", description: "Training week number (1-17). Only target future weeks." },
+            week: { type: "integer", description: "Training week number (1-17). Past and future weeks are both valid." },
             day: {
               type: "string",
               enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
