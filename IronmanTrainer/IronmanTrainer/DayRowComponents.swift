@@ -91,14 +91,8 @@ struct DayRowView: View {
         dayGroup.workouts.allSatisfy { $0.status == "secondary_race" }
     }
 
-    var isPrePlanDay: Bool {
-        dayGroup.workouts.allSatisfy { $0.type == "Pre-Plan" }
-    }
-
     var body: some View {
-        if isPrePlanDay {
-            PrePlanRow(dayGroup: dayGroup, weekStartDate: weekStartDate)
-        } else if isSecondaryRaceDay {
+        if isSecondaryRaceDay {
             SecondaryRaceRow(dayGroup: dayGroup, weekStartDate: weekStartDate)
         } else if isRestDay {
             RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
@@ -188,57 +182,6 @@ struct SecondaryRaceRow: View {
             )
             .padding(.horizontal, 12)
         }
-    }
-}
-
-// MARK: - Pre-Plan Row
-/// Rendered for days before the user's onboarding date. The plan data exists
-/// (hardcoded weeks back to Mar 23) but the user wasn't using the app yet —
-/// these days aren't counted toward compliance and aren't flagged as missed.
-struct PrePlanRow: View {
-    let dayGroup: (day: String, workouts: [DayWorkout])
-    let weekStartDate: Date
-
-    private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-
-    var dayDate: String {
-        let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
-        let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
-        return Formatters.monthDay.string(from: date)
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 12) {
-                VStack(spacing: 0) {
-                    Text(dayGroup.day)
-                        .fontWeight(.bold)
-                        .foregroundColor(.secondary)
-                    Text(dayDate)
-                        .font(.caption2)
-                        .foregroundColor(.gray)
-                }
-                .frame(width: 50)
-                Spacer()
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-
-            HStack(spacing: 12) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.title3)
-                    .foregroundColor(.secondary)
-                Text("Before your plan")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            .padding(14)
-            .background(Color(.systemGray6))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-            .padding(.horizontal, 12)
-        }
-        .opacity(0.75)
     }
 }
 

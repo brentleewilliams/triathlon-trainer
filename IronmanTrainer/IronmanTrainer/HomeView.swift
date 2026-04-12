@@ -196,17 +196,13 @@ struct HomeView: View {
         let calendar = Calendar.current
         let weekMonday = mondayOfWeek(week.startDate)
 
-        // Render the actual plan data for every day, past or future. Past days
-        // that precede the user's onboarding date render as a distinct "Pre-Plan"
-        // state — the plan didn't exist for them yet, so they aren't counted as
-        // missed. Past days after onboarding show their real plan content so
-        // edits (e.g. logging an unplanned workout) are visible.
-        return dayOrder.enumerated().map { (index, day) in
+        // Render the actual plan data for every day, past or future, EXCEPT
+        // days strictly before the user's onboarding date — those are hidden
+        // entirely (the plan didn't exist for them yet). Past days after
+        // onboarding show their real plan content so edits are visible.
+        return dayOrder.enumerated().compactMap { (index, day) in
             let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
-            if OnboardingStore.isPrePlan(dayDate) {
-                let prePlan = DayWorkout(day: day, type: "Pre-Plan", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil)
-                return (day: day, workouts: [prePlan])
-            }
+            if OnboardingStore.isPrePlan(dayDate) { return nil }
             if let workouts = grouped[day] {
                 return (day: day, workouts: workouts)
             } else {
