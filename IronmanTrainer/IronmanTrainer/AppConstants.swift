@@ -1,6 +1,13 @@
 import Foundation
 import WidgetKit
 
+// MARK: - Release build print suppression
+// In non-Debug builds, override print() with a no-op so debug logs don't ship.
+// Zero call-site changes needed — all existing print() calls are silenced automatically.
+#if !DEBUG
+func print(_ items: Any..., separator: String = " ", terminator: String = "\n") {}
+#endif
+
 extension Notification.Name {
     static let navigateToWeek = Notification.Name("navigateToWeek")
 }
