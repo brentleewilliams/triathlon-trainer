@@ -44,6 +44,11 @@
 		84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */; };
 		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
 		84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D32F7C3624007D9BC7 /* HomeView.swift */; };
+		84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */; };
+		84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */; };
+		84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */; };
+		84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */; };
+		84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */; };
 		84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */; };
 		84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D72F7C3672007D9BC7 /* ChatView.swift */; };
 		84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D92F7C367C007D9BC7 /* PlanView.swift */; };
@@ -132,6 +137,11 @@
 		84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProxyService.swift; sourceTree = "<group>"; };
 		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		84D0F0D32F7C3624007D9BC7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
+		84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRowComponents.swift; sourceTree = "<group>"; };
+		84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDayRows.swift; sourceTree = "<group>"; };
+		84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
+		84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSteps.swift; sourceTree = "<group>"; };
 		84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
 		84D0F0D72F7C3672007D9BC7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		84D0F0D92F7C367C007D9BC7 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
@@ -227,6 +237,11 @@
 				84D0F0CF2F7C3592007D9BC7 /* ChatViewModel.swift */,
 				84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */,
 				84D0F0D32F7C3624007D9BC7 /* HomeView.swift */,
+				84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */,
+				84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */,
+				84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */,
+				84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */,
+				84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */,
 				84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */,
 				84D0F0D72F7C3672007D9BC7 /* ChatView.swift */,
 				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
@@ -481,6 +496,11 @@
 				84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */,
 				84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */,
 				84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */,
+				84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */,
+				84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */,
+				84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */,
+				84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */,
+				84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */,
 				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
 				84D0F0CC2F7C3450007D9BC7 /* WorkoutMatchingHelpers.swift in Sources */,
 				84D0F0CE2F7C354C007D9BC7 /* ClaudeService.swift in Sources */,
