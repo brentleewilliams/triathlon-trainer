@@ -123,9 +123,14 @@ class LLMProxyService {
                 if raw.hasPrefix("[TOOL_CALL:") {
                     var jsonStr = String(raw.dropFirst("[TOOL_CALL:".count))
                     if jsonStr.hasSuffix("]") { jsonStr = String(jsonStr.dropLast()) }
-                    if let data = jsonStr.data(using: .utf8),
-                       let proposal = try? JSONDecoder().decode(PlanChangeProposal.self, from: data) {
-                        proposedChanges = proposal
+                    print("[LLM PROXY] tool_call json: \(jsonStr)")
+                    if let data = jsonStr.data(using: .utf8) {
+                        do {
+                            proposedChanges = try JSONDecoder().decode(PlanChangeProposal.self, from: data)
+                            print("[LLM PROXY] proposal decoded: \(proposedChanges!.changes.count) changes")
+                        } catch {
+                            print("[LLM PROXY] proposal decode FAILED: \(error)")
+                        }
                     }
                     continue
                 }

@@ -209,12 +209,10 @@ class ChatViewModel: ObservableObject {
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            // Append a one-line reminder so the tool-call rule appears right next to the request
             let baseMessage = hasText ? text : "What do you see in this image?"
-            let userMessageWithReminder = baseMessage + "\n\n[If this requires a plan change, call propose_plan_change immediately — do not describe it in text.]"
 
             let coachingResponse = try await coachingService.sendCoachingMessage(
-                userMessage: userMessageWithReminder,
+                userMessage: baseMessage,
                 trainingContext: updatedContext,
                 workoutHistory: history,
                 zoneBoundaries: healthKit?.zoneBoundaries,

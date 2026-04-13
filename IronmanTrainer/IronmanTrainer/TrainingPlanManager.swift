@@ -242,8 +242,9 @@ class TrainingPlanManager: ObservableObject {
             self.weeks = externalWeeks
             insertAllSecondaryRaceCards()
             calculateCurrentWeek()
-            // Skip Core Data restore — the generated plan takes precedence.
-            // Core Data versioning will start tracking from the first AI-coach modification.
+            // Start with the generated plan, then let any saved Core Data version
+            // (from prior chat modifications) override it so changes persist across launches.
+            loadPlanVersions()
         } else {
             setupTrainingPlan()
             calculateCurrentWeek()

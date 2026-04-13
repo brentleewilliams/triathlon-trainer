@@ -345,7 +345,7 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
             action: {
               type: "string",
               enum: ["add", "drop", "swap", "replace"],
-              description: "add: add a new workout to a day. drop: remove ALL workouts on a day (day becomes Rest). swap: exchange all workouts between two days — MOVES existing workouts ONLY, never invents new ones. If one of the two days is Rest, the swap still works: the workouts move to the Rest day and the originally-scheduled day becomes Rest. Never substitute a different workout type during a swap (e.g. do not turn a Run into a Brick). replace: swap one specific workout type for another on the same day (use when the day has multiple workouts and the user only wants to change one, e.g. 'change my run to a swim today').",
+              description: "ONLY these four actions are valid: add, drop, swap, replace. Never invent new actions like 'modify', 'update', 'change', or 'edit' — use 'replace' for all edits. add: add a new workout to a day. drop: remove ALL workouts on a day (day becomes Rest). swap: exchange all workouts between two days — MOVES existing workouts ONLY, never invents new ones. replace: change one workout on a day — use this for ANY edit including changing the workout type, duration, or zone of an existing workout (e.g. 'change Saturday's brick to a 30min Z2 run' → one single replace change with day=Sat, from_type='Brick', type='🏃 Run', duration='30min', zone='Z2'). Do NOT emit multiple change entries for a single workout edit.",
             },
             week: { type: "integer", description: "Training week number (1-17). Past and future weeks are both valid." },
             day: {
@@ -353,7 +353,7 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
               enum: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
               description: "Day of week. Required for add and drop.",
             },
-            type: { type: "string", description: "Workout type for add only, e.g. '🏃 Z2 Run'." },
+            type: { type: "string", description: "Workout type. Used for BOTH add (the new workout) AND replace (the replacement workout type). Example: '🏃 Z2 Run'. Do not use a 'to_type' field — always put the target workout type in this 'type' field." },
             duration: { type: "string", description: "Duration for add, e.g. '45min'." },
             zone: { type: "string", description: "Training zone for add, e.g. 'Z2'." },
             notes: { type: "string", description: "Optional workout notes for add." },
@@ -423,7 +423,7 @@ Reply with ONLY "yes" or "no". No other text.
   try {
     const result = await callLLM({
       messages: classifierMessages,
-      model: "claude-haiku-4-5-20251001",
+      model: "gpt-4.1-mini",
       temperature: 0,
       maxTokens: 5,
     });
@@ -727,13 +727,54 @@ async function handleCoaching(req, res, userId) {
       },
       onToolCall: (toolCall) => {
         capturedToolCall = toolCall;
-        console.log(`[coaching] tool called: ${toolCall.name}`);
+        console.log(`[coaching] tool called: ${toolCall.name} input=${JSON.stringify(toolCall.input).slice(0, 800)}`);
       },
       onDone: () => {
         // Emit tool call event before DONE so iOS can parse it
         if (capturedToolCall && capturedToolCall.name === "propose_plan_change") {
           const proposal = capturedToolCall.input;
           if (!proposal.id) proposal.id = crypto.randomUUID();
+          // Normalize stray field names the LLM sometimes invents
+          if (Array.isArray(proposal.changes)) {
+            // First pass: rename fields and coerce action aliases on each entry
+            for (const c of proposal.changes) {
+              if (!c.type && c.to_type) c.type = c.to_type;
+              if (!c.type && c.new_type) c.type = c.new_type;
+              delete c.to_type;
+              delete c.new_type;
+              // LLM sometimes emits "modify", "update", "change", "edit" for replace
+              if (["modify", "update", "change", "edit"].includes(c.action)) c.action = "replace";
+            }
+            // Second pass: collapse multiple "modify-style" entries against the same
+            // day/week (field/from/to triples) into a single replace change.
+            const grouped = {};
+            const finalChanges = [];
+            for (const c of proposal.changes) {
+              if (c.action === "replace" && c.field && c.to !== undefined) {
+                const key = `${c.week}|${c.day}|${c.from || c.from_type || ""}`;
+                if (!grouped[key]) {
+                  grouped[key] = {
+                    action: "replace",
+                    week: c.week,
+                    day: c.day,
+                    from_type: c.from || c.from_type,
+                  };
+                  finalChanges.push(grouped[key]);
+                }
+                const target = grouped[key];
+                if (c.field === "type") target.type = c.to;
+                else if (c.field === "duration") target.duration = c.to;
+                else if (c.field === "zone") target.zone = c.to;
+                else if (c.field === "notes") target.notes = c.to;
+              } else {
+                // Strip stray field/from/to if present on a normal entry
+                delete c.field; delete c.from; delete c.to;
+                finalChanges.push(c);
+              }
+            }
+            proposal.changes = finalChanges;
+          }
+          console.log(`[coaching] normalized proposal: ${JSON.stringify(proposal).slice(0, 600)}`);
           res.write(`data: [TOOL_CALL:${JSON.stringify(proposal)}]\n\n`);
         }
         res.write("data: [DONE]\n\n");
