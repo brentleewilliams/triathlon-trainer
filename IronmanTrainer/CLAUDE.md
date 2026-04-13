@@ -1,17 +1,19 @@
-# Ironman Trainer Project Specification
+# Race1 Trainer Project Specification
+
+*Updated 2026-04-13.*
 
 ## Project Overview
 
-iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with:
-- HealthKit integration for automatic workout sync
-- Claude AI coaching assistant
-- 17-week training plan with week-by-week navigation
+iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTrainer") with:
+- AI coaching via Claude tool-calling (plan changes, workout swaps, injury adjustments)
+- HealthKit integration for automatic workout sync + compliance tracking
+- AI-generated training plans via Cloud Functions + LangSmith prompt management
 - Analytics dashboard with volume and zone tracking
-- LangSmith integration for prompt/response evaluation
+- Race-agnostic architecture (any triathlon, running, or custom race type)
+- Firebase Auth + Firestore cloud sync + onboarding flow
 
-**Race Goal:** Sub-6:00 finish
-**Training Duration:** Mar 23 - Jul 19, 2026 (17 weeks)
-**Athlete:** Brent, Denver CO
+**Current use:** Brent's Ironman 70.3 Oregon (July 19, 2026, sub-6:00 goal)
+**V2 vision:** Generalize to any triathlon/running race, any athlete
 
 ## Completed Features
 
@@ -20,17 +22,15 @@ iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with
 ✅ All 17 weeks with 100% accurate workout data from PDF
 ✅ Completion tracking (green checkmarks for completed workouts)
 ✅ Completion counter (X/Y workouts completed per week)
-✅ Day detail view with notes section
-✅ Analytics page with week navigator and dynamic data
-✅ Chat with Claude AI coaching (with training context)
+✅ Day detail view (split into DayDetailView.swift, DayRowComponents.swift, WorkoutDayRows.swift)
+✅ Analytics page with week navigator and dynamic data (AnalyticsService extracted)
+✅ Chat with Claude AI coaching (tool-calling for plan changes, conversation history, image support)
 ✅ Date filtering (only shows HK workouts from specific day, not past 30 days)
-✅ App icon (custom Ironman branding, no white borders)
+✅ App icon (custom branding, no white borders)
 ✅ Keyboard handling in chat (auto-dismiss, no obstruction)
-✅ Config-based API key management (Config.plist gitignored)
-✅ Git repository initialized with clean history
+✅ Config-based API key management (Config.xcconfig gitignored)
 ✅ Weather forecast integration (shows high/low/conditions in headers and detail views)
 ✅ Weather limited to 7-day window (hidden for days >7 days in future)
-✅ Day detail navigation (click workout from list to see full details)
 ✅ Undo/rollback button for plan modifications (shows when previous version exists)
 ✅ Core Data persistence for workout plan versions
 ✅ Per-workout nutrition targets (60+ min workouts get type-specific fueling guidance)
@@ -39,45 +39,78 @@ iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with
 ✅ Race countdown banner on HomeView
 ✅ Weather data shown for past workout days (not just 7-day forecast window)
 ✅ Dynamic HR zone boundaries derived from maxHR (consistent across analytics + Claude)
-✅ Navigation titles removed from Analytics, Chat, Plan pages
-✅ Completion count shown inline in week navigation header
 ✅ LangSmith integration for Claude API call tracing and evaluation
 ✅ Settings view with notification management
-✅ Codebase restructured from monolithic ContentView.swift into ~12 focused files
+✅ Firebase Auth (Sign In with Apple) + Firestore cloud sync
+✅ 6-step onboarding flow (HealthKit → Profile → Race Search → Goals → Fitness Chat → Plan Review)
+✅ Tool-calling for plan changes (replace, swap, add, remove workouts via structured tool calls)
+✅ Plan change persistence across app launches
+✅ Secondary races (add tune-up races, auto-insert cards into plan)
+✅ Race-agnostic prompts, phase labels, week caps, and race display
+✅ VerifiedRaceDatabase for race date validation with fuzzy matching
+✅ Expanded HealthKit workout matching for non-triathlon sports
+✅ Home screen widget with race-agnostic countdown + tip cards
+✅ Architecture refactored: weak self patterns, shared date helper, WorkoutDetailParser, AnalyticsViewModel
+✅ Silent print() suppression in non-Debug builds
 
 ## Architecture
 
 ### App Entry
-- **IronmanTrainerApp.swift** — App lifecycle, HealthKit manager initialization, foreground sync
+- **IronmanTrainerApp.swift** — App lifecycle, Firebase init, auth flow, HealthKit manager init, foreground sync
 
 ### Constants & Utilities
-- **AppConstants.swift** — Notification.Name extensions, AppGroupConstants, Formatters, Secrets (loads API keys from Config.plist/xcconfig)
+- **AppConstants.swift** — Notification.Name extensions, AppGroupConstants, Formatters, Secrets (loads API keys from Config.xcconfig)
 
 ### Data Managers
-- **TrainingPlanManager.swift** — DayWorkout model, TrainingWeek model, TrainingPlanManager (manages 17 weeks of training data, calculates current week from Mar 23 start)
-- **HealthKitManager.swift** — HealthKit permissions, syncs workouts, stores in @Published array (@unchecked Sendable). Caches per-workout HR zone breakdowns in `workoutZones` dict for last 14 days. Zone boundaries derived from `maxHeartRate` via computed `zoneBoundaries` property.
-- **ClaudeService.swift** — API integration with Anthropic Claude, loads API key from Secrets
-- **ChatViewModel.swift** — ChatMessage model, ChatViewModel (chat message management, builds training context dynamically)
-- **LangSmithTracer.swift** — Singleton tracer that logs each Claude API call to LangSmith REST API. Captures system prompt, user message, assistant response, and timing. Uses session_name "IronmanTrainer" to group coaching conversations.
+- **TrainingPlanManager.swift** (678 lines) — DayWorkout model, TrainingWeek model, TrainingPlanManager (manages training data, dynamic week calculation from user's race date, plan change execution)
+- **HealthKitManager.swift** — HealthKit permissions, syncs workouts, caches per-workout HR zone breakdowns. Zone boundaries derived from `maxHeartRate` via computed `zoneBoundaries` property. Supports non-triathlon sport types.
+- **HealthKitOnboardingData.swift** (549 lines) — Pre-populate user profile from HealthKit during onboarding
+- **ClaudeService.swift** — API integration with Anthropic Claude (claude-sonnet-4-6), loads API key from Secrets
+- **ChatViewModel.swift** (580 lines) — Chat message management, builds training context, tool-calling for plan changes (swap/replace/add/remove), conversation history persistence, reschedule context with ±2 week window
+- **LangSmithTracer.swift** — Singleton tracer logging Claude API calls to LangSmith REST API
+- **LLMProxyService.swift** (542 lines) — Client proxy for Cloud Function plan generation (batched 2-pass LLM with LangSmith prompt management)
+- **PlanGenerationService.swift** (464 lines) — Training plan generation orchestration
+- **OpenAIService.swift** — OpenAI API client for plan generation calls
+- **WorkoutComplianceService.swift** — Green/yellow/red workout deviation tracking (±20%/±50%)
+- **WorkoutMatchingHelpers.swift** — Type + date + duration matching for HealthKit → planned workout
+- **VerifiedRaceDatabase.swift** (413 lines) — Local race database for date validation with fuzzy matching
+- **AnalyticsService.swift** — Analytics data computation extracted from view layer
+
+### Auth & Cloud
+- **AuthService.swift** — Firebase Auth with Sign In with Apple, onboarding state listener
+- **FirestoreService.swift** — Cloud sync for user profiles and training plans
+- **UserProfile.swift** (388 lines) — RaceType, GoalType, Race models
 
 ### Views
-- **ContentView.swift** — TabView container and environment object setup (minimal, just the tab routing)
-- **HomeView.swift** — HomeView, DayDetailView, DayGroupsView, DayRowView, RestDayRow (current week display, completion counter, workout list with checkmarks)
-- **AnalyticsView.swift** — AnalyticsView, WorkoutDropDelegate (volume summary and zone distribution with week navigator)
-- **ChatView.swift** — Chat messaging interface with keyboard handling
-- **PlanView.swift** — Calendar view of training plan
-- **SettingsView.swift** — NotificationManager, SettingsView (notification preferences and app settings)
-- **SharedComponents.swift** — WeekNavigationHeader, WeekPickerSheet (shared week navigation UI used by Home and Analytics)
+- **ContentView.swift** — TabView container (Home, Analytics, Chat, Settings)
+- **HomeView.swift** (431 lines) — Weekly plan display, race countdown, completion status, widget tip card
+- **DayDetailView.swift** (454 lines) — Full day workout detail view (extracted from HomeView)
+- **DayRowComponents.swift** — Reusable day row UI components (extracted from HomeView)
+- **WorkoutDayRows.swift** — Workout-specific day row renderers
+- **AnalyticsView.swift** (554 lines) — Volume summary and zone distribution with week navigator
+- **ChatView.swift** — Chat messaging interface with keyboard handling and image support
+- **PlanView.swift** — Calendar overview of all training weeks
+- **SettingsView.swift** (509 lines) — Notification settings, workout reminders, plan regeneration
+- **SharedComponents.swift** — WeekNavigationHeader, WeekPickerSheet (shared week navigation)
+- **SignInView.swift** — Sign In with Apple UI
+
+### Onboarding
+- **OnboardingView.swift** — 6-step onboarding container
+- **OnboardingSteps.swift** (1,415 lines) — Individual onboarding step views
+- **OnboardingComponents.swift** (580 lines) — Reusable onboarding UI components
+- **OnboardingViewModel.swift** (635 lines) — Onboarding state machine, early plan generation trigger
+- **OnboardingChatHelper.swift** — AI-assisted fitness assessment during onboarding
+
+### Widget
+- **IronmanTrainerWidget.swift** — Home screen widget with race-agnostic countdown + tip cards
 
 ### Core Data
 - **CompletedWorkoutEntity+CoreDataClass.swift** / **+CoreDataProperties.swift** — Completed workout persistence
 - **WorkoutPlanVersion+CoreDataClass.swift** / **+CoreDataProperties.swift** — Workout plan version persistence (supports undo/rollback)
 
 ### Supporting Files
-- **IronmanTrainer.entitlements** — HealthKit capability
-- **Config.plist** — API keys (gitignored, only exists locally)
-- **Config.example.plist** — Template for Config.plist
-- **.gitignore** — Excludes Config.plist and build artifacts
+- **Config.xcconfig** — API keys (gitignored, only exists locally)
+- **ci_scripts/ci_post_clone.sh** — Xcode Cloud post-clone script for CI builds
 
 ## Key Technical Details
 
@@ -89,24 +122,29 @@ iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with
 - **Date of Birth:** Uses `dateOfBirthComponents()` (not the deprecated `dateOfBirth()`)
 
 ### Training Plan Data
-- **Source:** 100% accurate hardcoded data from IRONMAN_703_Oregon_Sub6_Plan_FINAL.pdf
-- **Structure:** 17 weeks x 7 days, each day has 0+ workouts
-- **Week Calculation:** Based on date difference from Mar 23, 2026 start date
+- **Source:** AI-generated from onboarding data via Cloud Functions (hardcoded 17-week plan as fallback for Brent's Oregon race)
+- **Structure:** Variable weeks x 7 days, each day has 0+ workouts
+- **Week Calculation:** Dynamic from user's race date (stored in UserDefaults), not hardcoded start date
+- **Plan Changes:** Tool-calling approach — Claude proposes structured changes (swap/replace/add/remove), user confirms, changes persist via Core Data WorkoutPlanVersion
 - **Rest Days:** Marked as "Rest" type, count in completion tracking if no actual workouts done
 - **Nutrition Targets:** Optional per-workout fueling guidance (nutritionTarget field on DayWorkout). Rules: Bike 60-75min -> 60g carbs/hr; Bike >75min -> 60-80g carbs/hr; Run >=60min -> 30-45g carbs/hr; Brick -> bike-rate then run-rate; Swim/Rest/<60min -> nil
+- **Secondary Races:** Users can add tune-up races; cards auto-inserted into plan timeline
 
 ### Claude AI Coach
-- **API:** Anthropic Claude API (claude-opus-4-6 model)
+- **API:** Anthropic Claude API (claude-sonnet-4-6 model) via LLMProxyService → Cloud Functions
+- **Tool Calling:** Plan changes use structured tool calls (not JSON-in-text). ChatViewModel parses tool_use blocks, presents PlanChangeProposal to user, executes on confirmation.
+- **Context Window:** Current week ±2 weeks of plan data + tool-call instructions. Kept small to ensure tool-call rules stay prominent.
 - **Context Passed:**
-  - Current week's planned workouts (with nutrition targets when present)
+  - Current week ±2 planned workouts (with nutrition targets when present)
   - Side-by-side planned vs actual workout comparison from HealthKit
   - Per-workout HR zone breakdowns for last 14 days
-  - Race date, goals (sub-6:00), dynamic HR zones from maxHR
+  - Race date (dynamic from user profile), goals, dynamic HR zones from maxHR
   - Current date in local timezone
 - **HR Zones:** Dynamically computed from maxHeartRate: Z1 <69%, Z2 69-79%, Z3 79-85%, Z4 85-92%, Z5 >92%
-- **System Prompt:** Instructs Claude to give specific coaching advice based on training plan and zones
-- **API Key:** Loaded from Config.plist via Secrets at ClaudeService init
+- **System Prompt:** Race-agnostic coaching prompt with tool-call instructions, safety boundary (coaching topics only)
+- **API Key:** Loaded from Config.xcconfig via Secrets
 - **Tracing:** All API calls logged to LangSmith via LangSmithTracer (startRun/endRun wrapping)
+- **Prompt Management:** LangSmith MCP server for reading/editing prompts from Claude Code; Cloud Function proxy for runtime prompt delivery
 
 ### LangSmith Integration
 - **Endpoint:** `POST https://api.smith.langchain.com/runs`
@@ -121,25 +159,26 @@ iOS app for tracking Ironman 70.3 Oregon training (July 19, 2026, Salem OR) with
 
 ## In Progress / TODO
 
-### Test Coverage (Partial)
+### Test Coverage
 Test infrastructure fully configured:
-- `IronmanTrainerTests` target created with proper build phases
-- Scheme configured for `xcodebuild test` execution
+- `IronmanTrainerTests` target with proper build phases
+- Scheme "IronmanTrainer" configured for `xcodebuild test` execution
 - XCTest framework integrated
 
-64 tests passing (0 failures):
-- **ChatSwapTests.swift** (42 tests) — Swap command parsing, chat history persistence, HR zone calculations, nutrition targets, zone percentages
-- **WeatherForecastTests.swift** (22 tests) — Determinism, seasonal progression, bounds checking, humidity/wind, daily variation, edge cases
+11 test files, 9 active:
+- **ChatSwapTests.swift** — Swap command parsing, chat history persistence, HR zone calculations, nutrition targets, zone percentages
+- **WeatherForecastTests.swift** — Determinism, seasonal progression, bounds checking, humidity/wind, daily variation, edge cases
+- **PlanChangeToolTests.swift** — Tool-calling plan change parsing and execution
+- **ComplianceTests.swift** — Workout compliance tracking tests
+- **OnboardingTests.swift** — Onboarding flow tests
+- **RaceDateParsingTests.swift** — Race date parsing and validation against VerifiedRaceDatabase
+- **TemplateSelectionTests.swift** — Plan template selection logic
+- **WorkoutMatchingTests.swift** — HealthKit → planned workout matching
+- **CIScriptTests.swift** — CI script validation (API key scan)
 
 Disabled (pre-existing compile errors, wrapped in `#if false`):
-- **TrainingPlanManagerTests.swift** (29 tests) — References non-existent Core Data test helpers
-- **WorkoutMatchingTests.swift** (42 tests) — References non-existent `parseDuration`, `extractWorkoutType`, `workoutTypeMatches` methods
-
-**Future Test Improvements:**
-- Fix or rewrite disabled test files to work with current implementation
-- Extract matching logic into testable standalone functions
-- Add UI tests for drag-and-drop, navigation flows
-- Mock HealthKit for isolated testing
+- **PlanChangeTests.swift** — Legacy plan change tests (pre-tool-calling)
+- **ChatSwapTests.swift** — Partial `#if false` for deprecated swap tests
 
 ## Configuration
 
@@ -161,10 +200,13 @@ LANGSMITH_API_KEY = lsv2_YOUR_KEY
 
 ```bash
 # Build for simulator
-xcodebuild build -scheme IronmanTrainer -destination 'platform=iOS Simulator,name=iPhone 16'
+xcodebuild build -scheme "IronmanTrainer" -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# Run tests
+xcodebuild test -scheme "IronmanTrainer" -destination 'platform=iOS Simulator,name=iPhone 16'
 
 # Install to running simulator
-xcrun simctl install "iPhone 16" /path/to/IronmanTrainer.app
+xcrun simctl install "iPhone 16" /path/to/Race1\ Trainer.app
 
 # Launch app
 xcrun simctl launch "iPhone 16" com.brent.ironmantrainer

@@ -1,10 +1,10 @@
 # IronmanTrainer: Product Planning & Competitive Differentiation
 
-*Last updated: 2026-04-07*
+*Last updated: 2026-04-13*
 
 ## TL;DR
 
-SwiftUI iOS app for Ironman 70.3 training with HealthKit sync, Claude AI coaching, and LangSmith observability. Currently a single-athlete tool; the foundation (Firebase auth, onboarding, Firestore sync, coaching stack) is ready for a public product. The critical missing piece — AI-generated personalized training plans — is now in progress. Next milestone: template-based plan generation with LLM customization to replace the fully-custom LLM approach (too slow, ~2-5 min).
+SwiftUI iOS app (renamed to "Race1 Trainer") for race training with HealthKit sync, Claude AI coaching via tool-calling, and LangSmith observability. Now race-agnostic (supports triathlon, running, and custom race types). Key recent additions: tool-calling for plan changes (swap/replace/add/remove workouts), secondary races, race-agnostic prompts/phase labels, verified race database, home screen widget. The foundation (Firebase auth, onboarding, Firestore sync, coaching stack) is ready for a public product. The critical remaining piece — AI-generated personalized training plans — uses template-based generation with LLM customization pass (replacing slow fully-custom approach).
 
 ---
 
@@ -26,47 +26,35 @@ SwiftUI iOS app for Ironman 70.3 training with HealthKit sync, Claude AI coachin
 
 ### What Exists
 
-A fully refactored SwiftUI iOS app (31 Swift files, ~10,800 lines) with Firebase auth (Sign In with Apple), a 6-step onboarding flow, Firestore cloud sync, AI-generated training plans (in progress — 2-pass LLM via Cloud Functions with LangSmith prompt management), HealthKit workout sync with compliance tracking, HR zone analytics, Claude-powered coaching chat with conversation history and plan adaptation (day swapping), LangSmith tracing, CI scripts for Xcode Cloud, and push notification reminders. Currently built for one athlete (Brent), one race (Ironman 70.3 Oregon), one goal (sub-6:00).
+A fully refactored SwiftUI iOS app (38 Swift files, ~12,200 lines) renamed to "Race1 Trainer" with Firebase auth (Sign In with Apple), a 6-step onboarding flow, Firestore cloud sync, AI-generated training plans (in progress — template + LLM customization via Cloud Functions with LangSmith prompt management), HealthKit workout sync with compliance tracking, HR zone analytics, Claude-powered coaching chat with tool-calling for plan changes (swap/replace/add/remove), conversation history persistence across launches, secondary race support, race-agnostic architecture (any triathlon/running/custom race type), verified race database for date validation, home screen widget, LangSmith tracing, CI scripts for Xcode Cloud, and push notification reminders. Primary user: Brent, Ironman 70.3 Oregon (sub-6:00 goal), but architecture now supports any athlete and race.
 
-### Architecture (31 files)
+### Architecture (38 Swift files, ~12,200 lines)
+
+See `CLAUDE.md` for full file-by-file breakdown. Key files:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| ContentView.swift | 47 | Tab shell (Home, Analytics, Chat, Settings) |
-| HomeView.swift | 996 | Weekly plan display, workout cards, race countdown, completion status |
-| AnalyticsView.swift | 533 | Zone distribution, volume charts |
-| ChatView.swift | 160 | Chat UI |
-| ChatViewModel.swift | 441 | Claude messaging, swap command parsing, reschedule context |
-| TrainingPlanManager.swift | 509 | 17-week plan data, week navigation |
-| HealthKitManager.swift | 277 | HealthKit sync, zone calculations, per-workout zone breakdowns |
-| ClaudeService.swift | 130 | Claude API with conversation history + zone boundaries |
-| WorkoutComplianceService.swift | 186 | Green/yellow/red deviation tracking (±20%/±50%) |
-| WorkoutMatchingHelpers.swift | — | Type + date + duration matching |
-| AuthService.swift | 149 | Firebase Auth, Sign In with Apple, onboarding state |
-| FirestoreService.swift | 125 | Cloud sync for profiles and training plans |
-| OnboardingView.swift | 1,282 | 6-step flow (HealthKit → Profile → Race Search → Goals → Fitness Chat → Plan Review) |
-| OnboardingViewModel.swift | 281 | Onboarding state machine, early plan generation trigger |
-| OnboardingChatHelper.swift | 247 | AI-assisted fitness assessment during onboarding |
-| HealthKitOnboardingData.swift | 437 | Pre-populate profile from HealthKit during onboarding |
-| PlanGenerationService.swift | 377 | Deprecated — old direct OpenAI plan generation (replaced by LLMProxyService) |
-| LLMProxyService.swift | 441 | Client proxy for Cloud Function plan generation (batched 2-pass LLM) |
-| OpenAIService.swift | 124 | OpenAI API client for plan generation calls |
-| SignInView.swift | 334 | Sign In with Apple UI |
-| SettingsView.swift | 254 | Notification settings, workout reminders, plan regeneration |
-| UserProfile.swift | 97 | RaceType, GoalType, Race models |
-| LangSmithTracer.swift | 117 | Conversation observability |
-| SharedComponents.swift | 186 | Reusable UI (WeekNavigationHeader, etc.) |
-| AppConstants.swift | — | Shared config (Secrets, Formatters) |
-| PlanView.swift | — | Calendar overview of all 17 weeks |
-| CoreData entities | — | CompletedWorkoutEntity, WorkoutPlanVersion |
-| IronmanTrainerApp.swift | 54 | App entry: Firebase init, auth flow, deep linking |
-| ci_scripts/ci_post_clone.sh | — | Xcode Cloud post-clone script for CI builds |
+| ChatViewModel.swift | 580 | Claude tool-calling for plan changes, conversation persistence |
+| TrainingPlanManager.swift | 678 | Dynamic plan data, plan change execution |
+| OnboardingSteps.swift | 1,415 | Individual onboarding step views |
+| OnboardingViewModel.swift | 635 | Onboarding state machine |
+| LLMProxyService.swift | 542 | Cloud Function plan generation proxy |
+| HealthKitOnboardingData.swift | 549 | Pre-populate profile from HealthKit |
+| AnalyticsView.swift | 554 | Zone distribution, volume charts |
+| SettingsView.swift | 509 | Notification settings, plan regeneration |
+| DayDetailView.swift | 454 | Full day workout detail (split from HomeView) |
+| PlanGenerationService.swift | 464 | Training plan generation orchestration |
+| HomeView.swift | 431 | Weekly plan display, race countdown, widget tip |
+| VerifiedRaceDatabase.swift | 413 | Local race DB for date validation |
+| UserProfile.swift | 388 | RaceType, GoalType, Race models |
+| IronmanTrainerWidget.swift | — | Home screen widget: countdown + tips |
 
 ### Remaining Code Issues
 
 - **Zone calculation is approximate, not exact.** Uses `%maxHR` formula (0.69/0.79/0.85/0.92 × maxHR) rather than the fixed BPM values from the original training plan (126/144/155/167). For a 38-year-old (maxHR=182), the formula produces ~126/144/155/168 — close but drifts if age input is wrong. Both analytics and Claude use the same `zoneBoundaries` computed property, so they're at least internally consistent. Would break for a public product with varying athlete ages/zones.
 - **HealthKit sync is 30-day window only.** Changed from "Feb 1 forward" to last 30 days with a 100-workout limit. This means early training weeks will drop out of Claude's context as the season progresses. Fine for coaching recency, but means you can't ask "how was my volume in March?" in June. V2 fix: store historical weekly summaries in Firestore so Claude always has full training history.
 - **Plan generation is slow.** The current 2-pass fully-custom LLM approach takes 2-5 min across 4 batches. Being replaced with template-based generation + single LLM customization pass (target: <30s).
+- **Plan change tool-calling can occasionally be skipped.** Claude sometimes describes changes in text instead of calling the tool. Mitigated by per-message reminder and prominent tool-call instructions, but not 100% reliable.
 
 ---
 
@@ -191,7 +179,7 @@ Features specifically designed to exploit TriDot's weaknesses and widen the coac
 | Feature | What It Does | Why It Wins | TriDot Equivalent |
 |---------|-------------|-------------|-------------------|
 | **"Why today" card** | One sentence on each workout explaining its purpose in context of your race and training phase. E.g., "Building threshold tolerance for Oregon's hilly bike course — that's why today is Z4 intervals, not steady state." | TriDot never explains purpose. This is the single most visible differentiator. | None — workouts are "Threshold Intervals" with no context |
-| **Conversational plan adjustments** | Natural language in chat: "Move my long run to Sunday" or "I'm feeling burnt out this week" → coach adapts and explains the tradeoff ("I've shortened Thursday's bike and moved your long run — your weekly stress drops 12% but you keep the key session") | TriDot is drag-to-reorder with no coaching feedback. Humango does basic chat rescheduling but doesn't explain tradeoffs. | Drag handles to reorder sessions (no coaching rationale) |
+| **Conversational plan adjustments** ✅ BUILT | Natural language in chat: "Move my long run to Sunday" or "I'm feeling burnt out this week" → coach adapts via tool-calling (swap/replace/add/remove) and explains the tradeoff. Changes persist across launches. | TriDot is drag-to-reorder with no coaching feedback. Humango does basic chat rescheduling but doesn't explain tradeoffs. | Drag handles to reorder sessions (no coaching rationale) |
 | **Plain English zones** | Alongside or instead of "Z2 @ 8:45-8:00/mi" → "Conversational pace — you should be able to chat with a friend. If you're breathing hard, slow down." | TriDot is pure numbers. Beginners don't know what Z2 means. | 6-zone system with pace/power ranges only |
 | **Weekly coach check-in** | Proactive message at start of each week: "You crushed your long ride last week but skipped both swims — I've adjusted this week to add a technique-focused swim on Tuesday. Here's why that matters for Oregon's river swim." | TriDot shows stats (0/11 completed, 0/474 stress) but never coaches on what the gap means. | Weekly Progress quad (Stress, XP, Duration, Completion) — numbers with no narrative |
 
@@ -218,9 +206,9 @@ Features specifically designed to exploit TriDot's weaknesses and widen the coac
 | Dimension | TriDot | IronmanTrainer (Target) |
 |-----------|--------|------------------------|
 | Metrics & scoring | Strong (NTS, Dot Scores, TrainX, 6 zones) | Adequate (HealthKit zones, compliance tracking) |
-| Device integrations | Strong (12+ partners) | Weak (HealthKit only, V2 for more) |
+| Device integrations | Strong (12+ partners) | Weak (HealthKit only, V2 for more). Supports non-triathlon sport types. |
 | Coaching voice | None | **Core differentiator** — every workout explained, every adjustment narrated |
-| Adaptability | Rigid (drag to reorder) | **Conversational** — natural language, life-aware |
+| Adaptability | Rigid (drag to reorder) | **Conversational** — natural language tool-calling (swap/replace/add/remove), life-aware |
 | Race specificity | Countdown timer | **Deep** — course, weather, elevation, aid stations in coaching context |
 | Beginner accessibility | Overwhelming | **Plain English** — zones explained, purpose stated |
 | Nutrition integration | None (Fuelin add-on) | **Built-in** — progressive gut training in the plan |
@@ -249,12 +237,12 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 ### Resolved Gaps (Previously Critical)
 
 - ~~**Workout completion tracking**~~ — Done. WorkoutComplianceService with green/yellow/red (±20%/±50%) + WorkoutMatchingHelpers (type + date + ±15min duration).
-- ~~**Plan adaptation via chat**~~ — Done. `[SWAP_DAYS]` tag parsing in ChatViewModel, `executeSwap()`, undo support.
+- ~~**Plan adaptation via chat**~~ — Done. Upgraded from `[SWAP_DAYS]` tag parsing to proper tool-calling (swap/replace/add/remove). Changes persist across launches via Core Data.
 - ~~**HR zone alignment**~~ — Substantially fixed. Analytics and Claude both use same `zoneBoundaries` from HealthKitManager. Uses %maxHR formula (approximate, not hardcoded BPM), but internally consistent.
 - ~~**Per-workout nutrition targets**~~ — Done. `nutritionTarget` field on all long rides/bricks with progressive carb/hr goals (60g→100g).
 - ~~**Real workout data in Claude context**~~ — Done. `getWorkoutHistoryForClaude()` formats actual HealthKit data with stats.
 - ~~**Race countdown**~~ — Done. `daysUntilRace` banner on home screen with phase label.
-- ~~**File architecture**~~ — Done. 31 files (~10,800 lines), largest is OnboardingView at 1,282 lines.
+- ~~**File architecture**~~ — Done. 38 files (~12,200 lines), largest is OnboardingSteps at 1,415 lines. HomeView split into DayDetailView + DayRowComponents + WorkoutDayRows. AnalyticsService extracted. OnboardingView split into Steps + Components.
 - ~~**Cloud sync**~~ — Done. Firebase Auth + Firestore for profiles and plans (was listed as V2).
 - ~~**Notifications**~~ — Done. Morning workout reminders with deep linking to specific weeks.
 
@@ -276,10 +264,10 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 | Claude AI coaching chat | ✅ Done | System prompt with race targets, zones, Boise lessons |
 | Conversation history in Claude | ✅ Done | Multi-turn conversations preserved |
 | Real HealthKit data in Claude context | ✅ Done | Actual workout stats formatted and sent |
-| Plan adaptation via chat (day swap) | ✅ Done | `[SWAP_DAYS]` parsing + undo support |
+| Plan adaptation via chat (tool-calling) | ✅ Done | Structured tool calls for swap/replace/add/remove + undo support |
 | Zone boundaries → Claude | ✅ Done | Same zoneBoundaries used in analytics and coaching |
 | LangSmith conversation tracing | ✅ Done | Start/end run logging |
-| Chat history persistence | ✅ Done | UserDefaults save/load |
+| Chat history persistence | ✅ Done | UserDefaults save/load, persists across launches |
 | Firebase Auth (Sign In with Apple) | ✅ Done | AuthService with state listener |
 | Onboarding flow (6 steps) | ✅ Done | HealthKit → Profile → Race → Goals → Chat → Plan Review |
 | Firestore cloud sync | ✅ Done | Profiles and training plans |
@@ -287,10 +275,17 @@ Features competitors have that your app currently lacks, ranked by impact. Updat
 | Settings tab | ✅ Done | Replaced Plan tab in navigation |
 | Per-workout zone breakdowns | ✅ Done | Zone distribution per individual workout |
 | CoreData persistence | ✅ Done | CompletedWorkoutEntity, WorkoutPlanVersion |
-| File architecture refactor | ✅ Done | 31 files, ~10,800 lines total |
+| File architecture refactor | ✅ Done | 38 files, ~12,200 lines total |
 | CI/CD pipeline | ✅ Done | ci_post_clone.sh for Xcode Cloud builds |
+| Tool-calling plan changes | ✅ Done | Replace, swap, add, remove via structured tool calls |
+| Secondary races | ✅ Done | Add tune-up races, auto-insert cards into plan |
+| Race-agnostic architecture | ✅ Done | Dynamic race date, phase labels, week caps, prompts |
+| Verified race database | ✅ Done | Local DB for race date validation with fuzzy matching |
+| Home screen widget | ✅ Done | Race-agnostic countdown + tip cards |
+| Non-triathlon sport matching | ✅ Done | HealthKit matching for yoga, strength, hiking, etc. |
+| Plan change persistence | ✅ Done | Changes survive app launches via Core Data |
 | Weekly volume deviation warning | ❌ Not built | No actual-vs-planned comparison |
-| AI-generated training plans | 🔄 In progress | 2-pass LLM pipeline exists but slow (2-5 min); migrating to template + LLM customization (<30s) |
+| AI-generated training plans | 🔄 In progress | Template + LLM customization replacing slow fully-custom approach |
 | Apple Watch app | ❌ Deferred | V2 — native Workout app sufficient |
 | Strava/Garmin sync | ❌ Deferred | V2 — HealthKit-only for now |
 | Race countdown activity checklist | ❌ Deferred | Track externally pre-race; V2 feature |
@@ -314,6 +309,8 @@ Only two features remain from the original pre-race build list:
 ### V2: Platform Play (Post-Race, If Going Public)
 
 *Goal: Generalize from "Brent's Oregon app" to "your coach for your next race."*
+
+> **Note (2026-04-13):** The race-agnostic foundation is now built — dynamic race dates, flexible week counts, race-agnostic prompts, non-triathlon sport support. The remaining V2 work is depth (race course intelligence, post-race analysis) and reach (Watch app, Strava/Garmin).
 
 The foundation is stronger than expected for a public product. Firebase auth, onboarding, Firestore sync, and the full coaching stack are already in place. The critical V2 work is phased by dependency:
 

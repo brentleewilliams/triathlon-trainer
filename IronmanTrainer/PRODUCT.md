@@ -1,17 +1,17 @@
-# IronmanTrainer Product Spec
+# Race1 Trainer Product Spec
 
-*Centralized product decisions, feature specs, and roadmap. Updated 2026-04-02.*
+*Centralized product decisions, feature specs, and roadmap. Updated 2026-04-13.*
 *For architecture/build details, see `CLAUDE.md`. For competitive analysis, see `product-planning-and-differentiation.md`.*
 
 ---
 
 ## Product Vision
 
-An AI-powered triathlon coaching app that knows your specific race — the course, the elevation, the aid stations, the weather — and builds training and race-day plans around it. Not a generic training platform. A coach for YOUR next race.
+An AI-powered race coaching app that knows your specific race — the course, the elevation, the aid stations, the weather — and builds training and race-day plans around it. Not a generic training platform. A coach for YOUR next race.
 
-**Current state:** Personal app for Brent's Ironman 70.3 Oregon (July 19, 2026, sub-6:00 goal). Hardcoded 17-week plan, Claude AI coaching, HealthKit sync, Firebase auth, onboarding flow.
+**Current state:** Race-agnostic architecture supporting triathlon, running, and custom race types. Tool-calling plan changes, secondary races, AI-generated plans via Cloud Functions + LangSmith prompt management. Firebase auth, Firestore sync, onboarding flow. Primary user: Brent's Ironman 70.3 Oregon (July 19, 2026, sub-6:00 goal).
 
-**V2 vision:** Generalize to any triathlon, any athlete. AI-generated plans from onboarding data + race-specific course intelligence.
+**V2 vision:** Public product — any race, any athlete. Race course intelligence, post-race failure analysis, Apple Watch app.
 
 ---
 
@@ -115,6 +115,36 @@ struct AidStation: Codable {
 
 ---
 
+### Tool-Calling Plan Changes (Built — 2026-04-09)
+
+**Problem:** Original plan change approach used fragile JSON-in-text parsing — Claude would embed `PLAN_CHANGES` JSON in its response text, which was unreliable and hard to parse.
+
+**Solution:** Migrated to proper Claude tool-calling. The coaching prompt includes a `modify_training_plan` tool definition. Claude proposes structured changes (swap days, replace workouts, add/remove workouts) via `tool_use` blocks. ChatViewModel parses these into a `PlanChangeProposal`, shows a confirmation UI, and executes on user approval. Changes persist via Core Data WorkoutPlanVersion across app launches.
+
+**Key details:**
+- Context window trimmed to current week ±2 to keep tool-call instructions prominent
+- Per-message reminder ensures Claude calls the tool rather than describing changes in text
+- Supports: swap, replace, add, remove actions
+- Undo support via WorkoutPlanVersion rollback
+
+---
+
+### Secondary Races (Built — 2026-04-10)
+
+**Problem:** Athletes often do tune-up races (sprint tri, local 5K) during their training cycle. No way to represent these in the plan.
+
+**Solution:** Users can add secondary races. Race cards auto-insert into the plan timeline at the appropriate week. Plan adjustments (taper, recovery) can be suggested by the coach around secondary race dates.
+
+---
+
+### Race-Agnostic Architecture (Built — 2026-04-10)
+
+**Problem:** App was hardcoded for Ironman 70.3 Oregon — phase labels, week caps, race display, and Claude prompts all assumed a specific race.
+
+**Solution:** Made everything dynamic from user's onboarding data: race date from UserDefaults, dynamic phase labels, flexible week count, race-agnostic Claude prompts, expanded HealthKit matching for non-triathlon sports (yoga, strength, hiking, etc.).
+
+---
+
 ### Weekly Volume Deviation Warning (Not Yet Built)
 
 **Problem:** No alert when actual training hours fall significantly below planned hours for the week.
@@ -123,11 +153,11 @@ struct AidStation: Codable {
 
 ---
 
-### AI-Generated Training Plans (Not Yet Built — Critical for V2)
+### AI-Generated Training Plans (In Progress — Template + LLM Approach)
 
-**Problem:** Onboarding collects race, goals, fitness data, HealthKit history — but plan is still hardcoded 17-week array. The onboarding promises personalization that the plan doesn't deliver.
+**Problem:** Fully custom LLM plan generation takes 2-5 min and produces unpredictable structure.
 
-**Solution:** Wire onboarding data into Claude to generate a personalized multi-week plan. The onboarding already collects everything needed.
+**Solution:** Template-based generation (tri + running templates with short/medium/long duration buckets) plus a single LLM customization pass (<30s target). Fully custom LLM path retained as fallback for unusual race types. Pipeline: LLMProxyService → Cloud Functions → LangSmith prompts → gpt-4.1-mini.
 
 ---
 
@@ -143,12 +173,14 @@ struct AidStation: Codable {
 
 | Decision | Choice | Why |
 |----------|--------|-----|
-| Training plan source | Hardcoded (V1), AI-generated (V2) | Ship fast for personal use, generalize later |
+| Training plan source | Template + LLM customization (in progress) | Fully custom LLM too slow (2-5 min); templates guarantee periodization, LLM adds personalization |
 | Race data import | WebView + PDF extraction via Claude | ironman.com blocks scraping; PDF has richest data |
 | Race discovery | LLM resolves URLs from natural language | No hardcoded race list to maintain |
 | Workout matching | HealthKit only (V1), Strava/Garmin (V2) | Solve own problem first (Apple Watch user) |
 | Nutrition coaching | Built into training plan, not a separate layer | Differentiator vs competitors who bolt nutrition on |
 | Pricing target (V2) | $15-20/mo | Below TriDot ($89), matches Humango/MOTTIV |
+| Plan changes | Tool-calling (not JSON-in-text) | Reliable structured changes with confirmation UI |
+| App name | Race1 Trainer (renamed from IronmanTrainer) | Race-agnostic branding for V2 public product |
 | Doc structure | PRODUCT.md (specs) + CLAUDE.md (architecture) | Separate what from how |
 
 ---
@@ -156,12 +188,17 @@ struct AidStation: Codable {
 ## Roadmap Summary
 
 ### Pre-Race (Now → July 19, 2026)
+- [x] Tool-calling plan changes (swap/replace/add/remove)
+- [x] Secondary races support
+- [x] Race-agnostic architecture
+- [x] VerifiedRaceDatabase for date validation
+- [x] Home screen widget
 - [ ] Race Profile Import (WebView + PDF extraction)
 - [ ] Weekly volume deviation warning
 - [ ] Hardcoded zone values override option
 
 ### V2: Public Product (Post-Race)
-- [ ] AI-generated training plans from onboarding data
+- [x] AI-generated training plans (in progress — template + LLM approach)
 - [ ] Race-day execution plan generator
 - [ ] Recovery/readiness signals (HRV, sleep)
 - [ ] Apple Watch app with structured workouts
