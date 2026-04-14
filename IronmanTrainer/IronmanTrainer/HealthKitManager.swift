@@ -1,6 +1,18 @@
 import Foundation
 import HealthKit
 
+// MARK: - Readiness Metrics Snapshot
+/// Captures the health signals used to compute morning readiness.
+/// All fields are optional — missing data is acceptable and treated as "unknown".
+struct ReadinessSnapshot: Codable, Equatable {
+    var sleepHours: Double?          // Last night's asleep hours (in-bed minus awake)
+    var hrvMs: Double?               // Most recent HRV SDNN (ms)
+    var hrvBaselineMs: Double?       // 7-day average HRV (ms)
+    var restingHR: Int?              // Most recent resting HR (bpm)
+    var restingHRBaseline: Int?      // 7-day average resting HR (bpm)
+    var capturedAt: Date = Date()
+}
+
 // MARK: - HealthKit Manager
 class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     static let shared = HealthKitManager()
@@ -12,6 +24,15 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     @Published var workoutZones: [UUID: [String: Double]] = [:]
 
     private let healthStore = HKHealthStore()
+
+    /// Readiness-related types for authorization & queries.
+    private var readinessTypes: Set<HKObjectType> {
+        var set = Set<HKObjectType>()
+        if let sleep = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) { set.insert(sleep) }
+        if let hrv = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) { set.insert(hrv) }
+        if let rhr = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) { set.insert(rhr) }
+        return set
+    }
 
     override init() {
         super.init()
@@ -29,7 +50,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
         let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        var typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        typesToRead.formUnion(readinessTypes)
 
         healthStore.getRequestStatusForAuthorization(toShare: [], read: typesToRead) { status, _ in
             DispatchQueue.main.async {
@@ -49,7 +71,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
         let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        var typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        typesToRead.formUnion(readinessTypes)
 
         do {
             try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
@@ -271,5 +294,167 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    // MARK: - Readiness Queries (sleep, HRV, resting HR)
+
+    /// Fetches last night's sleep duration in hours.
+    /// Uses "asleep*" stages (core, deep, REM, unspecified) across the window ending at wake time.
+    /// Returns nil if no sleep samples are available.
+    func fetchLastNightSleepHours(reference: Date = Date()) async -> Double? {
+        guard let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis) else { return nil }
+
+        // Window: 6pm yesterday → now (covers typical sleep period)
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: reference)
+        guard let windowStart = calendar.date(byAdding: .hour, value: -6, to: calendar.date(byAdding: .day, value: -1, to: startOfToday) ?? startOfToday) else {
+            return nil
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: reference, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: sleepType,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, results, _ in
+                guard let samples = results as? [HKCategorySample], !samples.isEmpty else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+
+                let asleepValues: Set<Int> = {
+                    var v: Set<Int> = [HKCategoryValueSleepAnalysis.asleep.rawValue]
+                    if #available(iOS 16.0, *) {
+                        v.insert(HKCategoryValueSleepAnalysis.asleepCore.rawValue)
+                        v.insert(HKCategoryValueSleepAnalysis.asleepDeep.rawValue)
+                        v.insert(HKCategoryValueSleepAnalysis.asleepREM.rawValue)
+                        v.insert(HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue)
+                    }
+                    return v
+                }()
+
+                let asleepSeconds = samples
+                    .filter { asleepValues.contains($0.value) }
+                    .reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+
+                continuation.resume(returning: asleepSeconds > 0 ? asleepSeconds / 3600.0 : nil)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Most recent HRV SDNN sample value in milliseconds.
+    func fetchLatestHRV(reference: Date = Date()) async -> Double? {
+        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let startDate = Calendar.current.date(byAdding: .day, value: -2, to: reference) ?? reference
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: reference, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: hrvType,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, results, _ in
+                guard let sample = (results as? [HKQuantitySample])?.first else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: sample.quantity.doubleValue(for: .secondUnit(with: .milli)))
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Average HRV SDNN over the last 7 days (excluding the most recent 24h for baseline contrast).
+    func fetchHRVBaseline(reference: Date = Date()) async -> Double? {
+        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return nil }
+        let cal = Calendar.current
+        guard let end = cal.date(byAdding: .day, value: -1, to: reference),
+              let start = cal.date(byAdding: .day, value: -8, to: reference) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: hrvType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, stats, _ in
+                let avg = stats?.averageQuantity()?.doubleValue(for: .secondUnit(with: .milli))
+                continuation.resume(returning: avg)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Most recent resting heart rate in bpm.
+    func fetchLatestRestingHR(reference: Date = Date()) async -> Int? {
+        guard let rhrType = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
+        let startDate = Calendar.current.date(byAdding: .day, value: -3, to: reference) ?? reference
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: reference, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let sort = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+            let query = HKSampleQuery(
+                sampleType: rhrType,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [sort]
+            ) { _, results, _ in
+                guard let sample = (results as? [HKQuantitySample])?.first else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+                continuation.resume(returning: Int(round(sample.quantity.doubleValue(for: bpmUnit))))
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Average resting HR over the last 7 days (excluding most recent 24h).
+    func fetchRestingHRBaseline(reference: Date = Date()) async -> Int? {
+        guard let rhrType = HKQuantityType.quantityType(forIdentifier: .restingHeartRate) else { return nil }
+        let cal = Calendar.current
+        guard let end = cal.date(byAdding: .day, value: -1, to: reference),
+              let start = cal.date(byAdding: .day, value: -8, to: reference) else { return nil }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(
+                quantityType: rhrType,
+                quantitySamplePredicate: predicate,
+                options: .discreteAverage
+            ) { _, stats, _ in
+                let bpmUnit = HKUnit.count().unitDivided(by: .minute())
+                guard let avg = stats?.averageQuantity()?.doubleValue(for: bpmUnit) else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                continuation.resume(returning: Int(round(avg)))
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    /// Fetches a full readiness snapshot by gathering all signals concurrently.
+    func fetchReadinessSnapshot(reference: Date = Date()) async -> ReadinessSnapshot {
+        async let sleep = fetchLastNightSleepHours(reference: reference)
+        async let hrv = fetchLatestHRV(reference: reference)
+        async let hrvBase = fetchHRVBaseline(reference: reference)
+        async let rhr = fetchLatestRestingHR(reference: reference)
+        async let rhrBase = fetchRestingHRBaseline(reference: reference)
+
+        return ReadinessSnapshot(
+            sleepHours: await sleep,
+            hrvMs: await hrv,
+            hrvBaselineMs: await hrvBase,
+            restingHR: await rhr,
+            restingHRBaseline: await rhrBase,
+            capturedAt: reference
+        )
     }
 }

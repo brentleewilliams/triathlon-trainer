@@ -4,6 +4,7 @@ struct ContentView: View {
     @StateObject private var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
+    @State private var selectedTab: Int = 0
 
     init() {
         let plan = AuthService.shared.savedPlan
@@ -11,18 +12,20 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeView()
                 .environmentObject(trainingPlan)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+                .tag(0)
 
             AnalyticsView()
                 .environmentObject(trainingPlan)
                 .tabItem {
                     Label("Analytics", systemImage: "chart.bar.fill")
                 }
+                .tag(1)
 
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
@@ -30,6 +33,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
+                .tag(2)
 
             SettingsView()
                 .environmentObject(trainingPlan)
@@ -37,6 +41,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
+                .tag(3)
         }
         .onAppear {
             NotificationManager.shared.setTrainingPlan(trainingPlan)
@@ -44,6 +49,9 @@ struct ContentView: View {
         .onAppear {
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openChatTab)) { _ in
+            selectedTab = 2
         }
     }
 }
