@@ -1,14 +1,28 @@
 import SwiftUI
 import FirebaseCore
+import UserNotifications
 
 @main
 struct Race1App: App {
     @StateObject private var healthKitManager = HealthKitManager.shared
     @StateObject private var authService = AuthService.shared
+    @StateObject private var checkInManager = CheckInManager.shared
     @Environment(\.scenePhase) var scenePhase
+
+    // MARK: - Notification delegate
+    // Handles taps on both FCM pushes and local UN notifications. When the
+    // payload contains kind="check_in", posts .openCheckIn so the content
+    // view can surface CheckInView.
+    private let notificationDelegate = CheckInNotificationDelegate()
 
     init() {
         FirebaseApp.configure()
+        UNUserNotificationCenter.current().delegate = notificationDelegate
+        // TODO(v1): FCM device token registration — wire up
+        // `Messaging.messaging().token` and post to Firestore at
+        // `users/{uid}.fcmToken` so the backend cron can target it.
+        // For v1 we fall back to local UNUserNotificationCenter scheduling
+        // (see CheckInManager.scheduleLocalFallbackNotification()).
     }
 
     var body: some Scene {
@@ -27,6 +41,7 @@ struct Race1App: App {
                 } else {
                     ContentView()
                         .environmentObject(healthKitManager)
+                        .environmentObject(checkInManager)
                         .onAppear {
                             healthKitManager.checkAuthorization()
                             Task {
@@ -52,6 +67,41 @@ struct Race1App: App {
                     await healthKitManager.syncWorkouts()
                 }
             }
+        }
+    }
+}
+
+// MARK: - Notification Delegate (Morning Check-In v1)
+//
+// Routes notification taps. FCM and local notifications share the payload
+// convention: `kind = "check_in"` → post `.openCheckIn`. Any other payload is
+// a no-op so the existing workout-reminder flow is unaffected.
+final class CheckInNotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let userInfo = response.notification.request.content.userInfo
+        if let kind = userInfo["kind"] as? String, kind == "check_in" {
+            NotificationCenter.default.post(name: .openCheckIn, object: nil, userInfo: userInfo)
+        }
+        completionHandler()
+    }
+
+    // Suppress the OS notification banner when app is foregrounded; the
+    // check-in should instead be surfaced as a sheet via .openCheckIn.
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let userInfo = notification.request.content.userInfo
+        if let kind = userInfo["kind"] as? String, kind == "check_in" {
+            NotificationCenter.default.post(name: .openCheckIn, object: nil, userInfo: userInfo)
+            completionHandler([]) // suppress banner
+        } else {
+            completionHandler([.banner, .sound])
         }
     }
 }

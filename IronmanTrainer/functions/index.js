@@ -1,4 +1,5 @@
 const { onRequest } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const { Client: LangSmithClient } = require("langsmith");
@@ -1695,3 +1696,116 @@ exports.llmProxy = onRequest({ timeoutSeconds: 300 }, async (req, res) => {
     }
   }
 });
+
+// ---------------------------------------------------------------------------
+// Morning Check-In — scheduled FCM delivery (v1)
+// ---------------------------------------------------------------------------
+//
+// Runs every 5 minutes. For each user whose configured check-in time falls in
+// the current window (local time, derived from their stored timezone), sends
+// an FCM push with `kind: "check_in"` so the iOS tap handler routes to
+// CheckInView.
+//
+// Data model assumptions (TODO for client-side FCM registration):
+//   - users/{uid}.fcmToken: string        — device token written by the app
+//                                            after registering with FCM.
+//   - users/{uid}.checkInEnabled: bool    — mirror of CheckInManager.enabled.
+//   - users/{uid}.checkInTimeMinutes: int — minutes-since-midnight (0..1439)
+//                                            for the user's local check-in
+//                                            time. Example: 7:00 AM = 420.
+//   - users/{uid}.timezone: string        — IANA tz, e.g. "America/Denver".
+//                                            Defaults to UTC if missing.
+//
+// If FCM registration fails client-side, the client falls back to a local
+// `UNUserNotificationCenter` schedule (see CheckInManager.scheduleLocalFallbackNotification).
+exports.scheduleCheckInNotifications = onSchedule(
+  { schedule: "*/5 * * * *", timeZone: "UTC", timeoutSeconds: 120 },
+  async (_event) => {
+    const nowUTC = new Date();
+
+    let snapshot;
+    try {
+      snapshot = await db.collection("users")
+        .where("checkInEnabled", "==", true)
+        .get();
+    } catch (err) {
+      console.error("[scheduleCheckInNotifications] Firestore query failed:", err);
+      return;
+    }
+
+    const sends = [];
+    snapshot.forEach((doc) => {
+      const data = doc.data() || {};
+      const token = data.fcmToken;
+      const timeMinutes = data.checkInTimeMinutes;
+      const tz = data.timezone || "UTC";
+      if (!token || typeof timeMinutes !== "number") return;
+
+      // Compute user's current local time-of-day in minutes.
+      let localMinutes;
+      try {
+        const fmt = new Intl.DateTimeFormat("en-US", {
+          timeZone: tz,
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: false,
+        });
+        const parts = fmt.formatToParts(nowUTC);
+        const h = parseInt(parts.find((p) => p.type === "hour").value, 10);
+        const m = parseInt(parts.find((p) => p.type === "minute").value, 10);
+        localMinutes = h * 60 + m;
+      } catch (_err) {
+        // Fallback: assume UTC.
+        localMinutes = nowUTC.getUTCHours() * 60 + nowUTC.getUTCMinutes();
+      }
+
+      // Window = [timeMinutes, timeMinutes + 5). Wrap across midnight is
+      // handled by a second check.
+      const diff = (localMinutes - timeMinutes + 1440) % 1440;
+      if (diff >= 0 && diff < 5) {
+        sends.push(sendCheckInPush(doc.id, data));
+      }
+    });
+
+    const results = await Promise.allSettled(sends);
+    const failures = results.filter((r) => r.status === "rejected").length;
+    console.log(`[scheduleCheckInNotifications] sent=${sends.length - failures} failed=${failures}`);
+  },
+);
+
+async function sendCheckInPush(uid, userData) {
+  const token = userData.fcmToken;
+  const raceId = userData.raceId || null;
+
+  const message = {
+    token,
+    notification: {
+      title: "Morning Check-In",
+      body: "How are you feeling today?",
+    },
+    data: {
+      kind: "check_in",
+      raceId: raceId ? String(raceId) : "",
+    },
+    apns: {
+      payload: {
+        aps: {
+          sound: "default",
+          category: "CHECK_IN",
+        },
+      },
+    },
+  };
+
+  try {
+    await admin.messaging().send(message);
+  } catch (err) {
+    console.warn(`[scheduleCheckInNotifications] send failed for uid=${uid}:`, err.message);
+    // If token is invalid/unregistered, clear it so we stop retrying.
+    if (err.code === "messaging/registration-token-not-registered" ||
+        err.code === "messaging/invalid-registration-token") {
+      await db.collection("users").doc(uid).update({ fcmToken: admin.firestore.FieldValue.delete() }).catch(() => {});
+    }
+    throw err;
+  }
+}

@@ -64,6 +64,10 @@
 		BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001001F1B0001 /* PlanDiffEngine.swift */; };
 		BD0001041F1B0001 /* PlanDiffCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001031F1B0001 /* PlanDiffCard.swift */; };
 		BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001051F1B0001 /* PlanDiffEngineTests.swift */; };
+		CI0001011F1C0001 /* CheckInManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001001F1C0001 /* CheckInManager.swift */; };
+		CI0001031F1C0001 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001021F1C0001 /* CheckInView.swift */; };
+		CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001041F1C0001 /* CheckInManagerTests.swift */; };
+		CI0001071F1C0001 /* SleepFetchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001061F1C0001 /* SleepFetchTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -156,6 +160,10 @@
 		BD0001001F1B0001 /* PlanDiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngine.swift; sourceTree = "<group>"; };
 		BD0001031F1B0001 /* PlanDiffCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffCard.swift; sourceTree = "<group>"; };
 		BD0001051F1B0001 /* PlanDiffEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngineTests.swift; sourceTree = "<group>"; };
+		CI0001001F1C0001 /* CheckInManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManager.swift; sourceTree = "<group>"; };
+		CI0001021F1C0001 /* CheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInView.swift; sourceTree = "<group>"; };
+		CI0001041F1C0001 /* CheckInManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManagerTests.swift; sourceTree = "<group>"; };
+		CI0001061F1C0001 /* SleepFetchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepFetchTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +263,8 @@
 				84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */,
 				BD0001001F1B0001 /* PlanDiffEngine.swift */,
 				BD0001031F1B0001 /* PlanDiffCard.swift */,
+				CI0001001F1C0001 /* CheckInManager.swift */,
+				CI0001021F1C0001 /* CheckInView.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -279,6 +289,8 @@
 				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 				844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */,
 				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
+				CI0001041F1C0001 /* CheckInManagerTests.swift */,
+				CI0001061F1C0001 /* SleepFetchTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -533,6 +545,8 @@
 				9F2B4F4C9A203C9E873B0A4C /* OnboardingChatHelper.swift in Sources */,
 				BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */,
 				BD0001041F1B0001 /* PlanDiffCard.swift in Sources */,
+				CI0001011F1C0001 /* CheckInManager.swift in Sources */,
+				CI0001031F1C0001 /* CheckInView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,6 +563,8 @@
 				1A0001661F1A0003 /* TemplateSelectionTests.swift in Sources */,
 				FB000006000000001 /* OnboardingTests.swift in Sources */,
 				BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */,
+				CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */,
+				CI0001071F1C0001 /* SleepFetchTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

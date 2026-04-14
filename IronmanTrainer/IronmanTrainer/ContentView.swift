@@ -4,6 +4,8 @@ struct ContentView: View {
     @StateObject private var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
+    @StateObject private var checkInManager = CheckInManager.shared
+    @State private var showCheckIn = false
 
     init() {
         let plan = AuthService.shared.savedPlan
@@ -44,6 +46,14 @@ struct ContentView: View {
         .onAppear {
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
+            showCheckIn = true
+        }
+        .sheet(isPresented: $showCheckIn) {
+            CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
+                .environmentObject(trainingPlan)
+                .environmentObject(healthKit)
         }
     }
 }

@@ -131,6 +131,7 @@ class NotificationManager: ObservableObject {
 // MARK: - Settings View
 struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
+    @ObservedObject var checkIn = CheckInManager.shared
     @ObservedObject var authService = AuthService.shared
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showSignOutAlert = false
@@ -158,6 +159,27 @@ struct SettingsView: View {
 
                     if notificationManager.morningWorkoutReminder {
                         DatePicker("Reminder Time", selection: $notificationManager.reminderTime, displayedComponents: .hourAndMinute)
+                    }
+                }
+
+                Section(
+                    header: Text("Morning Check-In"),
+                    footer: Text("A short conversational check-in with your coach delivered via push. Default 7:00 AM.")
+                ) {
+                    Toggle("Enable Morning Check-In", isOn: $checkIn.enabled)
+                        .onChange(of: checkIn.enabled) { _, _ in
+                            checkIn.scheduleLocalFallbackNotification()
+                        }
+
+                    if checkIn.enabled {
+                        DatePicker(
+                            "Check-In Time",
+                            selection: $checkIn.checkInTime,
+                            displayedComponents: .hourAndMinute
+                        )
+                        .onChange(of: checkIn.checkInTime) { _, _ in
+                            checkIn.scheduleLocalFallbackNotification()
+                        }
                     }
                 }
 

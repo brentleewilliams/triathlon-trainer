@@ -1,20 +1,51 @@
 import SwiftUI
 import PhotosUI
 
+/// Filter options for the Chat tab. `all` shows every message; `checkIns`
+/// shows only `.checkIn`-tagged messages (Morning Check-In v1).
+enum ChatFilter: String, CaseIterable, Identifiable {
+    case all = "All"
+    case checkIns = "Check-ins"
+    var id: String { rawValue }
+}
+
 // MARK: - Chat View
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
+    @State private var filter: ChatFilter = .all
+
+    /// Applies the selected `ChatFilter` to the message list.
+    /// Pure so it can be unit-tested via a static helper below.
+    private var filteredMessages: [ChatMessage] {
+        Self.applyFilter(filter, to: viewModel.messages)
+    }
+
+    static func applyFilter(_ filter: ChatFilter, to messages: [ChatMessage]) -> [ChatMessage] {
+        switch filter {
+        case .all: return messages
+        case .checkIns: return messages.filter { $0.kind == .checkIn }
+        }
+    }
 
     var body: some View {
         NavigationStack {
             ScrollViewReader { proxy in
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 12) {
-                        if viewModel.messages.isEmpty && !viewModel.isLoading {
+                        // Filter chip row (Morning Check-In v1).
+                        Picker("Filter", selection: $filter) {
+                            ForEach(ChatFilter.allCases) { f in
+                                Text(f.rawValue).tag(f)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .padding(.bottom, 4)
+
+                        if filteredMessages.isEmpty && !viewModel.isLoading {
                             CoachWelcomeView()
                         }
 
-                        ForEach(viewModel.messages) { message in
+                        ForEach(filteredMessages) { message in
                             ChatBubble(message: message)
                                 .id(message.id)
                         }

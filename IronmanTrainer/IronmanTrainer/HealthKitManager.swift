@@ -348,30 +348,28 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             let minutes = Int(s.endDate.timeIntervalSince(s.startDate) / 60.0)
             guard minutes > 0 else { continue }
 
-            // Value uses HKCategoryValueSleepAnalysis.
-            if let v = HKCategoryValueSleepAnalysis(rawValue: s.value) {
-                switch v {
-                case .inBed:
-                    inBed += minutes
-                case .asleepUnspecified, .asleep:
-                    total += minutes
-                case .asleepCore:
-                    total += minutes
-                    sawStages = true
-                case .asleepDeep:
-                    total += minutes
-                    deep += minutes
-                    sawStages = true
-                case .asleepREM:
-                    total += minutes
-                    rem += minutes
-                    sawStages = true
-                case .awake:
-                    awake += minutes
-                    sawStages = true
-                @unknown default:
-                    break
-                }
+            // Value uses HKCategoryValueSleepAnalysis. We match on raw values
+            // to avoid SDK-deprecation warnings on `.asleep` (iOS <16) vs
+            // `.asleepUnspecified` (iOS 16+).
+            let raw = s.value
+            if raw == HKCategoryValueSleepAnalysis.inBed.rawValue {
+                inBed += minutes
+            } else if raw == HKCategoryValueSleepAnalysis.awake.rawValue {
+                awake += minutes
+                sawStages = true
+            } else if raw == HKCategoryValueSleepAnalysis.asleepCore.rawValue {
+                total += minutes
+                sawStages = true
+            } else if raw == HKCategoryValueSleepAnalysis.asleepDeep.rawValue {
+                total += minutes
+                deep += minutes
+                sawStages = true
+            } else if raw == HKCategoryValueSleepAnalysis.asleepREM.rawValue {
+                total += minutes
+                rem += minutes
+                sawStages = true
+            } else if raw == HKCategoryValueSleepAnalysis.asleepUnspecified.rawValue {
+                total += minutes
             }
         }
 
