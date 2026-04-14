@@ -19,9 +19,13 @@ struct ChatView: View {
                                 .id(message.id)
                         }
 
-                        if let proposal = viewModel.pendingProposal {
-                            PlanChangeCard(viewModel: viewModel, proposal: proposal)
-                                .id("proposal-card")
+                        if let proposal = viewModel.pendingProposal,
+                           let plan = viewModel.trainingPlan {
+                            PlanDiffCard(
+                                viewModel: viewModel,
+                                enriched: PlanDiffEngine.enrich(proposal, plan: plan)
+                            )
+                            .id("proposal-card")
                         }
 
                         if viewModel.isLoading {
@@ -59,7 +63,7 @@ struct ChatView: View {
                 .onChange(of: viewModel.isLoading) {
                     withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
                 }
-                .onChange(of: viewModel.pendingProposal == nil) {
+                .onChange(of: viewModel.negotiationState) {
                     withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
                 }
                 .safeAreaInset(edge: .bottom) {
@@ -136,7 +140,7 @@ struct ChatInputBar: View {
                 .padding(.leading, 12)
                 .padding(.bottom, 10)
 
-                TextField("Message your coach...", text: $text)
+                TextField(viewModel.isNegotiating ? "What would you like changed?" : "Message your coach...", text: $text)
                     .autocorrectionDisabled()
                     .textInputAutocapitalization(.sentences)
                     .keyboardType(.default)

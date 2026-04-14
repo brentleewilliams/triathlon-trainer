@@ -18,11 +18,42 @@ struct ChatMessage: Identifiable, Codable {
     }
 }
 
+// MARK: - Plan Negotiation State
+
+enum NegotiationPhase: Equatable {
+    case idle
+    case reviewing(PlanChangeProposal)
+    case modifying(PlanChangeProposal)
+    case applying
+
+    static func == (lhs: NegotiationPhase, rhs: NegotiationPhase) -> Bool {
+        switch (lhs, rhs) {
+        case (.idle, .idle), (.applying, .applying): return true
+        case (.reviewing(let a), .reviewing(let b)): return a.id == b.id
+        case (.modifying(let a), .modifying(let b)): return a.id == b.id
+        default: return false
+        }
+    }
+}
+
 class ChatViewModel: ObservableObject {
     @Published var messages: [ChatMessage] = []
     @Published var isLoading = false
     @Published var error: String?
-    @Published var pendingProposal: PlanChangeProposal?
+    @Published var negotiationState: NegotiationPhase = .idle
+
+    /// Backward-compatible accessor for the pending proposal.
+    var pendingProposal: PlanChangeProposal? {
+        switch negotiationState {
+        case .reviewing(let p), .modifying(let p): return p
+        default: return nil
+        }
+    }
+
+    var isNegotiating: Bool {
+        if case .modifying = negotiationState { return true }
+        return false
+    }
 
     private let coachingService = LLMProxyService.shared
     var trainingPlan: TrainingPlanManager?
@@ -141,7 +172,7 @@ class ChatViewModel: ObservableObject {
         }
         messages.append(ChatMessage(isUser: false, text: confirmText))
         saveChatHistory()
-        pendingProposal = nil
+        negotiationState = .idle
     }
 
     /// Returns true if `workoutType` (e.g. "🏃 Run") matches a user/LLM keyword (e.g. "run", "running", "Run").
@@ -170,13 +201,35 @@ class ChatViewModel: ObservableObject {
     }
 
     func dismissPlanChanges() {
-        pendingProposal = nil
+        negotiationState = .idle
         let feedbackMsg = "I dismissed the proposed changes. Can you revise the plan?"
         messages.append(ChatMessage(isUser: true, text: feedbackMsg))
         saveChatHistory()
         Task {
             await sendMessage(feedbackMsg)
         }
+    }
+
+    // MARK: - Plan Negotiation Actions
+
+    func acceptAllChanges(_ proposal: PlanChangeProposal) {
+        negotiationState = .applying
+        executePlanChanges(proposal)
+    }
+
+    func rejectProposal() {
+        negotiationState = .idle
+        let feedbackMsg = "I rejected the proposed changes. Can you suggest alternatives?"
+        messages.append(ChatMessage(isUser: true, text: feedbackMsg))
+        saveChatHistory()
+        Task {
+            await sendMessage(feedbackMsg)
+        }
+    }
+
+    func startModification() {
+        guard case .reviewing(let proposal) = negotiationState else { return }
+        negotiationState = .modifying(proposal)
     }
 
     func sendMessage(_ text: String, imageData: Data? = nil) async {
@@ -209,7 +262,16 @@ class ChatViewModel: ObservableObject {
                 return ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
             }
 
-            let baseMessage = hasText ? text : "What do you see in this image?"
+            var baseMessage = hasText ? text : "What do you see in this image?"
+
+            // In modification mode, prepend the current proposal so Claude knows what to revise
+            if case .modifying(let currentProposal) = await MainActor.run(body: { negotiationState }) {
+                let changesJSON = currentProposal.changes.map { c in
+                    "action=\(c.action), week=\(c.week), day=\(c.day ?? "-")"
+                }.joined(separator: "; ")
+                baseMessage = "[User is modifying a pending proposal: \"\(currentProposal.summary)\" with changes: \(changesJSON)]\n\nUser's revision request: \(baseMessage)"
+                await MainActor.run { negotiationState = .idle }
+            }
 
             let coachingResponse = try await coachingService.sendCoachingMessage(
                 userMessage: baseMessage,
@@ -238,7 +300,7 @@ class ChatViewModel: ObservableObject {
                     saveChatHistory()
                 }
                 if let proposal = coachingResponse.proposedChanges {
-                    pendingProposal = proposal
+                    negotiationState = .reviewing(proposal)
                 }
                 isLoading = false
             }
