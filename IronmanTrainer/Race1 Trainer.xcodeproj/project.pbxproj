@@ -68,6 +68,12 @@
 		CI0001031F1C0001 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001021F1C0001 /* CheckInView.swift */; };
 		CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001041F1C0001 /* CheckInManagerTests.swift */; };
 		CI0001071F1C0001 /* SleepFetchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001061F1C0001 /* SleepFetchTests.swift */; };
+		RC0001011F1D0001 /* RaceCourseProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001001F1D0001 /* RaceCourseProfile.swift */; };
+		RC0001031F1D0001 /* RaceCourseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001021F1D0001 /* RaceCourseService.swift */; };
+		RC0001051F1D0001 /* BundledCourseProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001041F1D0001 /* BundledCourseProfiles.swift */; };
+		RC0001071F1D0001 /* CourseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001061F1D0001 /* CourseDetailView.swift */; };
+		RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001081F1D0001 /* RaceCourseServiceTests.swift */; };
+		RC00010B1F1D0001 /* ThresholdCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC00010A1F1D0001 /* ThresholdCaptureTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -164,6 +170,12 @@
 		CI0001021F1C0001 /* CheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInView.swift; sourceTree = "<group>"; };
 		CI0001041F1C0001 /* CheckInManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManagerTests.swift; sourceTree = "<group>"; };
 		CI0001061F1C0001 /* SleepFetchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepFetchTests.swift; sourceTree = "<group>"; };
+		RC0001001F1D0001 /* RaceCourseProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseProfile.swift; sourceTree = "<group>"; };
+		RC0001021F1D0001 /* RaceCourseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseService.swift; sourceTree = "<group>"; };
+		RC0001041F1D0001 /* BundledCourseProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledCourseProfiles.swift; sourceTree = "<group>"; };
+		RC0001061F1D0001 /* CourseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDetailView.swift; sourceTree = "<group>"; };
+		RC0001081F1D0001 /* RaceCourseServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseServiceTests.swift; sourceTree = "<group>"; };
+		RC00010A1F1D0001 /* ThresholdCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdCaptureTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -265,6 +277,10 @@
 				BD0001031F1B0001 /* PlanDiffCard.swift */,
 				CI0001001F1C0001 /* CheckInManager.swift */,
 				CI0001021F1C0001 /* CheckInView.swift */,
+				RC0001001F1D0001 /* RaceCourseProfile.swift */,
+				RC0001021F1D0001 /* RaceCourseService.swift */,
+				RC0001041F1D0001 /* BundledCourseProfiles.swift */,
+				RC0001061F1D0001 /* CourseDetailView.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -291,6 +307,8 @@
 				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
 				CI0001041F1C0001 /* CheckInManagerTests.swift */,
 				CI0001061F1C0001 /* SleepFetchTests.swift */,
+				RC0001081F1D0001 /* RaceCourseServiceTests.swift */,
+				RC00010A1F1D0001 /* ThresholdCaptureTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -547,6 +565,10 @@
 				BD0001041F1B0001 /* PlanDiffCard.swift in Sources */,
 				CI0001011F1C0001 /* CheckInManager.swift in Sources */,
 				CI0001031F1C0001 /* CheckInView.swift in Sources */,
+				RC0001011F1D0001 /* RaceCourseProfile.swift in Sources */,
+				RC0001031F1D0001 /* RaceCourseService.swift in Sources */,
+				RC0001051F1D0001 /* BundledCourseProfiles.swift in Sources */,
+				RC0001071F1D0001 /* CourseDetailView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -565,6 +587,8 @@
 				BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */,
 				CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */,
 				CI0001071F1C0001 /* SleepFetchTests.swift in Sources */,
+				RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */,
+				RC00010B1F1D0001 /* ThresholdCaptureTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

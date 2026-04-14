@@ -278,7 +278,16 @@ class ChatViewModel: ObservableObject {
             let history = getWorkoutHistoryForClaude()
 
             // Include reschedule context (plan data + tool instructions)
-            let updatedContext = context + "\n\n" + buildRescheduleContext()
+            var updatedContext = context + "\n\n" + buildRescheduleContext()
+
+            // Inject Race Course Intelligence context (phase-dependent).
+            let courseContext = await MainActor.run { buildCourseContext() }
+            if !courseContext.isEmpty {
+                updatedContext += "\n\n" + courseContext
+                // Append the threshold-capture tool instructions so Claude
+                // knows how to emit a capture when the athlete shares numbers.
+                updatedContext += "\n\n" + Self.thresholdToolInstructions
+            }
 
             // Build conversation history from prior messages (exclude the message we just added)
             let priorMessages = messages.dropLast()
@@ -314,6 +323,11 @@ class ChatViewModel: ObservableObject {
             )
 
             await MainActor.run {
+                // Opportunistic threshold capture (§4.4.5). Scan the raw
+                // response for a `capture_threshold` payload before the
+                // text is displayed / persisted.
+                applyThresholdCaptureIfPresent(in: coachingResponse.text)
+
                 // Only append an assistant bubble if there's real text.
                 // When the model responds with only a tool call (e.g. after a
                 // "yes, apply" confirmation), accumulated text is empty and we
@@ -335,6 +349,87 @@ class ChatViewModel: ObservableObject {
                 isLoading = false
             }
         }
+    }
+
+    // MARK: - Course Context (§4.5)
+
+    /// Builds the phase-dependent Race Course Intelligence block for the
+    /// system prompt. Returns an empty string if no profile is loaded.
+    /// Phase tiers (always / +5wk / +2wk) per §4.5.
+    @MainActor
+    func buildCourseContext() -> String {
+        let service = RaceCourseService.shared
+        let profile = service.currentProfile ?? service.loadDefaultProfile()
+        guard let profile = profile else { return "" }
+        let weeksToRace = computeWeeksToRace(profile: profile)
+        let body = service.getPhaseContext(weeksToRace: weeksToRace, profile: profile)
+        guard !body.isEmpty else { return "" }
+        return "====== RACE COURSE INTELLIGENCE ======\n\n\(body)"
+    }
+
+    @MainActor
+    private func computeWeeksToRace(profile: RaceCourseProfile) -> Int {
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: profile.raceDate).day ?? 0
+        if days <= 0 { return 0 }
+        return max(0, Int((Double(days) / 7.0).rounded(.up)))
+    }
+
+    // MARK: - Threshold Capture (§4.4.5)
+
+    /// Parses Claude's response text for a `capture_threshold` tool-call
+    /// payload and persists it on the user profile. Also returns the
+    /// captured thresholds for tests / UI confirmation.
+    ///
+    /// Two accepted sentinel forms (either is tolerated so the server
+    /// side doesn't have to know about this yet):
+    ///   `[CAPTURE_THRESHOLD:{...}]`
+    ///   `[TOOL_CALL:capture_threshold:{...}]`
+    @discardableResult
+    func applyThresholdCaptureIfPresent(in text: String) -> PerformanceThresholds? {
+        guard let payload = extractThresholdPayload(from: text) else { return nil }
+        return PerformanceThresholdsStore.merge(
+            ftpWatts: payload.ftpWatts,
+            thresholdPaceSecondsPerMile: payload.thresholdPaceSecondsPerMile,
+            cssSecondsPer100yd: payload.cssSecondsPer100yd
+        )
+    }
+
+    /// Raw parse of the `capture_threshold` payload. Exposed (internal) so
+    /// tests can assert parsing independently of the persistence layer.
+    struct CaptureThresholdPayload: Equatable {
+        var ftpWatts: Int?
+        var thresholdPaceSecondsPerMile: Int?
+        var cssSecondsPer100yd: Int?
+    }
+
+    func extractThresholdPayload(from text: String) -> CaptureThresholdPayload? {
+        let markers = ["[CAPTURE_THRESHOLD:", "[TOOL_CALL:capture_threshold:"]
+        for marker in markers {
+            guard let range = text.range(of: marker) else { continue }
+            let remaining = text[range.upperBound...]
+            // Find matching closing ']' — payload is a JSON object.
+            guard let closingBrace = remaining.firstIndex(of: "}") else { continue }
+            let jsonEnd = remaining.index(after: closingBrace)
+            let jsonStr = String(remaining[..<jsonEnd])
+            guard let data = jsonStr.data(using: .utf8),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                continue
+            }
+            var p = CaptureThresholdPayload()
+            // Accept both snake_case (tool schema) and camelCase (robustness).
+            p.ftpWatts = (obj["ftp_watts"] as? Int) ?? (obj["ftpWatts"] as? Int)
+            p.thresholdPaceSecondsPerMile =
+                (obj["threshold_pace_seconds_per_mile"] as? Int)
+                ?? (obj["thresholdPaceSecondsPerMile"] as? Int)
+            p.cssSecondsPer100yd =
+                (obj["css_seconds_per_100yd"] as? Int)
+                ?? (obj["cssSecondsPer100yd"] as? Int)
+            // At least one field must be present.
+            if p.ftpWatts != nil || p.thresholdPaceSecondsPerMile != nil || p.cssSecondsPer100yd != nil {
+                return p
+            }
+        }
+        return nil
     }
 
     func buildRescheduleContext() -> String {
@@ -373,6 +468,33 @@ class ChatViewModel: ObservableObject {
         - PREP RACE DAYS: Never schedule training on prep race day or the day before.
         """
     }
+
+    /// Tool-use instructions emitted when course intelligence is active.
+    /// Claude is asked to append a sentinel line when the athlete shares a
+    /// threshold number in chat. The client (see
+    /// `applyThresholdCaptureIfPresent`) extracts it and persists to
+    /// `PerformanceThresholdsStore`.
+    ///
+    /// The sentinel form is `[CAPTURE_THRESHOLD:{...}]` — self-contained so
+    /// it works without a server-side tool schema change (that ships in v2).
+    static let thresholdToolInstructions: String = """
+    ====== THRESHOLD CAPTURE (capture_threshold tool) ======
+
+    When the athlete responds with a specific number for FTP (watts), threshold
+    run pace (as minutes:seconds per mile), or swim CSS (seconds per 100yd),
+    emit a single sentinel line AT THE END of your response so the app can
+    persist it:
+
+    [CAPTURE_THRESHOLD:{"ftp_watts": 215}]
+    [CAPTURE_THRESHOLD:{"threshold_pace_seconds_per_mile": 450}]
+    [CAPTURE_THRESHOLD:{"css_seconds_per_100yd": 95}]
+
+    Rules:
+    - Only emit when the athlete gave a concrete number (not a range/guess).
+    - Convert paces to integer seconds (7:30/mi = 450).
+    - Multiple fields may be combined in one payload.
+    - If the athlete declines or doesn't know, do NOT ask again this session.
+    """
 
     private static let maxPersistedMessages = 50
 

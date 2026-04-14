@@ -107,6 +107,7 @@ struct HomeView: View {
     @State private var draggedFromDay: String?
     @State private var showWidgetTip: Bool = !UserDefaults.standard.bool(forKey: "widget_tip_dismissed")
     @State private var draggedWorkout: DayWorkout?
+    @State private var showCourseDetail: Bool = false
 
     var currentWeek: TrainingWeek? {
         trainingPlan.getWeek(selectedWeek)
@@ -327,6 +328,11 @@ struct HomeView: View {
                 .padding(.vertical, 8)
                 .background(Color(.systemGray6))
                 .cornerRadius(10)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    _ = RaceCourseService.shared.loadDefaultProfile()
+                    showCourseDetail = true
+                }
 
                 // Widget tip card (shown until dismissed)
                 if showWidgetTip {
@@ -424,6 +430,9 @@ struct HomeView: View {
                 if let week = notification.userInfo?["week"] as? Int {
                     withAnimation { selectedWeek = week }
                 }
+            }
+            .sheet(isPresented: $showCourseDetail) {
+                CourseDetailView()
             }
         }
     }

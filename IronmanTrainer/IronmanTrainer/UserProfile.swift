@@ -116,13 +116,63 @@ struct UserProfile: Codable {
     var onboardingComplete: Bool
     var createdAt: Date
 
+    /// Opportunistic threshold capture (§4.4.5). Optional — casual users
+    /// never see these, and coaching works without them. Populated only
+    /// when Claude extracts thresholds via the `capture_threshold` tool.
+    var performanceThresholds: PerformanceThresholds?
+
     static func empty(uid: String) -> UserProfile {
         UserProfile(
             uid: uid,
             name: "",
             onboardingComplete: false,
-            createdAt: Date()
+            createdAt: Date(),
+            performanceThresholds: nil
         )
+    }
+}
+
+// MARK: - Performance Thresholds Persistence (local shim)
+//
+// `AthleteEnvironment` is owned by `RaceCourseService` (UserDefaults), but
+// `PerformanceThresholds` can be updated from Claude tool calls outside of
+// any Firestore write path. This small helper persists the latest
+// captured thresholds locally so `ChatViewModel` can update them without
+// requiring a round-trip through `FirestoreService`.
+enum PerformanceThresholdsStore {
+    private static let key = "userProfile.performanceThresholds"
+
+    static func load() -> PerformanceThresholds? {
+        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(PerformanceThresholds.self, from: data)
+    }
+
+    static func save(_ t: PerformanceThresholds) {
+        if let data = try? JSONEncoder().encode(t) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    /// Merges new fields into any existing thresholds (nil fields preserved).
+    @discardableResult
+    static func merge(
+        ftpWatts: Int? = nil,
+        thresholdPaceSecondsPerMile: Int? = nil,
+        cssSecondsPer100yd: Int? = nil,
+        now: Date = Date()
+    ) -> PerformanceThresholds {
+        var t = load() ?? PerformanceThresholds.empty
+        if let v = ftpWatts { t.ftpWatts = v }
+        if let v = thresholdPaceSecondsPerMile { t.thresholdPaceSecondsPerMile = v }
+        if let v = cssSecondsPer100yd { t.cssSecondsPer100yd = v }
+        t.capturedAt = now
+        t.source = .userEntered
+        save(t)
+        return t
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: key)
     }
 }
 

@@ -132,6 +132,7 @@ class NotificationManager: ObservableObject {
 struct SettingsView: View {
     @ObservedObject var notificationManager = NotificationManager.shared
     @ObservedObject var checkIn = CheckInManager.shared
+    @ObservedObject var courseService = RaceCourseService.shared
     @ObservedObject var authService = AuthService.shared
     @EnvironmentObject var healthKit: HealthKitManager
     @State private var showSignOutAlert = false
@@ -139,6 +140,7 @@ struct SettingsView: View {
     @State private var showRestorePlanAlert = false
     @State private var isRegeneratingPlan = false
     @State private var regenerateError: String?
+    @State private var storedThresholds: PerformanceThresholds = PerformanceThresholdsStore.load() ?? .empty
     @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var raceDateDisplay: String {
@@ -197,6 +199,67 @@ struct SettingsView: View {
                         Text("\(healthKit.getUserAge())")
                             .foregroundColor(.secondary)
                     }
+                }
+
+                Section(
+                    header: Text("Training Environment"),
+                    footer: Text("Used to calibrate altitude and heat guidance. Inferred from your location on first launch; edit here anytime.")
+                ) {
+                    HStack {
+                        Text("Elevation")
+                        Spacer()
+                        TextField("feet", value: Binding(
+                            get: { courseService.athleteEnvironment.trainingElevationFeet },
+                            set: { newValue in
+                                var env = courseService.athleteEnvironment
+                                env.trainingElevationFeet = newValue
+                                courseService.saveEnvironment(env)
+                            }
+                        ), format: .number)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 100)
+                        Text("ft")
+                            .foregroundColor(.secondary)
+                    }
+
+                    Picker("Climate", selection: Binding(
+                        get: { courseService.athleteEnvironment.trainingClimate },
+                        set: { newValue in
+                            var env = courseService.athleteEnvironment
+                            env.trainingClimate = newValue
+                            courseService.saveEnvironment(env)
+                        }
+                    )) {
+                        ForEach(AthleteEnvironment.defaultClimateOptions, id: \.self) { option in
+                            Text(option).tag(option)
+                        }
+                    }
+
+                    Toggle("Pool access", isOn: Binding(
+                        get: { courseService.athleteEnvironment.poolAccess },
+                        set: { newValue in
+                            var env = courseService.athleteEnvironment
+                            env.poolAccess = newValue
+                            courseService.saveEnvironment(env)
+                        }
+                    ))
+                    Toggle("Open-water access", isOn: Binding(
+                        get: { courseService.athleteEnvironment.openWaterAccess },
+                        set: { newValue in
+                            var env = courseService.athleteEnvironment
+                            env.openWaterAccess = newValue
+                            courseService.saveEnvironment(env)
+                        }
+                    ))
+                    Toggle("Indoor trainer access", isOn: Binding(
+                        get: { courseService.athleteEnvironment.trainerAccess },
+                        set: { newValue in
+                            var env = courseService.athleteEnvironment
+                            env.trainerAccess = newValue
+                            courseService.saveEnvironment(env)
+                        }
+                    ))
                 }
 
                 Section(header: Text("HR Zones")) {
@@ -270,6 +333,49 @@ struct SettingsView: View {
                     .foregroundColor(.orange)
                 }
 
+                Section(header: Text("Advanced")) {
+                    DisclosureGroup("Performance Thresholds") {
+                        HStack {
+                            Text("FTP")
+                            Spacer()
+                            Text(storedThresholds.ftpWatts.map { "\($0) W" } ?? "—")
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Threshold Pace")
+                            Spacer()
+                            Text(storedThresholds.thresholdPaceSecondsPerMile.map { paceString(seconds: $0) + "/mi" } ?? "—")
+                                .foregroundColor(.secondary)
+                        }
+                        HStack {
+                            Text("Swim CSS")
+                            Spacer()
+                            Text(storedThresholds.cssSecondsPer100yd.map { paceString(seconds: $0) + "/100yd" } ?? "—")
+                                .foregroundColor(.secondary)
+                        }
+                        if let capturedAt = storedThresholds.capturedAt {
+                            HStack {
+                                Text("Captured")
+                                Spacer()
+                                Text(Formatters.fullDate.string(from: capturedAt))
+                                    .foregroundColor(.secondary)
+                                    .font(.caption)
+                            }
+                        }
+                        if storedThresholds.hasAnyValue {
+                            Button("Clear") {
+                                PerformanceThresholdsStore.clear()
+                                storedThresholds = .empty
+                            }
+                            .foregroundColor(.red)
+                        } else {
+                            Text("No thresholds captured. Claude will ask once in chat if a specific number is needed.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+
                 Section(header: Text("Account")) {
                     if let uid = authService.currentUserID {
                         HStack {
@@ -314,6 +420,12 @@ struct SettingsView: View {
                 Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
             }
         }
+    }
+
+    private func paceString(seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
+        return String(format: "%d:%02d", m, s)
     }
 
     private func regeneratePlan() {
