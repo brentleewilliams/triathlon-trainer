@@ -105,9 +105,12 @@ The Morning Check-In requires a specialized system prompt extension. Claude shou
 New `ObservableObject` responsible for orchestrating the check-in flow.
 
 - `scheduleCheckIn()` — Registers daily local notification via `UNUserNotificationCenter` at user's preferred time
+- `scheduleBackgroundRefresh()` — Registers a `BGAppRefreshTask` earliestBeginDate of 5:00am local so iOS can pre-generate tomorrow's opening message overnight
 - `prepareCheckInContext() async` — Gathers all data sources (sleep, HRV, resting HR, yesterday's workout, today's plan, weather, recent check-in history) into a structured context object
-- `generateOpeningMessage() async` — Calls `LLMProxyService` with check-in-specific system prompt + context; caches response for instant display on notification tap
+- `generateOpeningMessage() async` — Calls `LLMProxyService` with check-in-specific system prompt + context; writes `cachedOpeningMessage` (text + `generatedAt` timestamp) to UserDefaults so notification-tap can read it synchronously
+- `loadCachedOpeningMessage() → CachedOpeningMessage?` — Returns the last-generated message if `generatedAt` is within the freshness window (default 6 hours), else nil
 - `isCheckInActive: Bool` — Published property to control UI state
+- `isGeneratingOpeningMessage: Bool` — Published property to drive the CheckInView loading state when cache is stale and live regeneration is needed
 - `completeCheckIn(accepted: Bool)` — Finalizes check-in, tags conversation in history, optionally executes plan change
 
 #### 3.6.2 CheckInView
@@ -141,14 +144,23 @@ struct SleepSummary: Codable, Equatable {
 }
 ```
 
-### 3.7 Notification Strategy
+### 3.7 Notification Strategy & Opening Message Timing
 
 The notification must be contextual, not generic. A notification that says "Time for your morning check-in!" will be ignored within a week. A notification that says "You've got 90min on the bike today and it's going to be 72°F — perfect conditions. How are you feeling?" gets tapped.
 
-- Use `UNMutableNotificationContent` with dynamic body text generated from today's plan + weather
-- Notification is prepared the night before (or at configured time minus 30 minutes) via background task
-- If app is in foreground, show an in-app banner instead of push notification
-- Fallback: if context generation fails, use a simple but specific message: "[Workout type] day. Quick check-in before you start?"
+Two pieces of content need to be generated: the **notification body** (short, displayed in the notification) and the **CheckInView opening message** (longer, displayed after the athlete taps). Both are cached together by `generateOpeningMessage()` so they stay consistent.
+
+**Three-tier generation strategy** (pick one primary path, always have the fallback):
+
+1. **Primary — BGTask at 5:00am local.** `CheckInManager.scheduleBackgroundRefresh()` submits a `BGAppRefreshTaskRequest` with `earliestBeginDate` 5:00am local. When iOS runs the task (typical window 4–7am if the user habitually uses the app), `generateOpeningMessage()` runs, writes both the notification body and opening message to UserDefaults with a `generatedAt` timestamp, and updates the pending `UNNotificationRequest` content. This is the happy path — by the time the 7:00am notification fires, cached content is <2 hours old.
+2. **Secondary — live regenerate on tap if cache is stale.** When the athlete taps the notification, CheckInView calls `loadCachedOpeningMessage()`. If `generatedAt` is <6 hours old, display the cached message instantly. If older (BGTask didn't run, or the plan/weather changed significantly overnight), set `isGeneratingOpeningMessage = true`, show a lightweight loading indicator in the opening-message slot for <1s, and call `generateOpeningMessage()` live. The rest of CheckInView (today's workout card, data tiles) renders immediately around the loading state — no full-screen spinner.
+3. **Tertiary — static fallback.** If live regeneration fails (network error, Claude unavailable, timeout >8s), display a static but specific message derived from plan data only: "[Workout type] today — [duration] [zone]. How are you feeling?" No LLM dependency. Log the failure to LangSmith with a `check_in_fallback` tag so we can track frequency.
+
+**Notification body content** is always derived from cached content if present, otherwise from a plan-only template matching the tier-3 fallback. The notification request is re-scheduled every time `generateOpeningMessage()` succeeds so the preview matches what the athlete will see on tap.
+
+**Foreground behavior.** If the app is in the foreground at the scheduled time, suppress the OS notification and show an in-app banner that taps to CheckInView. Same cache-staleness logic applies.
+
+**Configurability.** Check-in time is configurable in Settings (default 7:00am). BGTask earliestBeginDate automatically adjusts to `checkInTime - 2 hours` so there's always a pre-generation window. If the user picks a check-in time earlier than 4:00am, we skip BGTask entirely and rely on live regeneration at tap time.
 
 ### 3.8 Acceptance Criteria
 
