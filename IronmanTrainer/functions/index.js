@@ -109,6 +109,80 @@ const PROMPT_NAMES = [
   "plan-gen-customize",
 ];
 
+// Per-prompt variable manifest — see PRD §7.5.1.
+// - required: must appear as {var} in the template; missing → throw on fetch (fall back to prior cached commit)
+// - optional: may appear in template; code provides a value if present
+// Anything else that appears in the template as {foo} triggers a warn-log because the
+// f-string substitution will leave it as a literal {foo} visible to the model.
+const PROMPT_MANIFEST = {
+  "coaching-chat": {
+    required: ["context", "history", "current_date"],
+    optional: ["z2", "z3", "z4", "z5", "full_plan", "prep_races", "last_swap_info"],
+  },
+  "race-search": {
+    required: ["today"],
+    optional: [],
+  },
+  "prep-race-search": {
+    required: ["today"],
+    optional: [],
+  },
+  "plan-gen-summary": {
+    required: ["race_name", "race_date", "weeks_available", "plan_start_date", "goal"],
+    optional: [
+      "race_location", "race_type", "distances", "course_type", "elevation_gain",
+      "venue_elevation", "historical_weather", "athlete_name", "athlete_sex",
+      "athlete_weight", "resting_hr", "vo2_max", "skill_levels", "available_hours",
+      "schedule", "injuries", "equipment", "hk_summary", "prep_races",
+      "swim_level", "bike_level", "run_level",
+    ],
+  },
+  "plan-gen-details": {
+    required: ["swim_level", "bike_level", "run_level"],
+    optional: ["equipment"],
+  },
+  "plan-gen-customize": {
+    required: [],
+    optional: [],
+  },
+};
+
+function extractPlaceholders(templateText) {
+  // Match {var_name} but NOT escaped {{var}} (LangChain literal-brace escaping)
+  const matches = templateText.matchAll(/(?<!\{)\{([a-zA-Z_][a-zA-Z0-9_]*)\}(?!\})/g);
+  return new Set(Array.from(matches, (m) => m[1]));
+}
+
+function validatePromptSchema(name, promptMessages) {
+  const manifest = PROMPT_MANIFEST[name];
+  if (!manifest) {
+    console.warn(`[prompt-validation] no manifest for "${name}" — skipping validation`);
+    return;
+  }
+  const combined = promptMessages
+    .map((m) => m.kwargs?.content || m.kwargs?.prompt?.kwargs?.template || "")
+    .join("\n");
+  const found = extractPlaceholders(combined);
+  const allowed = new Set([...manifest.required, ...manifest.optional]);
+
+  const missingRequired = manifest.required.filter((v) => !found.has(v));
+  const unknown = Array.from(found).filter((v) => !allowed.has(v));
+
+  if (missingRequired.length > 0) {
+    const msg = `[prompt-validation] "${name}" is missing required variables: ${missingRequired.join(", ")}`;
+    console.error(msg);
+    throw new Error(msg);
+  }
+  if (unknown.length > 0) {
+    // Non-fatal: substitution will leave literal {foo} in the prompt. Still ship, but warn loudly.
+    console.warn(`[prompt-validation] "${name}" references unknown variables (will appear literally): ${unknown.join(", ")}`);
+  }
+  const unused = [...manifest.optional].filter((v) => !found.has(v));
+  if (unused.length > 0) {
+    console.log(`[prompt-validation] "${name}" declared-but-unused optionals: ${unused.join(", ")}`);
+  }
+}
+
 // In-memory cache: { [name]: { prompt, model, temperature, maxTokens, fetchedAt } }
 let promptCache = {};
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
@@ -154,12 +228,18 @@ async function getPrompt(name) {
       || commit.manifest.kwargs?.messages
       || [];
 
+    // Tier 1: fail fast if required variables missing (PRD §7.5.1)
+    validatePromptSchema(name, promptMessages);
+
     const entry = { promptMessages, model, temperature, maxTokens, fetchedAt: Date.now() };
     promptCache[name] = entry;
     return entry;
   } catch (err) {
     console.error(`Failed to pull prompt "${name}" from LangSmith:`, err.message);
-    if (cached) return cached;
+    if (cached) {
+      console.warn(`[prompt-validation] serving last-good cached "${name}" (fetchedAt ${new Date(cached.fetchedAt).toISOString()})`);
+      return cached;
+    }
     throw new Error(`Prompt "${name}" unavailable`);
   }
 }

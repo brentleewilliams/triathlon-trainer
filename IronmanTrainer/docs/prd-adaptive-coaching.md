@@ -68,7 +68,7 @@ A daily conversational check-in delivered via push notification that opens a foc
 1. Athlete receives a push notification at their configured time (default 7:00 AM local). Notification text is contextual, not generic, e.g., "You've got a threshold ride today. How are the legs feeling?"
 2. Tapping the notification opens the app directly to a focused check-in view (not the full chat). This is a single-purpose screen.
 3. Claude's opening message is pre-generated (fetched when notification fires) and includes: today's planned workout summary, any relevant context from recent days, a specific question based on available signals.
-4. The athlete responds conversationally. Claude may ask one follow-up question (max two exchanges before recommendation).
+4. The athlete responds conversationally. Claude may ask up to two clarifying questions total (the opening question plus one follow-up if the first answer is ambiguous), then must make a recommendation.
 5. Claude provides a recommendation: confirm today's workout as planned, suggest a specific modification (intensity, duration, type swap), or recommend rest/active recovery with explanation.
 6. If Claude suggests a modification, an "Accept Change" button appears. Tapping it executes the PlanChangeProposal through existing infrastructure. A "Keep Original" option is always visible.
 7. The check-in conversation is saved to chat history and visible in the main Chat tab for reference.
@@ -78,7 +78,7 @@ A daily conversational check-in delivered via push notification that opens a foc
 The Morning Check-In requires a specialized system prompt extension. Claude should be instructed to:
 
 - Open with a brief, specific observation (not a generic greeting). Reference yesterday's workout result if available, or upcoming key sessions.
-- Ask exactly one question. Do not overwhelm with multiple questions. The question should target the highest-signal unknown: subjective fatigue, sleep quality, injury status, or motivation.
+- Ask one question at a time — never multiple questions in the same message. Up to two total exchanges are allowed (opening question + one follow-up if the first answer is ambiguous); after that, make the recommendation. The question should target the highest-signal unknown: subjective fatigue, sleep quality, injury status, or motivation.
 - Keep responses under 100 words. This is a quick check-in, not a coaching lecture.
 - If HealthKit shows poor sleep (<6 hours) or very high resting HR, proactively flag it: "I see you only got 5.5 hours of sleep. Today's intervals might do more harm than good."
 - Never suggest skipping a workout without offering an alternative. Swap intensity or type rather than prescribing rest, unless cumulative load is genuinely dangerous.
@@ -279,7 +279,7 @@ General training emphasis based on course demands. Injected into Claude's system
 Targeted preparation protocols that Claude suggests at the right time:
 
 - **Heat acclimation protocol:** Starting 3 weeks pre-race, Claude suggests adding 20-30 min of heat exposure (sauna, hot bath post-workout, or training in warmer parts of the day). Claude references the expected 75-85°F race day temps in Salem vs. current Denver conditions.
-- **Race pace sessions:** Bike and run workouts calibrated to race-day targets, adjusted for altitude. "Today's tempo ride: hold 165W for 45 minutes. At sea level on race day, that same effort should yield ~172W."
+- **Race pace sessions:** Bike and run workouts calibrated to race-day effort, adjusted for altitude. Default to HR zones and effort descriptors ("today's tempo ride: Z3 steady for 45 minutes — strong but sustainable; on race day at sea level this same effort will feel about one gear easier"). Specific watts/pace numbers only appear when the athlete has provided them (see §4.4.5).
 - **Open water simulation:** If athlete has open water access, Claude suggests a river or lake swim to practice sighting and non-pool pacing.
 - **Nutrition rehearsal:** Tie nutrition targets to course conditions. "At 80°F in Salem, you'll need 20-30oz/hour on the bike plus your 60-80g carbs/hr. Practice that ratio in today's long ride."
 
@@ -290,7 +290,7 @@ Hyper-specific guidance as race day approaches:
 - **Travel timing:** "You're flying from Denver (5,280ft) to Salem (~150ft). Arriving Thursday gives you 2 days to adjust. You'll feel extra oxygen-rich — don't let that trick you into going out too fast."
 - **Taper adjustments:** Course-aware taper. "The bike is flat-to-rolling, so you don't need a big climbing effort this week. One short spin with 3x5min at race effort is enough."
 - **Weather monitoring:** Pull actual forecast for Salem race weekend and adjust final guidance. "Race day forecast: 78°F, partly cloudy. Good news — cooler than average. Stick with your planned nutrition but you can ease off the extra hydration."
-- **Pacing strategy:** Course-specific race plan. "Swim: draft if you can, the river current will help — don't fight it. Bike: hold 160-170W steady through the rolling miles 20-35, don't surge on the hills. Run: start conservative at 8:30/mile — your altitude fitness gives you a cushion to negative split."
+- **Pacing strategy:** Course-specific race plan using the effort language the athlete's data supports. If no threshold power/pace has been captured: "Swim: draft if you can, the river current will help — don't fight it. Bike: hold Z2 steady through the rolling miles 20-35, don't surge on the hills — save your legs for the run. Run: start conservative, Z2 effort — your altitude fitness gives you a cushion to negative split." If the athlete has provided thresholds (§4.4.5), Claude layers in specific numbers ("target 160-170W on the bike, start the run at 8:30/mile").
 
 #### 4.4.4 Post-Race Analysis
 
@@ -299,6 +299,30 @@ After the race, Claude reviews actual performance against course-specific predic
 - Actual vs. predicted splits by discipline
 - Where the course-specific advice was helpful vs. where it missed
 - What to adjust for the next race (if training continues)
+
+#### 4.4.5 Opportunistic Threshold Capture
+
+Performance thresholds (FTP, threshold pace, swim CSS) are NOT collected upfront in onboarding — they are too technical for the average race runner and gate-keep features for casual users. Default coaching is HR-zone + effort-descriptor based and works without any thresholds.
+
+When the athlete asks a question that would benefit from a specific number ("what pace should I target?" / "what watts should I hold?"), Claude asks once in-line:
+
+> "Do you know your threshold pace? If so I'll give you a specific target. If not, I'll give you a feel-based target instead."
+
+If the athlete responds with a number, Claude extracts it via a lightweight `capture_threshold` tool call and the app stores it on `UserProfile`:
+
+```swift
+struct PerformanceThresholds: Codable {
+    var ftpWatts: Int?
+    var thresholdPaceSecondsPerMile: Int?
+    var cssSecondsPer100yd: Int?
+    var capturedAt: Date?
+    var source: ThresholdSource  // .userEntered, .inferredFromHistory (future)
+}
+```
+
+If the athlete doesn't know or declines, Claude remembers that for the session and stops asking. The `ThresholdSource.inferredFromHistory` option is reserved for a v2 feature that estimates thresholds from HealthKit race history.
+
+Settings exposes the stored values in an "Advanced → Performance Thresholds" section (hidden by default, collapsed under an "Advanced" disclosure). Casual users never see it.
 
 ### 4.5 Claude System Prompt Additions
 
@@ -615,6 +639,69 @@ All three features write to the same `messages` array on `ChatViewModel`. Each m
 - Integration tests for course context injection across different training phases
 - Integration tests for plan negotiation with tool call parsing and Core Data persistence
 - LangSmith evaluation: tag check-in, course-aware, and negotiation traces; manually review 20+ conversations for coaching quality before ship
+
+### 7.5 Prompt Reliability System
+
+All coaching, plan generation, and research prompts live in LangSmith and are pulled at runtime by the Cloud Function with f-string variable substitution. A rename, removed placeholder, or semantically drifted prompt silently degrades output because the substitution at `getPrompt()` never throws on missing variables. This section specifies a graduated reliability system that covers every prompt, not just the adaptive-coaching features.
+
+The layered approach avoids alert fatigue: cheap static checks run on every cold start, more expensive eval checks run nightly, and full production sampling runs weekly.
+
+#### 7.5.1 Tier 1 — Fail-fast schema validation (every cold start)
+
+Each prompt has a declared **expected-variables manifest** in source. When `getPrompt()` pulls a commit from LangSmith, the concatenated template text is scanned for `{variable}` placeholders and diffed against the manifest.
+
+- **Missing required placeholder** (manifest says `{context}` is required, template doesn't contain it): throw on fetch, fall back to the last cached commit, log an error with the missing-variable list to Cloud Function logs + LangSmith metadata.
+- **Extra placeholder** (template references `{unknown_var}` the code doesn't substitute): warn only. The f-string loop will leave the literal `{unknown_var}` in the prompt, which the model will see — still a bug, but safe to keep serving while the author fixes the prompt.
+- **Unused variable** (code substitutes `{prep_races}` but template doesn't reference it): info-log only. Not a failure, but surfaces dead variables for cleanup.
+
+Manifest lives alongside prompt names, keyed per prompt:
+
+```js
+const PROMPT_MANIFEST = {
+  "coaching-chat": {
+    required: ["context", "history", "z2", "z3", "z4", "z5", "current_date"],
+    optional: ["full_plan", "prep_races", "last_swap_info"],
+  },
+  "plan-generation": { required: [/* ... */], optional: [] },
+  "course-research": { required: ["race_name", "venue", "race_date"], optional: [] },
+  // etc.
+};
+```
+
+Validation cost: ~1ms per cold start. No per-request overhead.
+
+#### 7.5.2 Tier 2 — Nightly prompt eval against canonical dataset
+
+Each prompt has a small LangSmith dataset (5–10 examples) covering:
+- Happy-path cases (normal input, expected output shape)
+- Edge cases (missing optional data, empty history, race-week timing)
+- Failure modes we've seen in production (the exact bugs fixed in commits `f621b97` and `8d70cf6` become regression tests)
+
+A nightly job (initially a manually-triggered `functions/eval-prompts.js` harness, later wired to Cloud Scheduler or GitHub Actions) pulls each prompt from LangSmith, runs every dataset example through the production model + prompt, and posts an experiment result to LangSmith. Evaluators check:
+- **Schema evaluator**: for tool-calling prompts, did the LLM emit a tool call with valid schema? (catches the "modify" action regression.)
+- **Variable-use evaluator**: does the output reference at least one value from each required context variable? (catches prompts that silently stopped using `{prep_races}`.)
+- **Structural evaluator**: for free-text prompts, does the output match expected markers (e.g., contains a number for pacing, references today's date)?
+
+Failure threshold: >20% regression on any evaluator blocks prompt promotion. Pass/fail summary delivered as a Cloud Function log line that the team reads in a shared Slack channel (no dedicated alerting infra initially).
+
+This tier is a first-class feature, not an afterthought. Every new prompt MUST ship with a Tier 2 dataset before promotion to production.
+
+#### 7.5.3 Tier 3 — Production trace sampling (weekly, optional)
+
+A weekly script pulls 50 random production traces per prompt from LangSmith and scans the input/output for:
+- Unsubstituted placeholders in the final prompt (e.g. literal `{context}` appearing in a prod trace)
+- Responses that contain no reference to any context variable (strong signal of prompt drift)
+- Tool-call response rate vs expected baseline (if coaching-chat suddenly drops from 40% tool-calling to 5%, someone broke the tool description)
+
+Not implemented initially. Spec is captured here so we know the eventual shape.
+
+#### 7.5.4 Acceptance Criteria for §7.5
+
+1. Every prompt fetched via `getPrompt()` is validated against its manifest at cold start; missing required variables cause fetch to throw
+2. PROMPT_MANIFEST covers all currently-used prompts (`coaching-chat`, `plan-generation`, `plan-generation-batch`, `plan-from-template`, `race-search`, `prep-race-search`, and any new prompts added for Features 1/2)
+3. A Tier 2 eval harness script exists at `functions/eval-prompts.js` and can be run manually to evaluate one or all prompts against their datasets
+4. Each new prompt shipped for Features 1/2 has a Tier 2 dataset with at least 5 canonical examples
+5. Tier 2 regression failures (>20% eval delta from previous baseline) block prompt promotion until resolved
 
 ---
 
