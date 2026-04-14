@@ -129,6 +129,18 @@ Add three new data queries to HealthKitManager:
 - `fetchRestingHR(for date: Date) async → Double?` — Queries `HKQuantityType.restingHeartRate` for today's reading.
 - Add all three types to the HealthKit permission request in `requestAuthorization()`
 
+```swift
+struct SleepSummary: Codable, Equatable {
+    let date: Date                // Night-of date (Apr 12 = night of Apr 12 → morning of Apr 13)
+    let totalSleepMinutes: Int    // Sum of asleepCore + asleepDeep + asleepREM + asleepUnspecified
+    let timeInBedMinutes: Int     // In-bed duration (may exceed total sleep)
+    let deepSleepMinutes: Int?    // Apple Watch only; nil on iPhone-only setups
+    let remSleepMinutes: Int?     // Apple Watch only
+    let awakeMinutes: Int?        // Apple Watch only
+    let source: String            // "Apple Watch", "iPhone", "Third-party app name"
+}
+```
+
 ### 3.7 Notification Strategy
 
 The notification must be contextual, not generic. A notification that says "Time for your morning check-in!" will be ignored within a week. A notification that says "You've got 90min on the bike today and it's going to be 72°F — perfect conditions. How are you feeling?" gets tapped.
@@ -169,41 +181,41 @@ A race-specific intelligence layer that informs both the training plan and Claud
 
 #### 4.3.1 RaceCourseProfile
 
-New data structure representing a specific race venue:
+Minimal data model. Anything more detailed than this is either hard to source reliably or not actually used in coaching. Keep the surface small so it fits any race.
 
 ```swift
 struct RaceCourseProfile: Codable {
     let raceId: String                    // e.g., "im703-oregon-2026"
     let raceName: String                  // "Ironman 70.3 Oregon"
     let venue: String                     // "Salem, OR"
-    let elevation: Int                    // feet above sea level (Salem: ~150ft)
     let raceDate: Date
 
-    // Swim
-    let swimType: SwimType                // .river, .lake, .ocean, .pool
-    let swimCurrent: CurrentDirection?    // .downstream, .upstream, .mixed, nil
-    let swimWaterTemp: TemperatureRange   // expected range in race month
-    let swimWetsuitLikely: Bool
+    // Race shape
+    let raceType: RaceType                // .triathlon703, .triathlonFull, .marathon, .halfMarathon, .ultraRun, ...
+    let totalDistanceDescription: String  // Free text, e.g. "1.2mi swim / 56mi bike / 13.1mi run"
 
-    // Bike
-    let bikeElevationGain: Int            // total feet of climbing
-    let bikeProfile: CourseProfile        // .flat, .rolling, .hilly, .mountainous
-    let bikeTechnicality: Int             // 1-5 scale (turns, descents)
-    let bikeKeySegments: [String]         // e.g., ["Rolling hills miles 20-35"]
+    // Terrain
+    let terrain: TerrainProfile           // .flat, .rolling, .hilly, .mountainous
+    let totalElevationGainFeet: Int       // Sum across all disciplines
+    let venueElevationFeet: Int           // Elevation of the race venue above sea level
 
-    // Run
-    let runElevationGain: Int
-    let runProfile: CourseProfile
-    let runSurface: RunSurface            // .road, .trail, .mixed
-    let runShadeLevel: ShadeLevel         // .exposed, .partial, .shaded
-    let runKeySegments: [String]
+    // Expected weather on race day (historical for that date/location)
+    let expectedWeather: ExpectedWeather
 
-    // Environment
-    let typicalRaceDayTemp: TemperatureRange  // historical high/low for race date
-    let typicalHumidity: HumidityLevel        // .low, .moderate, .high
-    let sunriseTime: String                   // approximate for race day
-    let historicalConditions: String           // e.g., "Clear to partly cloudy, minimal rain"
+    // Metadata
+    let dataSource: DataSource            // .llmResearch | .userEntered | .bundled
+    let lastRefreshed: Date               // When the LLM research was run
 }
+
+enum TerrainProfile: String, Codable { case flat, rolling, hilly, mountainous }
+
+struct ExpectedWeather: Codable {
+    let tempHighF: Int
+    let tempLowF: Int
+    let conditionsSummary: String         // e.g. "Partly cloudy, low humidity, light winds"
+}
+
+enum DataSource: String, Codable { case llmResearch, userEntered, bundled }
 ```
 
 #### 4.3.2 AthleteEnvironment
@@ -220,6 +232,22 @@ struct AthleteEnvironment: Codable {
     let trainerAccess: Bool               // indoor bike trainer
 }
 ```
+
+#### 4.3.3 Course Data Sourcing (Web Search + LLM + Cache)
+
+`RaceCourseProfile` is populated on demand rather than hand-curated per race. Flow:
+
+1. **Trigger.** First time an athlete picks a race (or taps "refresh course data" in CourseDetailView), the client calls a new Cloud Function endpoint: `POST /llmProxy { type: "courseResearch", raceName, venue, raceDate }`.
+2. **Web search.** The Cloud Function uses the existing Anthropic web-search tool path (already wired for race date validation) to gather race name, venue elevation, terrain description, and typical weather for that date/location.
+3. **Structured extraction.** The function makes a second LLM call that forces a `propose_course_profile` tool call, returning exactly the fields in `RaceCourseProfile` — nothing more. Schema-enforced so the client can decode without fragile text parsing.
+4. **Cache in Firestore.** Write the result to `raceCourses/{raceId}` keyed by `raceId`. Any future athlete on the same race hits the cache first — no re-research cost.
+5. **Cache TTL.** `lastRefreshed` on the document. If older than 90 days (or if the race is <2 weeks out and the cached weather is seasonal-only), re-run the research call. Users can also force a refresh from CourseDetailView.
+6. **Fallbacks.**
+   - If web search returns nothing usable, persist a `dataSource: .userEntered` placeholder with defaults and surface a lightweight form in CourseDetailView to let the athlete fill terrain/elevation/weather themselves.
+   - If the LLM returns malformed JSON (tool-call normalization layer already handles this pattern from Phase 1), the Cloud Function logs the raw output to LangSmith and returns a soft error; client treats it as "course data unavailable" and falls back to generic coaching.
+7. **Shape stays small.** We deliberately do NOT attempt to populate segment-by-segment bike breakdowns, swim current direction, or shade level via LLM — too much hallucination risk. The five fields we do capture (terrain, total elevation gain, venue elevation, expected weather, race type) are high-signal and easy to verify.
+
+LangSmith traces: tag the research run with `course_research`, include the raceId, source URLs found by web search, and the final structured output for manual QA.
 
 ### 4.4 Intelligence Layers
 
@@ -311,7 +339,7 @@ New SwiftUI view accessible from HomeView (tap on race countdown banner) showing
 - Phase-appropriate preparation checklist (heat acclimation status, race-specific workouts completed, gear checklist)
 - Weather forecast for race weekend (when within 7-day window)
 
-#### 5.6.3 System Prompt Context Builder Extension
+#### 4.6.3 System Prompt Context Builder Extension
 
 Extend ChatViewModel's context building to include race course data:
 
@@ -340,7 +368,7 @@ Extend ChatViewModel's context building to include race course data:
 
 The biggest competitive gap in IronmanTrainer is that every competitor dynamically adjusts training plans and yours is static. The existing `PlanChangeProposal` tool calling infrastructure is built but not exposed as a first-class user-facing feature. Athletes currently have no intuitive way to tell the app "my week changed" and get a restructured plan that protects key sessions while accommodating real-life constraints.
 
-### 4.2 Solution Overview
+### 5.2 Solution Overview
 
 Extend the existing chat interface to support explicit plan negotiation workflows. When an athlete describes a schedule change, Claude proposes specific plan modifications using the `PlanChangeProposal` tool, renders them as a visual diff for review, and executes on approval. The conversation is the adaptation engine.
 
@@ -399,13 +427,37 @@ Below the diff card, three options:
 
 The Plan Negotiation prompt extension instructs Claude to:
 
-- Always identify the 1–2 "key sessions" of the week before making changes. Key session logic: the longest endurance session in each discipline, any race-specific workout, and any session in the peak training phase that builds on the previous week.
+- Always identify the 1–2 "key sessions" of the week before making changes. Key session logic is defined explicitly (see §5.4.1) so Claude and the app agree on what counts as a key session.
 - Never drop more than 2 sessions in a single week without explicitly warning the athlete about training load impact.
 - When dropping a swim, suggest a makeup swim within the same week or early the following week.
 - When modifying intensity (threshold → endurance), explain the physiological tradeoff in one sentence.
 - Frame all proposals as suggestions: "What I'd recommend" not "Your plan has been updated."
 - If the constraint spans multiple weeks (e.g., a 2-week injury), generate proposals for all affected weeks in a single response.
 - Include cumulative weekly volume totals (original vs. proposed) at the bottom of each proposal so the athlete can see the net impact.
+
+#### 5.4.1 Key Session Definition
+
+Key sessions are computed on the client and passed to Claude in the system prompt so both sides apply the same definition. A `DayWorkout` qualifies as a key session if ANY of the following hold:
+
+- `.longestEnduranceInDiscipline` — The single longest workout for that discipline in the current week (one per discipline: swim, bike, run).
+- `.raceSpecific` — Workout explicitly tagged as race-pace, brick, or race-simulation (inferred from `type` string matches on "brick", "race pace", "race sim", "tempo", or "threshold" when within the peak training phase).
+- `.peakPhaseBuilder` — Any session during weeks within 6 weeks of race day whose planned volume is ≥90% of the prior week's equivalent session (indicates progressive overload that should not be skipped).
+
+Swift representation:
+
+```swift
+enum KeySessionReason: String, Codable {
+    case longestEnduranceInDiscipline
+    case raceSpecific
+    case peakPhaseBuilder
+}
+
+extension DayWorkout {
+    func keySessionReason(in week: TrainingWeek, weeksToRace: Int, priorWeek: TrainingWeek?) -> KeySessionReason?
+}
+```
+
+The list of key sessions (with reason codes) is injected into Claude's system prompt alongside the current-week plan so Claude can reference them by reason when explaining proposals (e.g. "Saturday's long ride is this week's key bike session — I'm protecting it").
 
 ### 5.5 PlanChangeProposal Schema Extension
 
@@ -418,7 +470,8 @@ The existing `PlanChangeProposal` supports add, drop, swap, and replace. The fol
 | rationale | String | One-sentence explanation of why this change was made. Displayed in diff card. |
 | isKeySession | Bool | Whether this session was identified as a must-protect key session. |
 | volumeImpact | Int (minutes) | Net change in training minutes for this operation (+15, -30, 0). |
-| affectedWeek | Int | Week number (1–17) this change applies to. Enables multi-week proposals. |
+
+Note: the existing `week` field on `PlanChange` already supports multi-week proposals — no additional `affectedWeek` field is needed.
 
 #### New Fields on PlanChangeProposal
 
@@ -429,7 +482,7 @@ The existing `PlanChangeProposal` supports add, drop, swap, and replace. The fol
 | keySessionsProtected | [String] | List of key sessions that were preserved. |
 | negotiationRound | Int | Which iteration of negotiation this is (1 = first proposal, 2 = revised, etc.). |
 
-### 4.6 New Components Required
+### 5.6 New Components Required
 
 #### 5.6.1 PlanDiffCard (SwiftUI View)
 
@@ -460,7 +513,7 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 - Render `PlanDiffCard` inline in the message bubble instead of raw text
 - Wire up the action buttons to `ChatViewModel.executePlanChanges()` and state management
 
-### 4.7 Acceptance Criteria
+### 5.7 Acceptance Criteria
 
 1. Athlete can describe a schedule constraint in natural language in the Chat tab and receive a structured plan modification proposal
 2. Claude's proposal is rendered as a visual PlanDiffCard showing day-by-day original vs. proposed with color coding
@@ -477,16 +530,38 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 
 ---
 
-## 6. Shared Requirements & Constraints
+## 6. Feature Interactions
 
-### 6.1 Performance
+The three features are designed to work together. The most important cross-feature path: a Morning Check-In may surface a constraint ("my knee is sore," "I slept 4 hours") that warrants a plan change. Rather than rebuilding the negotiation flow inside CheckInView, the check-in hands off to the existing Phase-1 negotiation state machine.
+
+### 6.1 Check-In → Plan Negotiation handoff
+
+1. Inside CheckInView, if Claude decides the situation requires a plan change, it emits a `propose_plan_change` tool call exactly like general chat. This is the same tool path — no new prompt surface.
+2. `ChatViewModel.negotiationState` transitions to `.reviewing(proposal)` (already defined in Phase 1). CheckInView observes the same ViewModel and renders a compact `PlanDiffCard` inline below today's workout header instead of the three-bubble check-in strip. No new state machine.
+3. Accept / Reject / Modify on the card behave identically to the Chat tab. Modify keeps the athlete inside CheckInView for one revision round, then auto-dismisses back to Home on Accept. This avoids dragging the athlete into the full Chat tab mid-check-in.
+4. The resulting conversation (check-in + negotiation turns) is saved to chat history tagged as both `checkIn` and `negotiation` so LangSmith metrics can track the funnel: check-in → negotiation triggered → proposal rendered → accepted.
+5. If the athlete dismisses CheckInView while a proposal is pending, the proposal is discarded (not left stranded in `negotiationState`) and a "proposal cancelled" entry is added to chat history for audit.
+
+### 6.2 Race Course Intelligence injection
+
+Course context (§4.5) is injected into the system prompt for ALL coaching calls — general chat, check-in, and negotiation — not just Chat-tab conversations. The `RaceCourseService.getPhaseContext()` call happens once per `sendCoachingMessage` so every surface sees the same phase-appropriate detail. No feature-specific course context builder.
+
+### 6.3 Shared conversation tagging
+
+All three features write to the same `messages` array on `ChatViewModel`. Each message carries a `source` tag (`.general`, `.checkIn`, `.negotiation`) introduced in Phase 1 groundwork (§7 Phase 1). The Chat tab filters by source when rendering history so check-in conversations can be shown separately or merged per user preference.
+
+---
+
+## 7. Shared Requirements & Constraints
+
+### 7.1 Performance
 
 - Claude response latency: <3 seconds for check-in opening message (pre-generated), <5 seconds for plan negotiation proposals and course-aware responses (more complex context)
 - Plan change execution: <500ms from acceptance to Core Data persistence and UI update
 - Notification delivery: contextual body text must be generated within 30 seconds of scheduled preparation time
 - Course context injection: <200ms to assemble phase-appropriate course context for system prompt
 
-### 6.2 Privacy & Data
+### 7.2 Privacy & Data
 
 - All new HealthKit data types (sleep, HRV, resting HR) must be added to the Info.plist usage descriptions with clear, user-friendly explanations
 - HealthKit data is never sent to Claude in raw form — only aggregated summaries (e.g., "6.5 hours of sleep" not raw sleep stage timestamps)
@@ -494,7 +569,7 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 - Race course data is bundled in the app (no external API calls for course profiles)
 - LangSmith traces may include anonymized conversation content for coaching quality evaluation
 
-### 6.3 Edge Cases
+### 7.3 Edge Cases
 
 #### Morning Check-In
 
@@ -518,7 +593,7 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 - Race week (Week 17): Claude is extra conservative; modifications default to maintaining taper protocol
 - Already-modified plan: If plan was already negotiated earlier in the week, Claude references previous changes and builds on them
 
-### 6.4 Testing Strategy
+### 7.4 Testing Strategy
 
 - Unit tests for CheckInManager: context assembly, notification scheduling, check-in state machine
 - Unit tests for RaceCourseService: phase context generation, altitude adjustment calculations, pacing strategy
@@ -531,7 +606,7 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 
 ---
 
-## 7. Implementation Sequence
+## 8. Implementation Sequence
 
 Recommended build order, accounting for dependencies:
 
@@ -546,10 +621,12 @@ Recommended build order, accounting for dependencies:
 
 ### Phase 2: Race Course Intelligence (Week 2–3)
 
+- Build Cloud Function `courseResearch` endpoint: web search → structured `propose_course_profile` tool call → Firestore `raceCourses/{raceId}` cache with 90-day TTL (see §4.3.3)
+- Wire client `RaceCourseService` to call `courseResearch` on first race selection and on user-triggered refresh
 - Build RaceCourseService with phase-dependent context generation
 - Build altitude adjustment calculations (HR zone offsets, pace estimates)
 - Extend ChatViewModel's context builder to inject course context into system prompt
-- Build CourseDetailView with course overview, altitude comparison, and prep checklist
+- Build CourseDetailView with course overview, altitude comparison, and prep checklist (+ user-entered fallback form when LLM research fails)
 - Wire CourseDetailView to race countdown banner in HomeView
 - Write and test course-aware system prompt extensions
 - Test phase transitions (verify context changes as weeks count down)
@@ -580,7 +657,7 @@ Recommended build order, accounting for dependencies:
 
 ---
 
-## 8. Success Metrics
+## 9. Success Metrics
 
 | Metric | Target | Measurement |
 |---|---|---|
@@ -588,13 +665,14 @@ Recommended build order, accounting for dependencies:
 | Check-in modification acceptance rate | 30–60% (too high = overtrained, too low = irrelevant) | Accept vs. Keep Original taps |
 | Plan negotiation usage | 1–2 negotiations per week | Count PlanChangeProposal tool calls per week |
 | Negotiation approval rate | >70% of proposals accepted (first or revised) | Accept vs. Reject actions on PlanDiffCard |
+| Negotiation tool-call funnel | >95% of `propose_plan_change` tool calls render a PlanDiffCard | Compare Cloud Function `tool called: propose_plan_change` log count to client-side `[LLM PROXY] proposal decoded` count. Catches silent decode failures before they become user-visible regressions. |
 | Rollback rate | <10% of accepted proposals rolled back | Undo button taps after plan negotiation |
 | Course-specific coaching relevance | >80% of course references rated useful (self-eval) | Manual review of LangSmith traces with course context |
 | Training plan adherence | Improvement from current baseline | HealthKit completion vs. planned workouts, pre/post feature launch |
 
 ---
 
-## 9. Open Questions
+## 10. Open Questions
 
 1. Should the Morning Check-In be opt-in (user enables in Settings) or opt-out (enabled by default with ability to disable)? Recommendation: opt-out — the feature only works if it's habitual, and users who don't want it can turn it off.
 2. Should Plan Negotiation support modifications to weeks other than the current week? The infrastructure supports it (affectedWeek field), but the UX of negotiating future weeks is more complex. Recommendation: ship with current-week-only, add future-week support in v2.
