@@ -10,6 +10,9 @@ func print(_ items: Any..., separator: String = " ", terminator: String = "\n") 
 
 extension Notification.Name {
     static let navigateToWeek = Notification.Name("navigateToWeek")
+    /// Posted when the user taps a Morning Check-In push (FCM or local) so the
+    /// app can route to CheckInView.
+    static let openCheckIn = Notification.Name("openCheckIn")
 }
 
 // MARK: - Onboarding Date Store

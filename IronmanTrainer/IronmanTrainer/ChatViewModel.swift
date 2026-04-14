@@ -2,19 +2,43 @@ import Foundation
 import HealthKit
 
 // MARK: - Chat ViewModel
+
+/// Classifies a ChatMessage so the UI (and analytics) can filter between the
+/// main coaching chat and the Morning Check-In thread. Persisted with the
+/// message so the filter survives across launches.
+enum ChatMessageKind: String, Codable {
+    case general
+    case checkIn = "check_in"
+}
+
 struct ChatMessage: Identifiable, Codable {
     let id: UUID
     let isUser: Bool
     let text: String
     let timestamp: Date
     let imageData: Data?
+    let kind: ChatMessageKind
 
-    init(id: UUID = UUID(), isUser: Bool, text: String, timestamp: Date = Date(), imageData: Data? = nil) {
+    init(id: UUID = UUID(), isUser: Bool, text: String, timestamp: Date = Date(), imageData: Data? = nil, kind: ChatMessageKind = .general) {
         self.id = id
         self.isUser = isUser
         self.text = text
         self.timestamp = timestamp
         self.imageData = imageData
+        self.kind = kind
+    }
+
+    // Back-compat decoder: older persisted messages have no `kind` field.
+    enum CodingKeys: String, CodingKey { case id, isUser, text, timestamp, imageData, kind }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try c.decode(UUID.self, forKey: .id)
+        self.isUser = try c.decode(Bool.self, forKey: .isUser)
+        self.text = try c.decode(String.self, forKey: .text)
+        self.timestamp = try c.decode(Date.self, forKey: .timestamp)
+        self.imageData = try c.decodeIfPresent(Data.self, forKey: .imageData)
+        self.kind = (try? c.decodeIfPresent(ChatMessageKind.self, forKey: .kind)) ?? .general
     }
 }
 
@@ -355,7 +379,7 @@ class ChatViewModel: ObservableObject {
     func saveChatHistory() {
         // Strip image data from persisted messages to avoid UserDefaults bloat
         let toSave = messages.suffix(Self.maxPersistedMessages).map { msg in
-            ChatMessage(id: msg.id, isUser: msg.isUser, text: msg.text, timestamp: msg.timestamp, imageData: nil)
+            ChatMessage(id: msg.id, isUser: msg.isUser, text: msg.text, timestamp: msg.timestamp, imageData: nil, kind: msg.kind)
         }
         let encoder = JSONEncoder()
         if let data = try? encoder.encode(toSave) {

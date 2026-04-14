@@ -1,6 +1,26 @@
 import Foundation
 import HealthKit
 
+// MARK: - Sleep Summary (Morning Check-In v1)
+/// Captured overnight sleep snapshot used by the Morning Check-In feature.
+/// v1 surfaces duration + source only; stage fields are populated when the
+/// HealthKit samples report them (Apple Watch) and nil otherwise.
+/// See PRD §3.6.3.
+struct SleepSummary: Codable, Equatable {
+    /// "Night of" date — the calendar date the sleep period began.
+    let date: Date
+    /// Total asleep minutes: asleepCore + asleepDeep + asleepREM + asleepUnspecified.
+    let totalSleepMinutes: Int
+    /// Time in bed (may exceed total sleep).
+    let timeInBedMinutes: Int
+    let deepSleepMinutes: Int?
+    let remSleepMinutes: Int?
+    let awakeMinutes: Int?
+    /// Sample source name. Examples: "Apple Watch", "iPhone", third-party app name.
+    /// UI treats all sources equivalently in v1.
+    let source: String
+}
+
 // MARK: - HealthKit Manager
 class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     static let shared = HealthKitManager()
@@ -29,7 +49,9 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
         let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        // Morning Check-In v1: request sleep analysis. HRV + resting HR deferred to v2.
+        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType, sleepType]
 
         healthStore.getRequestStatusForAuthorization(toShare: [], read: typesToRead) { status, _ in
             DispatchQueue.main.async {
@@ -49,7 +71,9 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         let workoutType = HKObjectType.workoutType()
         let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
         let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType]
+        // Morning Check-In v1: request sleep analysis. HRV + resting HR deferred to v2.
+        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType, sleepType]
 
         do {
             try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
@@ -271,5 +295,102 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 }
             }
         }
+    }
+
+    // MARK: - Sleep (Morning Check-In v1)
+
+    /// Fetches the previous night's sleep for the morning of `date`.
+    ///
+    /// Looks at samples whose start falls in the 18-hour window ending at
+    /// `date`'s 12:00pm local time — this covers bedtimes from the prior
+    /// afternoon through the requested morning.
+    ///
+    /// v1 scope (§11.1): single signal = sleep duration. Any HealthKit sleep
+    /// source (Apple Watch, iPhone, third-party) is accepted; the source
+    /// string is captured but the UI treats all sources equivalently.
+    ///
+    /// Returns nil when no samples are found or HealthKit is unavailable.
+    func fetchSleepData(for date: Date) async -> SleepSummary? {
+        guard HKHealthStore.isHealthDataAvailable(),
+              let sleepType = HKCategoryType.categoryType(forIdentifier: .sleepAnalysis) else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        // Window: noon the day before → noon on `date` (covers the full night).
+        let noonOfRequested = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
+        let windowStart = calendar.date(byAdding: .hour, value: -24, to: noonOfRequested) ?? noonOfRequested
+        let predicate = HKQuery.predicateForSamples(withStart: windowStart, end: noonOfRequested, options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+
+        let samples: [HKCategorySample] = await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                continuation.resume(returning: (results as? [HKCategorySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+
+        return Self.summarizeSleep(samples: samples, nightOf: calendar.startOfDay(for: windowStart))
+    }
+
+    /// Pure summarization helper. Exposed for unit tests (see `SleepFetchTests`).
+    static func summarizeSleep(samples: [HKCategorySample], nightOf date: Date) -> SleepSummary? {
+        guard !samples.isEmpty else { return nil }
+
+        var total = 0
+        var inBed = 0
+        var deep = 0
+        var rem = 0
+        var awake = 0
+        var sawStages = false
+
+        for s in samples {
+            let minutes = Int(s.endDate.timeIntervalSince(s.startDate) / 60.0)
+            guard minutes > 0 else { continue }
+
+            // Value uses HKCategoryValueSleepAnalysis.
+            if let v = HKCategoryValueSleepAnalysis(rawValue: s.value) {
+                switch v {
+                case .inBed:
+                    inBed += minutes
+                case .asleepUnspecified, .asleep:
+                    total += minutes
+                case .asleepCore:
+                    total += minutes
+                    sawStages = true
+                case .asleepDeep:
+                    total += minutes
+                    deep += minutes
+                    sawStages = true
+                case .asleepREM:
+                    total += minutes
+                    rem += minutes
+                    sawStages = true
+                case .awake:
+                    awake += minutes
+                    sawStages = true
+                @unknown default:
+                    break
+                }
+            }
+        }
+
+        // If no explicit in-bed samples, approximate with asleep total so consumers
+        // always see a non-zero `timeInBedMinutes` when sleep was recorded.
+        if inBed == 0 { inBed = total + awake }
+        guard total > 0 || inBed > 0 else { return nil }
+
+        // Pick a representative source name. Prefer the longest sample's source.
+        let source = samples.max(by: { $0.endDate.timeIntervalSince($0.startDate) < $1.endDate.timeIntervalSince($1.startDate) })?.sourceRevision.source.name ?? "Unknown"
+
+        return SleepSummary(
+            date: date,
+            totalSleepMinutes: total,
+            timeInBedMinutes: inBed,
+            deepSleepMinutes: sawStages ? deep : nil,
+            remSleepMinutes: sawStages ? rem : nil,
+            awakeMinutes: sawStages ? awake : nil,
+            source: source
+        )
     }
 }
