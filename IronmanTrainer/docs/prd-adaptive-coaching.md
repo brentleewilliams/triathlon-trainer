@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-This PRD defines two adaptive coaching features for the IronmanTrainer iOS app: **Morning Check-In** (conversational readiness assessment) and **Plan Negotiation** (chat-based plan rescheduling). Both features leverage Claude as the AI engine to deliver coaching through conversation — a fundamentally different approach from the algorithmic plan adjustment used by every competitor in the market.
+This PRD defines three adaptive coaching features for the IronmanTrainer iOS app: **Morning Check-In** (conversational readiness assessment), **Race Course Intelligence** (location-aware training adaptation), and **Plan Negotiation** (chat-based plan rescheduling). All three features leverage Claude as the AI engine to deliver coaching through conversation — a fundamentally different approach from the algorithmic plan adjustment used by every competitor in the market.
 
 The core thesis: other apps adjust your numbers behind a black box. IronmanTrainer talks to you like a coach who knows your name, your race, your body, and your schedule. The adaptation happens in the conversation, not behind an algorithm.
 
@@ -155,9 +155,188 @@ The notification must be contextual, not generic. A notification that says "Time
 
 ---
 
-## 4. Feature 3: Plan Negotiation
+## 4. Feature 2: Race Course Intelligence
 
 ### 4.1 Problem Statement
+
+Every competitor generates generic triathlon training plans. No app adapts training to the specific race course, conditions, or the athlete's geographic context. For an athlete training in Denver (5,280ft) for a sea-level race in Salem, OR in July, the physiological variables are massive: altitude-adjusted HR zones, heat acclimation timing, course-specific power demands, and pacing strategy. These are exactly the things a human coach would address — and no AI coaching app currently does.
+
+### 4.2 Solution Overview
+
+A race-specific intelligence layer that informs both the training plan and Claude's coaching conversations. Claude is provided with structured course data (elevation profile, swim conditions, typical weather, altitude delta from training location) and uses it to make context-aware recommendations throughout the training cycle. This is not a one-time plan adjustment — it's an ongoing thread that becomes more specific as race day approaches.
+
+### 4.3 Race Course Data Model
+
+#### 4.3.1 RaceCourseProfile
+
+New data structure representing a specific race venue:
+
+```swift
+struct RaceCourseProfile: Codable {
+    let raceId: String                    // e.g., "im703-oregon-2026"
+    let raceName: String                  // "Ironman 70.3 Oregon"
+    let venue: String                     // "Salem, OR"
+    let elevation: Int                    // feet above sea level (Salem: ~150ft)
+    let raceDate: Date
+
+    // Swim
+    let swimType: SwimType                // .river, .lake, .ocean, .pool
+    let swimCurrent: CurrentDirection?    // .downstream, .upstream, .mixed, nil
+    let swimWaterTemp: TemperatureRange   // expected range in race month
+    let swimWetsuitLikely: Bool
+
+    // Bike
+    let bikeElevationGain: Int            // total feet of climbing
+    let bikeProfile: CourseProfile        // .flat, .rolling, .hilly, .mountainous
+    let bikeTechnicality: Int             // 1-5 scale (turns, descents)
+    let bikeKeySegments: [String]         // e.g., ["Rolling hills miles 20-35"]
+
+    // Run
+    let runElevationGain: Int
+    let runProfile: CourseProfile
+    let runSurface: RunSurface            // .road, .trail, .mixed
+    let runShadeLevel: ShadeLevel         // .exposed, .partial, .shaded
+    let runKeySegments: [String]
+
+    // Environment
+    let typicalRaceDayTemp: TemperatureRange  // historical high/low for race date
+    let typicalHumidity: HumidityLevel        // .low, .moderate, .high
+    let sunriseTime: String                   // approximate for race day
+    let historicalConditions: String           // e.g., "Clear to partly cloudy, minimal rain"
+}
+```
+
+#### 4.3.2 AthleteEnvironment
+
+New data structure for the athlete's training context:
+
+```swift
+struct AthleteEnvironment: Codable {
+    let trainingElevation: Int            // feet (Denver: 5,280)
+    let trainingClimate: String           // e.g., "semi-arid, dry heat"
+    let typicalTrainingTemp: TemperatureRange  // current month's range
+    let poolAccess: Bool
+    let openWaterAccess: Bool
+    let trainerAccess: Bool               // indoor bike trainer
+}
+```
+
+### 4.4 Intelligence Layers
+
+Race Course Intelligence operates across four distinct layers, each becoming more relevant as race day approaches:
+
+#### 4.4.1 Plan-Phase Adaptation (Weeks 17–6)
+
+General training emphasis based on course demands. Injected into Claude's system prompt as course context.
+
+- **Flat/rolling bike course (Salem):** Emphasize sustained power at threshold, not climbing strength. Shift bike intervals toward flat terrain power (steady-state Z3/Z4) rather than hill repeats.
+- **River swim with downstream current:** Train pacing without relying on current assist. Include sighting drills for river conditions.
+- **Exposed run course:** Build heat resilience early. Include some midday runs during warmer training weeks.
+- **Altitude delta (Denver → Salem):** HR zones trained at altitude will feel easier at sea level. Claude should note this in coaching: "Your Z2 effort at altitude will be a strong Z2 at sea level — expect to feel faster on race day."
+
+#### 4.4.2 Race-Specific Preparation (Weeks 5–3)
+
+Targeted preparation protocols that Claude suggests at the right time:
+
+- **Heat acclimation protocol:** Starting 3 weeks pre-race, Claude suggests adding 20-30 min of heat exposure (sauna, hot bath post-workout, or training in warmer parts of the day). Claude references the expected 75-85°F race day temps in Salem vs. current Denver conditions.
+- **Race pace sessions:** Bike and run workouts calibrated to race-day targets, adjusted for altitude. "Today's tempo ride: hold 165W for 45 minutes. At sea level on race day, that same effort should yield ~172W."
+- **Open water simulation:** If athlete has open water access, Claude suggests a river or lake swim to practice sighting and non-pool pacing.
+- **Nutrition rehearsal:** Tie nutrition targets to course conditions. "At 80°F in Salem, you'll need 20-30oz/hour on the bike plus your 60-80g carbs/hr. Practice that ratio in today's long ride."
+
+#### 4.4.3 Race Week Intelligence (Weeks 2–1)
+
+Hyper-specific guidance as race day approaches:
+
+- **Travel timing:** "You're flying from Denver (5,280ft) to Salem (~150ft). Arriving Thursday gives you 2 days to adjust. You'll feel extra oxygen-rich — don't let that trick you into going out too fast."
+- **Taper adjustments:** Course-aware taper. "The bike is flat-to-rolling, so you don't need a big climbing effort this week. One short spin with 3x5min at race effort is enough."
+- **Weather monitoring:** Pull actual forecast for Salem race weekend and adjust final guidance. "Race day forecast: 78°F, partly cloudy. Good news — cooler than average. Stick with your planned nutrition but you can ease off the extra hydration."
+- **Pacing strategy:** Course-specific race plan. "Swim: draft if you can, the river current will help — don't fight it. Bike: hold 160-170W steady through the rolling miles 20-35, don't surge on the hills. Run: start conservative at 8:30/mile — your altitude fitness gives you a cushion to negative split."
+
+#### 4.4.4 Post-Race Analysis
+
+After the race, Claude reviews actual performance against course-specific predictions:
+
+- Actual vs. predicted splits by discipline
+- Where the course-specific advice was helpful vs. where it missed
+- What to adjust for the next race (if training continues)
+
+### 4.5 Claude System Prompt Additions
+
+Race Course Intelligence adds structured context to Claude's system prompt. The context is phase-dependent — more detail closer to race day.
+
+**Always included:**
+
+- Race name, date, venue, elevation
+- Athlete training elevation and climate
+- Altitude delta and its physiological implications
+- Course profile summary (swim type, bike terrain, run surface/shade)
+
+**Added at 5 weeks out:**
+
+- Heat acclimation protocol details
+- Race-pace target calculations (altitude-adjusted)
+- Specific course segments and how to train for them
+
+**Added at 2 weeks out:**
+
+- Travel and arrival recommendations
+- Actual weather forecast (when available)
+- Detailed pacing strategy by discipline
+- Race-day nutrition plan calibrated to conditions
+
+**Key prompt instructions:**
+
+- When suggesting workouts, reference the course: "This flat tempo ride simulates the Salem bike course" rather than generic "tempo ride"
+- When reviewing HealthKit data, contextualize for altitude: "Your HR was 155 on that Z2 run — that's expected at 5,280ft. At sea level, that same effort would be around 145."
+- Don't front-load race-specific anxiety. In early weeks, course awareness is background context. It becomes foreground only in the final 3-5 weeks.
+- Always frame altitude as an advantage: "Training at altitude gives you a free fitness boost at sea level" — this is motivating and physiologically accurate.
+
+### 4.6 New Components Required
+
+#### 4.6.1 RaceCourseService
+
+New service responsible for managing course data and injecting it into Claude's context.
+
+- `loadCourseProfile(for raceId: String) → RaceCourseProfile` — Loads course data. Initially hardcoded for Ironman 70.3 Oregon; structured for future API/database expansion.
+- `getPhaseContext(weeksToRace: Int) → String` — Returns the appropriate level of course detail for Claude's system prompt based on proximity to race day.
+- `getAltitudeAdjustment(trainingElevation: Int, raceElevation: Int) → AltitudeContext` — Computes altitude delta and returns HR adjustment factors, pace adjustment estimates, and acclimation recommendations.
+- `getPacingStrategy(profile: RaceCourseProfile, athleteData: AthleteData) → PacingPlan` — Generates discipline-specific pacing targets adjusted for course and athlete fitness.
+
+#### 4.6.2 CourseDetailView
+
+New SwiftUI view accessible from HomeView (tap on race countdown banner) showing:
+
+- Course overview with swim/bike/run profiles
+- Altitude comparison visualization (training elevation vs. race elevation)
+- Phase-appropriate preparation checklist (heat acclimation status, race-specific workouts completed, gear checklist)
+- Weather forecast for race weekend (when within 7-day window)
+
+#### 5.6.3 System Prompt Context Builder Extension
+
+Extend ChatViewModel's context building to include race course data:
+
+- Add `buildCourseContext()` method that calls `RaceCourseService.getPhaseContext()`
+- Inject course context into the system prompt alongside existing training context
+- Ensure context stays within token budget (course context should be ~200-400 tokens depending on phase)
+
+### 4.7 Acceptance Criteria
+
+1. Claude's coaching responses reference the specific race course when relevant (not generic triathlon advice)
+2. Altitude delta is reflected in HR zone commentary ("expected at altitude" when reviewing HealthKit data)
+3. Heat acclimation suggestions appear automatically starting 3 weeks before race day
+4. Race-pace workouts include altitude-adjusted target numbers
+5. Race week guidance includes travel timing, taper adjustments, and course-specific pacing strategy
+6. CourseDetailView displays course profile, altitude comparison, and phase-appropriate prep checklist
+7. Weather forecast for race weekend appears in CourseDetailView when within 7-day window
+8. Course context does not appear in early-cycle coaching unless directly relevant (no premature race anxiety)
+9. All course-aware coaching interactions are traced via LangSmith with course context metadata
+10. RaceCourseProfile is structured for future expansion to other races (not hardcoded to Oregon)
+
+---
+
+## 5. Feature 3: Plan Negotiation
+
+### 5.1 Problem Statement
 
 The biggest competitive gap in IronmanTrainer is that every competitor dynamically adjusts training plans and yours is static. The existing `PlanChangeProposal` tool calling infrastructure is built but not exposed as a first-class user-facing feature. Athletes currently have no intuitive way to tell the app "my week changed" and get a restructured plan that protects key sessions while accommodating real-life constraints.
 
@@ -167,9 +346,9 @@ Extend the existing chat interface to support explicit plan negotiation workflow
 
 This is deliberately not automatic adaptation. The athlete stays in control and understands why every change was made. This directly addresses the #1 user complaint about competitors: "the algorithm made changes I don't understand."
 
-### 4.3 User Flow
+### 5.3 User Flow
 
-#### 4.3.1 Initiating a Negotiation
+#### 5.3.1 Initiating a Negotiation
 
 Plan negotiation triggers when the athlete describes a constraint or schedule change in chat. There is no separate mode or button. Claude detects the intent from natural language.
 
@@ -181,14 +360,14 @@ Trigger examples:
 - "My knee is bothering me, can we reduce run volume?"
 - "Work is insane this week, can we do a lighter week?"
 
-#### 4.3.2 Proposal Generation
+#### 5.3.2 Proposal Generation
 
 1. Claude analyzes the constraint against the current week's plan (and adjacent weeks if needed)
 2. Claude identifies which sessions are "key" (must-protect) vs. flexible based on training phase and race proximity
 3. Claude generates a `PlanChangeProposal` with specific add/drop/swap/replace operations
 4. Claude explains the reasoning for each change in conversational text before presenting the proposal
 
-#### 4.3.3 Visual Diff & Approval
+#### 5.3.3 Visual Diff & Approval
 
 When Claude returns a `PlanChangeProposal` via tool calling, the chat renders a structured plan diff card:
 
@@ -208,7 +387,7 @@ The diff card includes:
 - "KEY SESSION" label on sessions Claude identified as must-protect
 - Brief rationale for each change inline
 
-#### 4.3.4 Athlete Response Options
+#### 5.3.4 Athlete Response Options
 
 Below the diff card, three options:
 
@@ -216,7 +395,7 @@ Below the diff card, three options:
 - **Modify** — Athlete can respond with adjustments: "Actually, can we keep Thursday as a bike instead of dropping it?" Claude generates a revised proposal. This can iterate 2–3 times.
 - **Reject** — Plan stays unchanged. Conversation is preserved for context.
 
-### 4.4 Claude System Prompt Additions
+### 5.4 Claude System Prompt Additions
 
 The Plan Negotiation prompt extension instructs Claude to:
 
@@ -228,7 +407,7 @@ The Plan Negotiation prompt extension instructs Claude to:
 - If the constraint spans multiple weeks (e.g., a 2-week injury), generate proposals for all affected weeks in a single response.
 - Include cumulative weekly volume totals (original vs. proposed) at the bottom of each proposal so the athlete can see the net impact.
 
-### 4.5 PlanChangeProposal Schema Extension
+### 5.5 PlanChangeProposal Schema Extension
 
 The existing `PlanChangeProposal` supports add, drop, swap, and replace. The following extensions are needed:
 
@@ -252,7 +431,7 @@ The existing `PlanChangeProposal` supports add, drop, swap, and replace. The fol
 
 ### 4.6 New Components Required
 
-#### 4.6.1 PlanDiffCard (SwiftUI View)
+#### 5.6.1 PlanDiffCard (SwiftUI View)
 
 A structured card view rendered inline in the chat when Claude returns a `PlanChangeProposal`.
 
@@ -263,7 +442,7 @@ A structured card view rendered inline in the chat when Claude returns a `PlanCh
 - Tapping Accept triggers `executePlanChanges()` on ChatViewModel and saves Core Data version
 - Tapping Modify refocuses the text input with a prompt placeholder: "Tell me what to adjust..."
 
-#### 4.6.2 NegotiationState (on ChatViewModel)
+#### 5.6.2 NegotiationState (on ChatViewModel)
 
 Track negotiation state within the chat session:
 
@@ -272,7 +451,7 @@ Track negotiation state within the chat session:
 - `originalPlanSnapshot: [DayWorkout]` — Snapshot of the plan before any negotiation changes (for Reject to restore)
 - `isNegotiating: Bool` — Published property to adjust UI (e.g., show diff card, disable regular send)
 
-#### 4.6.3 Tool Call Rendering Extension
+#### 5.6.3 Tool Call Rendering Extension
 
 The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming responses. Extend this to:
 
@@ -298,22 +477,24 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 
 ---
 
-## 5. Shared Requirements & Constraints
+## 6. Shared Requirements & Constraints
 
-### 5.1 Performance
+### 6.1 Performance
 
-- Claude response latency: <3 seconds for check-in opening message (pre-generated), <5 seconds for plan negotiation proposals (more complex context)
+- Claude response latency: <3 seconds for check-in opening message (pre-generated), <5 seconds for plan negotiation proposals and course-aware responses (more complex context)
 - Plan change execution: <500ms from acceptance to Core Data persistence and UI update
 - Notification delivery: contextual body text must be generated within 30 seconds of scheduled preparation time
+- Course context injection: <200ms to assemble phase-appropriate course context for system prompt
 
-### 5.2 Privacy & Data
+### 6.2 Privacy & Data
 
 - All new HealthKit data types (sleep, HRV, resting HR) must be added to the Info.plist usage descriptions with clear, user-friendly explanations
 - HealthKit data is never sent to Claude in raw form — only aggregated summaries (e.g., "6.5 hours of sleep" not raw sleep stage timestamps)
 - Check-in conversations are stored locally only (same as existing chat history)
+- Race course data is bundled in the app (no external API calls for course profiles)
 - LangSmith traces may include anonymized conversation content for coaching quality evaluation
 
-### 5.3 Edge Cases
+### 6.3 Edge Cases
 
 #### Morning Check-In
 
@@ -321,6 +502,13 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 - User doesn't respond to check-in: No plan changes. Next day's check-in notes the missed interaction.
 - Multiple workouts in a day (brick day): Check-in addresses the primary session; brick-specific guidance deferred to workout detail
 - Rest day: Check-in is lighter — "Rest day today. How's recovery going? Anything I should know before tomorrow's [workout]?"
+
+#### Race Course Intelligence
+
+- Athlete changes target race mid-cycle: RaceCourseProfile updates, Claude context refreshes, previous course-specific advice is noted as superseded
+- No course profile available for selected race: Claude falls back to generic coaching; surface a prompt to request course data be added
+- Athlete trains at same elevation as race: Altitude context is suppressed (no adjustment needed); focus shifts to other course specifics
+- Race is cancelled or postponed: CourseDetailView reflects new date; Claude adjusts training timeline
 
 #### Plan Negotiation
 
@@ -330,18 +518,20 @@ The existing chat system processes `[TOOL_CALL:{...}]` tokens from streaming res
 - Race week (Week 17): Claude is extra conservative; modifications default to maintaining taper protocol
 - Already-modified plan: If plan was already negotiated earlier in the week, Claude references previous changes and builds on them
 
-### 5.4 Testing Strategy
+### 6.4 Testing Strategy
 
 - Unit tests for CheckInManager: context assembly, notification scheduling, check-in state machine
+- Unit tests for RaceCourseService: phase context generation, altitude adjustment calculations, pacing strategy
 - Unit tests for PlanDiffCard: rendering logic for all change types (add/drop/swap/replace), color coding, volume calculations
 - Unit tests for PlanChangeProposal schema extensions: serialization/deserialization of new fields
 - Integration tests for end-to-end check-in flow with mocked LLMProxyService responses
+- Integration tests for course context injection across different training phases
 - Integration tests for plan negotiation with tool call parsing and Core Data persistence
-- LangSmith evaluation: tag check-in and negotiation traces; manually review 20+ conversations for coaching quality before ship
+- LangSmith evaluation: tag check-in, course-aware, and negotiation traces; manually review 20+ conversations for coaching quality before ship
 
 ---
 
-## 6. Implementation Sequence
+## 7. Implementation Sequence
 
 Recommended build order, accounting for dependencies:
 
@@ -351,8 +541,20 @@ Recommended build order, accounting for dependencies:
 - Add rolling training load computation (7-day and 28-day volume by discipline)
 - Extend PlanChangeProposal schema with new fields (rationale, isKeySession, volumeImpact, affectedWeek)
 - Tag chat messages with source type (general, check-in, negotiation) for history filtering and LangSmith tracing
+- Build RaceCourseProfile data model and hardcode Ironman 70.3 Oregon course data
+- Build AthleteEnvironment model and populate from UserProfile (training location, elevation)
 
-### Phase 2: Plan Negotiation (Week 2–4)
+### Phase 2: Race Course Intelligence (Week 2–3)
+
+- Build RaceCourseService with phase-dependent context generation
+- Build altitude adjustment calculations (HR zone offsets, pace estimates)
+- Extend ChatViewModel's context builder to inject course context into system prompt
+- Build CourseDetailView with course overview, altitude comparison, and prep checklist
+- Wire CourseDetailView to race countdown banner in HomeView
+- Write and test course-aware system prompt extensions
+- Test phase transitions (verify context changes as weeks count down)
+
+### Phase 3: Plan Negotiation (Week 3–5)
 
 - Build PlanDiffCard SwiftUI component with color coding and action buttons
 - Add NegotiationState to ChatViewModel
@@ -360,7 +562,7 @@ Recommended build order, accounting for dependencies:
 - Write and test the plan negotiation system prompt extension
 - Test end-to-end: constraint description → proposal → approval → Core Data update → undo
 
-### Phase 3: Morning Check-In (Week 4–6)
+### Phase 4: Morning Check-In (Week 5–7)
 
 - Build CheckInManager with notification scheduling and context assembly
 - Build CheckInView (focused single-purpose screen)
@@ -369,32 +571,34 @@ Recommended build order, accounting for dependencies:
 - Add check-in time configuration to SettingsView
 - Test with real HealthKit data on physical device
 
-### Phase 4: Polish & Evaluation (Week 6–8)
+### Phase 5: Polish & Evaluation (Week 7–8)
 
-- LangSmith evaluation pass: review 20+ check-in and negotiation conversations, tune prompts
-- Edge case testing: rest days, brick days, no HealthKit data, race week, multi-week constraints
+- LangSmith evaluation pass: review 20+ check-in, course-aware, and negotiation conversations, tune prompts
+- Edge case testing: rest days, brick days, no HealthKit data, race week, multi-week constraints, race change
 - Performance optimization: pre-generation timing, response latency
-- Unit and integration test suite for both features
+- Unit and integration test suite for all three features
 
 ---
 
-## 7. Success Metrics
+## 8. Success Metrics
 
 | Metric | Target | Measurement |
 |---|---|---|
 | Daily check-in completion rate | >60% of days (5+ days/week) | Count check-in conversations vs. active days |
-| Check-in modification acceptance rate | 30–60% (too high = overtrained, too low = irrelevant suggestions) | Accept vs. Keep Original taps |
+| Check-in modification acceptance rate | 30–60% (too high = overtrained, too low = irrelevant) | Accept vs. Keep Original taps |
 | Plan negotiation usage | 1–2 negotiations per week | Count PlanChangeProposal tool calls per week |
 | Negotiation approval rate | >70% of proposals accepted (first or revised) | Accept vs. Reject actions on PlanDiffCard |
 | Rollback rate | <10% of accepted proposals rolled back | Undo button taps after plan negotiation |
-| Training plan adherence | Improvement from current baseline (track weekly compliance %) | HealthKit completion vs. planned workouts, pre/post feature launch |
+| Course-specific coaching relevance | >80% of course references rated useful (self-eval) | Manual review of LangSmith traces with course context |
+| Training plan adherence | Improvement from current baseline | HealthKit completion vs. planned workouts, pre/post feature launch |
 
 ---
 
-## 8. Open Questions
+## 9. Open Questions
 
 1. Should the Morning Check-In be opt-in (user enables in Settings) or opt-out (enabled by default with ability to disable)? Recommendation: opt-out — the feature only works if it's habitual, and users who don't want it can turn it off.
 2. Should Plan Negotiation support modifications to weeks other than the current week? The infrastructure supports it (affectedWeek field), but the UX of negotiating future weeks is more complex. Recommendation: ship with current-week-only, add future-week support in v2.
-3. How should the two features interact? If a Morning Check-In surfaces a need for plan changes (e.g., "I'm sick, probably out all week"), should it seamlessly transition to Plan Negotiation within the same check-in flow? Recommendation: yes, this should be seamless.
-4. What happens when Claude API is unavailable? Check-in should degrade gracefully to a simple "Today's workout: [plan]" card with no AI interaction. Plan negotiation should show an error and suggest manual drag-drop in HomeView.
+3. How should the three features interact? If a Morning Check-In surfaces a need for plan changes, should it seamlessly transition to Plan Negotiation? If Claude references the course during a negotiation, should course context auto-expand? Recommendation: yes to both, seamless transitions.
+4. What happens when Claude API is unavailable? Check-in should degrade gracefully to a simple "Today's workout: [plan]" card with no AI interaction. Plan negotiation should show an error and suggest manual drag-drop in HomeView. Course detail view works offline (static data).
 5. Should check-in history influence plan negotiation? If Claude notices a pattern across check-ins (e.g., athlete consistently reports poor sleep on Mondays), should it proactively suggest a permanent schedule change? Recommendation: yes, but as a v2 enhancement.
+6. How many races should have course profiles at launch? Recommendation: ship with Ironman 70.3 Oregon only. Build the infrastructure for expansion but don't invest in populating 100+ courses until the feature is validated.
