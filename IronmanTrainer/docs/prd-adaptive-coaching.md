@@ -795,3 +795,95 @@ Recommended build order, accounting for dependencies:
 4. What happens when Claude API is unavailable? Check-in should degrade gracefully to a simple "Today's workout: [plan]" card with no AI interaction. Plan negotiation should show an error and suggest manual drag-drop in HomeView. Course detail view works offline (static data).
 5. Should check-in history influence plan negotiation? If Claude notices a pattern across check-ins (e.g., athlete consistently reports poor sleep on Mondays), should it proactively suggest a permanent schedule change? Recommendation: yes, but as a v2 enhancement.
 6. How many races should have course profiles at launch? Recommendation: ship with Ironman 70.3 Oregon only. Build the infrastructure for expansion but don't invest in populating 100+ courses until the feature is validated.
+
+---
+
+## 11. Implementation Plan (v1 build scope)
+
+This section narrows the full PRD scope in §3 and §4 into an implementable v1 (and, for Feature 2, v2). Anything not explicitly listed below is deferred.
+
+### 11.1 Morning Check-In — v1
+
+**Scope locked in v1:**
+
+- Live-regeneration path only (tier 2 from §3.7). No `BGAppRefreshTask`. Opening message is generated on notification tap if cache is stale (>6h) or missing. Static fallback (tier 3) still ships.
+- Single HealthKit signal: **sleep duration** only. HRV and resting HR deferred. `fetchSleepData(for:)` sources from any available HealthKit sleep source (Apple Watch, iPhone, third-party) — the source string is captured but the UI treats all sources equivalently.
+- Check-in messages are **tagged** on save (`ChatMessage.kind = .checkIn`) and surface in the main Chat tab with a filter chip ("All / Check-ins").
+- Notification delivery: **FCM backend-scheduled push** from a new Cloud Function cron (`scheduleCheckInNotifications`, runs every 5 minutes, fires for users whose configured check-in time falls in the window). The cron delivers the notification; the opening-message generation still happens client-side on tap. Fallback: if FCM registration fails at signup, fall back to local `UNUserNotificationCenter` scheduling so the feature still works.
+- Configurable check-in time in Settings (default 7:00 AM local). FCM payload includes the raceId + a `kind: "check_in"` tag so the tap handler routes to CheckInView.
+- Two-exchange max (§3.4). Accept / Keep-Original buttons reuse the existing `PlanChangeProposal` pipeline.
+
+**Deferred to v2:** HRV + resting HR signals, `BGAppRefreshTask` pre-generation, in-app foreground banner (v1 suppresses when app is foregrounded, no replacement UI), sleep-stage breakdown display.
+
+**Test strategy:**
+
+- Unit tests for `CheckInManager.loadCachedOpeningMessage` staleness logic (fresh, expired, missing).
+- Unit tests for `HealthKitManager.fetchSleepData` with mocked `HKCategoryType.sleepAnalysis` samples covering: Apple Watch source, iPhone source, third-party source, no-data case.
+- Unit tests for the chat-tag filter predicate on the Chat tab.
+- LangSmith eval fixtures: 8 seeded check-in scenarios (good sleep + hard workout, poor sleep + easy workout, missing sleep data, rain on planned outdoor session, back-to-back hard days, rest day, race week, post-long-run recovery day). Assertions: opening message references at least one real data point, recommendation is concrete (never "rest or train, your call"), ≤100 words, ≤1 question per message.
+
+**Files to create / modify:**
+
+- `IronmanTrainer/CheckInManager.swift` (new)
+- `IronmanTrainer/CheckInView.swift` (new)
+- `IronmanTrainer/HealthKitManager.swift` — add `fetchSleepData(for:)` and `SleepSummary` struct
+- `IronmanTrainer/ChatViewModel.swift` — add `.checkIn` message kind, persist tag
+- `IronmanTrainer/ChatView.swift` — add filter chip (All / Check-ins)
+- `IronmanTrainer/SettingsView.swift` — add check-in time row + enable toggle
+- `IronmanTrainer/AppConstants.swift` — add notification name for check-in tap routing
+- `IronmanTrainer/IronmanTrainerApp.swift` — handle FCM payload, route to CheckInView on tap
+- `functions/src/scheduleCheckInNotifications.ts` (new) — Cloud Function cron
+- Tests: `IronmanTrainerTests/CheckInManagerTests.swift`, `IronmanTrainerTests/SleepFetchTests.swift`
+- Prompts: `prompts/check-in-system.md` (LangSmith-managed), eval fixtures under `prompts/evals/check-in/`
+
+### 11.2 Race Course Intelligence — v1 + v2
+
+**v1 scope (ships now):**
+
+- `RaceCourseProfile` + `AthleteEnvironment` + `PerformanceThresholds` data models (§4.3.1–4.3.2, §4.4.5).
+- Single bundled profile: Ironman 70.3 Oregon. `dataSource: .bundled`. Lives in `RaceCourseService.bundledProfiles`.
+- `RaceCourseService` with `loadCourseProfile(for:)`, `getPhaseContext(weeksToRace:)`, `getAltitudeAdjustment(trainingElevation:raceElevation:)`. `getPacingStrategy` ships v1 but returns effort-descriptor pacing by default; watt/pace numbers only appear when `PerformanceThresholds` is populated.
+- `CourseDetailView` accessible from HomeView via tapping the race countdown banner. Shows course overview, altitude comparison, phase-appropriate prep checklist, race-week weather when within 7-day window.
+- `AthleteEnvironment` is **inferred** on first launch from the user's `CLLocation` (current `trainingElevation` via CoreLocation altitude + reverse-geocode for climate classification) and **editable** in Settings → "Training Environment". Fields: elevation, climate (picker: `semi-arid, dry heat`/`humid subtropical`/`temperate marine`/`arid desert`/`continental`/`tropical`), pool/open-water/trainer access toggles.
+- **Opportunistic threshold capture (§4.4.5) ships in v1.** New `capture_threshold` tool call wired through `ChatViewModel`. Settings → "Advanced → Performance Thresholds" disclosure (collapsed by default) shows stored values.
+- System prompt extension via `buildCourseContext()` in `ChatViewModel`. Phase-dependent tokens per §4.5.
+
+**v2 scope (follow-on):**
+
+- `POST /llmProxy { type: "courseResearch", ... }` Cloud Function endpoint using OpenAI `gpt-4.1` with web-search tool access.
+- Second OpenAI call forces a `propose_course_profile` tool call for schema-enforced extraction.
+- Firestore cache at `raceCourses/{raceId}` with 90-day TTL. Client reads bundle → Firestore → Cloud Function (on miss).
+- "Refresh course data" button in CourseDetailView triggers v2 path.
+- User-entered fallback form when research returns unusable data.
+- LangSmith tracing tagged `course_research`.
+
+**Test strategy:**
+
+- Unit tests for `RaceCourseService.getAltitudeAdjustment` (Denver→Salem, sea-level→Mexico City, same-elevation cases).
+- Unit tests for `RaceCourseService.getPhaseContext` returning correct detail level at 12/5/2/0 weeks out.
+- Unit tests for `capture_threshold` tool-call parsing and persistence on `UserProfile`.
+- Snapshot test for `CourseDetailView` at 3 race-week phases.
+- v2 only: integration test for `courseResearch` Cloud Function with mocked OpenAI responses (valid, malformed tool call, empty search results).
+
+**Files to create / modify:**
+
+v1:
+- `IronmanTrainer/RaceCourseProfile.swift` (new) — profile + `AthleteEnvironment` + `PerformanceThresholds` + `AltitudeContext` + `PacingPlan`
+- `IronmanTrainer/RaceCourseService.swift` (new)
+- `IronmanTrainer/CourseDetailView.swift` (new)
+- `IronmanTrainer/HomeView.swift` — race countdown banner becomes tappable → CourseDetailView
+- `IronmanTrainer/ChatViewModel.swift` — `buildCourseContext()`, `capture_threshold` tool handler
+- `IronmanTrainer/SettingsView.swift` — Training Environment section + Advanced → Performance Thresholds disclosure
+- `IronmanTrainer/UserProfile.swift` — add `PerformanceThresholds` and `AthleteEnvironment` properties
+- `IronmanTrainer/BundledCourseProfiles.swift` (new) — hardcoded IM 70.3 Oregon profile
+- Tests: `IronmanTrainerTests/RaceCourseServiceTests.swift`, `IronmanTrainerTests/ThresholdCaptureTests.swift`
+
+v2 (not built now):
+- `functions/src/courseResearch.ts` (new)
+- `IronmanTrainer/RaceCourseService.swift` — add Firestore + Cloud Function fallback branches
+- `IronmanTrainer/CourseDetailView.swift` — add refresh button + user-entered fallback form
+
+### 11.3 Build Order
+
+1. **Morning Check-In v1** and **Race Course Intelligence v1** build in parallel (separate files, minimal overlap — only `ChatViewModel.swift` touched by both).
+2. Race Course v2 (Cloud Function + Firestore cache) is a follow-on PR after v1 ships and one real athlete (Brent) has used CourseDetailView against the bundled Oregon profile.
