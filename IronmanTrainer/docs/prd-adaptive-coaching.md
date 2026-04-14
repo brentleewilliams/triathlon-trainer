@@ -249,9 +249,9 @@ struct AthleteEnvironment: Codable {
 
 `RaceCourseProfile` is populated on demand rather than hand-curated per race. Flow:
 
-1. **Trigger.** First time an athlete picks a race (or taps "refresh course data" in CourseDetailView), the client calls a new Cloud Function endpoint: `POST /llmProxy { type: "courseResearch", raceName, venue, raceDate }`.
-2. **Web search.** The Cloud Function uses the existing Anthropic web-search tool path (already wired for race date validation) to gather race name, venue elevation, terrain description, and typical weather for that date/location.
-3. **Structured extraction.** The function makes a second LLM call that forces a `propose_course_profile` tool call, returning exactly the fields in `RaceCourseProfile` — nothing more. Schema-enforced so the client can decode without fragile text parsing.
+1. **Trigger.** First time an athlete picks a race (or taps "refresh course data" in CourseDetailView), the client calls a new Cloud Function endpoint: `POST /llmProxy { type: "courseResearch", raceName, venue, raceDate }`. Ships in **v2** — v1 hardcodes the Ironman 70.3 Oregon profile directly in the app bundle.
+2. **Web search.** The Cloud Function uses OpenAI (gpt-4.1 or successor) with web-browsing tool access to gather race name, venue elevation, terrain description, and typical weather for that date/location. OpenAI-only to match the rest of the coaching stack (no Anthropic dependency; single-provider billing).
+3. **Structured extraction.** The function makes a second OpenAI call that forces a `propose_course_profile` tool call, returning exactly the fields in `RaceCourseProfile` — nothing more. Schema-enforced so the client can decode without fragile text parsing.
 4. **Cache in Firestore.** Write the result to `raceCourses/{raceId}` keyed by `raceId`. Any future athlete on the same race hits the cache first — no re-research cost.
 5. **Cache TTL.** `lastRefreshed` on the document. If older than 90 days (or if the race is <2 weeks out and the cached weather is seasonal-only), re-run the research call. Users can also force a refresh from CourseDetailView.
 6. **Fallbacks.**
@@ -260,6 +260,8 @@ struct AthleteEnvironment: Codable {
 7. **Shape stays small.** We deliberately do NOT attempt to populate segment-by-segment bike breakdowns, swim current direction, or shade level via LLM — too much hallucination risk. The five fields we do capture (terrain, total elevation gain, venue elevation, expected weather, race type) are high-signal and easy to verify.
 
 LangSmith traces: tag the research run with `course_research`, include the raceId, source URLs found by web search, and the final structured output for manual QA.
+
+**v1 vs v2 split.** v1 ships with a single hardcoded `RaceCourseProfile` for Ironman 70.3 Oregon (bundled in app; `dataSource: .bundled`). The data model, phase-dependent context generation (§4.4.1–4.4.4), and CourseDetailView all work in v1. v2 adds the `courseResearch` Cloud Function endpoint and Firestore cache so any race can be researched on demand. Client code is forward-compatible: `RaceCourseService.loadCourseProfile(for:)` checks bundled profiles first, then (in v2) falls back to Firestore cache, then (in v2) calls `courseResearch` on miss.
 
 ### 4.4 Intelligence Layers
 
@@ -602,15 +604,15 @@ All three features write to the same `messages` array on `ChatViewModel`. Each m
 - All new HealthKit data types (sleep, HRV, resting HR) must be added to the Info.plist usage descriptions with clear, user-friendly explanations
 - HealthKit data is never sent to Claude in raw form — only aggregated summaries (e.g., "6.5 hours of sleep" not raw sleep stage timestamps)
 - Check-in conversations are stored locally only (same as existing chat history)
-- Race course data is bundled in the app (no external API calls for course profiles)
-- LangSmith traces may include anonymized conversation content for coaching quality evaluation
+- Race course data is bundled in the app (v1) or fetched via `courseResearch` Cloud Function (v2); no per-athlete data leaves the device in either case
+- LangSmith traces may include anonymized conversation content for coaching quality evaluation. HealthKit-derived data injected into prompts (sleep minutes, HRV, RHR, zone %s) is numeric and not PII on its own; user ID fields are hashed in traces. Conversations can contain PII **only if the user types it** (e.g., mentions their name, location, medical history). We do not scrub user-typed content — document this in the Settings privacy disclosure so athletes know their chat text goes to LangSmith. If PII scrubbing becomes necessary later, it's a server-side pre-trace redaction step, not a v1 blocker.
 
 ### 7.3 Edge Cases
 
 #### Morning Check-In
 
 - No HealthKit data available (user doesn't wear Apple Watch to bed): Claude proceeds without sleep/HRV data, relies on subjective question + workout history
-- User doesn't respond to check-in: No plan changes. Next day's check-in notes the missed interaction.
+- User doesn't respond to check-in: No plan changes. Next day's check-in notes the missed interaction. Notification-fatigue back-off (e.g. skip-every-other-day after 3 consecutive ignores) is deferred to **v2** — ship v1 with a daily notification and a clear Settings toggle to disable entirely.
 - Multiple workouts in a day (brick day): Check-in addresses the primary session; brick-specific guidance deferred to workout detail
 - Rest day: Check-in is lighter — "Rest day today. How's recovery going? Anything I should know before tomorrow's [workout]?"
 
@@ -628,6 +630,7 @@ All three features write to the same `messages` array on `ChatViewModel`. Each m
 - Concurrent check-in and negotiation: If a check-in recommendation triggers a plan change, it uses the same PlanChangeProposal pipeline
 - Race week (Week 17): Claude is extra conservative; modifications default to maintaining taper protocol
 - Already-modified plan: If plan was already negotiated earlier in the week, Claude references previous changes and builds on them
+- Widget staleness after chat change: `executePlanChanges` must call `AppGroupConstants.syncWeeksToWidget(newWeeks)` and trigger `WidgetCenter.shared.reloadAllTimelines()` so the home screen widget reflects the updated plan without waiting for the next scheduled timeline refresh. Manual verification step before shipping: apply a chat change, lock the phone, observe the widget updates within ~15 seconds.
 
 ### 7.4 Testing Strategy
 
