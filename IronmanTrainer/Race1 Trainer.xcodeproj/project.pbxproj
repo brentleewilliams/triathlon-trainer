@@ -61,6 +61,9 @@
 		FB000005000000001 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB000003000000001 /* FirebaseFirestore */; };
 		FB000006000000001 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000007000000001 /* OnboardingTests.swift */; };
 		FB000008000000001 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FB000009000000001 /* FirebaseFunctions */; };
+		BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001001F1B0001 /* PlanDiffEngine.swift */; };
+		BD0001041F1B0001 /* PlanDiffCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001031F1B0001 /* PlanDiffCard.swift */; };
+		BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001051F1B0001 /* PlanDiffEngineTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -150,6 +153,9 @@
 		9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FirestoreService.swift; path = IronmanTrainer/FirestoreService.swift; sourceTree = SOURCE_ROOT; };
 		D29D426AAD0F04F2CAAE16BF /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = IronmanTrainer/SignInView.swift; sourceTree = SOURCE_ROOT; };
 		FB000007000000001 /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
+		BD0001001F1B0001 /* PlanDiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngine.swift; sourceTree = "<group>"; };
+		BD0001031F1B0001 /* PlanDiffCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffCard.swift; sourceTree = "<group>"; };
+		BD0001051F1B0001 /* PlanDiffEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngineTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -247,6 +253,8 @@
 				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
 				84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */,
 				84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */,
+				BD0001001F1B0001 /* PlanDiffEngine.swift */,
+				BD0001031F1B0001 /* PlanDiffCard.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -270,6 +278,7 @@
 				FB000007000000001 /* OnboardingTests.swift */,
 				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 				844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */,
+				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -522,6 +531,8 @@
 				1104417793A7975B4B149B6E /* OnboardingView.swift in Sources */,
 				038644CCB73FF11F044856C2 /* OnboardingViewModel.swift in Sources */,
 				9F2B4F4C9A203C9E873B0A4C /* OnboardingChatHelper.swift in Sources */,
+				BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */,
+				BD0001041F1B0001 /* PlanDiffCard.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -537,6 +548,7 @@
 				1A0001641F1A0002 /* ChatSwapTests.swift in Sources */,
 				1A0001661F1A0003 /* TemplateSelectionTests.swift in Sources */,
 				FB000006000000001 /* OnboardingTests.swift in Sources */,
+				BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

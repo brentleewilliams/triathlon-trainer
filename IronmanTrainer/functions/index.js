@@ -371,6 +371,10 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
               type: "string",
               description: "For replace: the existing workout type to replace, e.g. 'Run' or '🏃 Run'. Keyword matching is used so 'run', 'Run', '🏃 Run' all work.",
             },
+            rationale: {
+              type: "string",
+              description: "Brief explanation of why this specific change is being made (1-2 sentences). Reference the user's request, recovery needs, or training principles.",
+            },
           },
           required: ["action", "week"],
         },

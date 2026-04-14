@@ -57,9 +57,10 @@ struct PlanChange: Codable, Identifiable {
     let fromDay: String?   // for swap: source day
     let toDay: String?     // for swap: destination day
     let fromType: String?  // for replace: existing workout type to replace (keyword, e.g. "Run")
+    let rationale: String? // why this change was made (from Claude)
 
     enum CodingKeys: String, CodingKey {
-        case action, week, day, type, duration, zone, notes
+        case action, week, day, type, duration, zone, notes, rationale
         case fromDay = "from_day"
         case toDay = "to_day"
         case fromType = "from_type"
@@ -78,9 +79,10 @@ struct PlanChange: Codable, Identifiable {
         self.fromDay = try container.decodeIfPresent(String.self, forKey: .fromDay)
         self.toDay = try container.decodeIfPresent(String.self, forKey: .toDay)
         self.fromType = try container.decodeIfPresent(String.self, forKey: .fromType)
+        self.rationale = try container.decodeIfPresent(String.self, forKey: .rationale)
     }
 
-    init(action: PlanChangeAction, week: Int, day: String? = nil, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, fromDay: String? = nil, toDay: String? = nil, fromType: String? = nil) {
+    init(action: PlanChangeAction, week: Int, day: String? = nil, type: String? = nil, duration: String? = nil, zone: String? = nil, notes: String? = nil, fromDay: String? = nil, toDay: String? = nil, fromType: String? = nil, rationale: String? = nil) {
         self.id = UUID()
         self.action = action
         self.week = week
@@ -92,6 +94,7 @@ struct PlanChange: Codable, Identifiable {
         self.fromDay = fromDay
         self.toDay = toDay
         self.fromType = fromType
+        self.rationale = rationale
     }
 }
 
