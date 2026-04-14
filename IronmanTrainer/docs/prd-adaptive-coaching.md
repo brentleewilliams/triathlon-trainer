@@ -770,7 +770,7 @@ Recommended build order, accounting for dependencies:
 | Negotiation tool-call funnel | >95% of `propose_plan_change` tool calls render a PlanDiffCard | Compare Cloud Function `tool called: propose_plan_change` log count to client-side `[LLM PROXY] proposal decoded` count. Catches silent decode failures before they become user-visible regressions. |
 | Rollback rate | <10% of accepted proposals rolled back | Undo button taps after plan negotiation |
 | Course-specific coaching relevance | >80% of course references rated useful (self-eval) | Manual review of LangSmith traces with course context |
-| Training plan adherence | Improvement from current baseline | HealthKit completion vs. planned workouts, pre/post feature launch |
+| Training plan adherence | ≥80% weekly workout completion sustained across the training block | HealthKit completion vs. planned workouts (absolute target — no pre-launch baseline exists) |
 
 ---
 
