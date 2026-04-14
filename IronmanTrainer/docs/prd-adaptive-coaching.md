@@ -17,6 +17,17 @@ The core thesis: other apps adjust your numbers behind a black box. IronmanTrain
 
 **Target user:** Self-coached age-group triathletes training for a specific race, who want AI coaching guidance without paying $89–199/month for TriDot or hiring a human coach at $200–400/month.
 
+### 1.1 Implementation Status (as of 2026-04-14)
+
+| Feature | Status | Notes |
+|---|---|---|
+| **Feature 3: Plan Negotiation** (§5) | ✅ **Shipped** | Merged to `main` via commit `8d70cf6` (contents from `7e2bdce`). Includes `PlanDiffEngine`, `PlanDiffCard`, `NegotiationPhase` state machine, tool schema `rationale` field, 22 passing unit tests. |
+| **Feature 1: Morning Check-In** (§3) | 📋 Spec only | No code. `CheckInManager`, `CheckInView`, HealthKit sleep/HRV/RHR queries, BGTask scheduler all still to build. |
+| **Feature 2: Race Course Intelligence** (§4) | 📋 Spec only | No code. `RaceCourseProfile` data model, `RaceCourseService`, `CourseDetailView`, altitude adjustments, v1 Oregon hardcode all still to build. v2 adds the `courseResearch` Cloud Function. |
+| **Prompt reliability system** (§7.5) | 🟡 Tier 1 shipped | `PROMPT_MANIFEST` + `validatePromptSchema` in `functions/index.js`. `eval-prompts.js` harness exists; fixture datasets not yet authored. Tier 3 not implemented. |
+
+Everything else in this PRD is design-stage.
+
 ---
 
 ## 2. Technical Context & Existing Infrastructure
@@ -53,7 +64,7 @@ The following capabilities are already built and will be extended by these featu
 
 ---
 
-## 3. Feature 1: Morning Check-In
+## 3. Feature 1: Morning Check-In  📋 (spec only — no code)
 
 ### 3.1 Problem Statement
 
@@ -179,7 +190,7 @@ Two pieces of content need to be generated: the **notification body** (short, di
 
 ---
 
-## 4. Feature 2: Race Course Intelligence
+## 4. Feature 2: Race Course Intelligence  📋 (spec only — no code)
 
 ### 4.1 Problem Statement
 
@@ -400,7 +411,7 @@ Extend ChatViewModel's context building to include race course data:
 
 ---
 
-## 5. Feature 3: Plan Negotiation
+## 5. Feature 3: Plan Negotiation  ✅ (shipped in `8d70cf6`)
 
 ### 5.1 Problem Statement
 
@@ -733,13 +744,15 @@ Recommended build order, accounting for dependencies:
 - Write and test course-aware system prompt extensions
 - Test phase transitions (verify context changes as weeks count down)
 
-### Phase 3: Plan Negotiation (Week 3–5)
+### Phase 3: Plan Negotiation (Week 3–5) ✅ SHIPPED (`8d70cf6`)
 
-- Build PlanDiffCard SwiftUI component with color coding and action buttons
-- Add NegotiationState to ChatViewModel
-- Extend tool call rendering to detect and display PlanChangeProposal as PlanDiffCard
-- Write and test the plan negotiation system prompt extension
-- Test end-to-end: constraint description → proposal → approval → Core Data update → undo
+- ✅ Built PlanDiffCard SwiftUI component with color coding and Accept All / Modify / Reject action buttons
+- ✅ Added `NegotiationPhase` state machine (`.idle / .reviewing / .modifying / .applying`) on ChatViewModel
+- ✅ Extended tool call rendering to detect and display PlanChangeProposal as PlanDiffCard
+- ✅ Added `PlanDiffEngine` enrichment layer (key session detection, volume deltas, simulated week state)
+- ✅ `rationale` field added to PlanChange schema + Cloud Function tool schema
+- ✅ End-to-end tested: constraint description → proposal → approval → Core Data update → undo
+- ✅ 22 `PlanDiffEngineTests` covering enrichment, key sessions, volume math — all passing
 
 ### Phase 4: Morning Check-In (Week 5–7)
 
