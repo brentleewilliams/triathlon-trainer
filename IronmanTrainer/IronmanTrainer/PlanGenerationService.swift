@@ -416,7 +416,7 @@ class PlanGenerationService {
         }
 
         weeks.sort { $0.weekNumber < $1.weekNumber }
-        return weeks
+        return TrainingWeek.snapToMondaySunday(weeks)
     }
 
     // MARK: - Retry Logic

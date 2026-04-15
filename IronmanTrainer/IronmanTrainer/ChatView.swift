@@ -29,19 +29,23 @@ struct ChatView: View {
 
     var body: some View {
         NavigationStack {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 12) {
-                        // Filter chip row (Morning Check-In v1).
-                        Picker("Filter", selection: $filter) {
-                            ForEach(ChatFilter.allCases) { f in
-                                Text(f.rawValue).tag(f)
-                            }
-                        }
-                        .pickerStyle(.segmented)
-                        .padding(.bottom, 4)
+            VStack(spacing: 0) {
+                // Fixed filter header — outside the ScrollView so the
+                // `.defaultScrollAnchor(.bottom)` can't scroll it off-screen.
+                Picker("Filter", selection: $filter) {
+                    ForEach(ChatFilter.allCases) { f in
+                        Text(f.rawValue).tag(f)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
 
-                        if filteredMessages.isEmpty && !viewModel.isLoading {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        LazyVStack(alignment: .leading, spacing: 12) {
+                            if filteredMessages.isEmpty && !viewModel.isLoading {
                             CoachWelcomeView()
                         }
 
@@ -100,6 +104,7 @@ struct ChatView: View {
                 .safeAreaInset(edge: .bottom) {
                     ChatInputBar(viewModel: viewModel)
                 }
+            }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

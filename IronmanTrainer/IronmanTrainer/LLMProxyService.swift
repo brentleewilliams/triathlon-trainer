@@ -537,6 +537,12 @@ class LLMProxyService {
         }
 
         weeks.sort { $0.weekNumber < $1.weekNumber }
-        return weeks
+
+        // Snap each week individually to its own Mon–Sun. Do NOT re-anchor
+        // here — this function is called once per batch (e.g. weeks 1–5,
+        // 6–10, 11–14) and re-anchoring would collapse every batch onto the
+        // same Monday. Final re-anchoring to the onboarding week happens in
+        // TrainingPlanManager when the full plan is loaded.
+        return TrainingWeek.snapToMondaySunday(weeks)
     }
 }

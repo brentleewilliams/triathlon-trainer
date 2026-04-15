@@ -8,6 +8,64 @@ struct TrainingWeek: Codable, Equatable {
     let startDate: Date
     let endDate: Date
     let workouts: [DayWorkout]
+
+    /// Monday of the week containing `date` (using ISO 8601: Monday is the
+    /// first day of the week). Falls back to `date` if the calendar math fails.
+    static func mondayOfWeek(for date: Date) -> Date {
+        var cal = Calendar(identifier: .iso8601)
+        cal.firstWeekday = 2 // Monday
+        cal.timeZone = .current
+        let start = cal.startOfDay(for: date)
+        let weekday = cal.component(.weekday, from: start) // Mon=2 … Sun=1
+        let daysFromMonday = (weekday == 1) ? 6 : (weekday - 2)
+        return cal.date(byAdding: .day, value: -daysFromMonday, to: start) ?? start
+    }
+
+    /// Snaps each week's startDate to the Monday of its own week and endDate
+    /// to the following Sunday. Idempotent and preserves the plan's temporal
+    /// positioning — safe to call any time.
+    static func snapToMondaySunday(_ weeks: [TrainingWeek]) -> [TrainingWeek] {
+        let cal = Calendar.current
+        return weeks.map { week in
+            let start = mondayOfWeek(for: week.startDate)
+            let end = cal.date(byAdding: .day, value: 6, to: start) ?? week.endDate
+            return TrainingWeek(
+                weekNumber: week.weekNumber,
+                phase: week.phase,
+                startDate: start,
+                endDate: end,
+                workouts: week.workouts
+            )
+        }
+    }
+
+    /// Shifts every week so week 1 starts on the Monday of `anchor`'s week
+    /// and subsequent weeks follow at 7-day intervals. Use when loading a
+    /// newly-generated plan so Week 1 contains the onboarding day.
+    static func anchorWeek1(to anchor: Date, weeks: [TrainingWeek]) -> [TrainingWeek] {
+        guard !weeks.isEmpty else { return weeks }
+        let sorted = weeks.sorted { $0.weekNumber < $1.weekNumber }
+        let firstWeekNumber = sorted.first!.weekNumber
+        let week1Monday = mondayOfWeek(for: anchor)
+        let cal = Calendar.current
+        return sorted.map { week in
+            let offsetWeeks = week.weekNumber - firstWeekNumber
+            let start = cal.date(byAdding: .day, value: offsetWeeks * 7, to: week1Monday) ?? week.startDate
+            let end = cal.date(byAdding: .day, value: 6, to: start) ?? week.endDate
+            return TrainingWeek(
+                weekNumber: week.weekNumber,
+                phase: week.phase,
+                startDate: start,
+                endDate: end,
+                workouts: week.workouts
+            )
+        }
+    }
+
+    /// Deprecated alias kept for compatibility with older call sites.
+    static func normalizeToMondaySunday(weeks: [TrainingWeek], anchor: Date) -> [TrainingWeek] {
+        anchorWeek1(to: anchor, weeks: weeks)
+    }
 }
 
 struct DayWorkout: Equatable, Codable, Identifiable, Hashable {
@@ -242,7 +300,17 @@ class TrainingPlanManager: ObservableObject {
     init(weeks externalWeeks: [TrainingWeek]?, useInMemoryStore: Bool = false) {
         self.useInMemoryStore = useInMemoryStore
         if let externalWeeks, !externalWeeks.isEmpty {
-            self.weeks = externalWeeks
+            // Always anchor Week 1 to the Monday of the onboarding week so
+            // today lands inside Week 1 and weeks render Mon–Sun — even if
+            // the LLM or a cached plan carried non-Monday startDates.
+            let anchor = OnboardingStore.onboardingDate ?? Date()
+            let normalized = TrainingWeek.anchorWeek1(to: anchor, weeks: externalWeeks)
+            let fmt = DateFormatter()
+            fmt.dateFormat = "yyyy-MM-dd"
+            if let first = normalized.first {
+                print("[PLAN INIT] anchor=\(fmt.string(from: anchor)) W1=\(fmt.string(from: first.startDate))–\(fmt.string(from: first.endDate)) (\(normalized.count) weeks) rawFirst=\(fmt.string(from: externalWeeks.sorted { $0.weekNumber < $1.weekNumber }.first!.startDate))")
+            }
+            self.weeks = normalized
             insertAllSecondaryRaceCards()
             calculateCurrentWeek()
             // Start with the generated plan, then let any saved Core Data version
@@ -257,14 +325,37 @@ class TrainingPlanManager: ObservableObject {
     }
 
     func calculateCurrentWeek() {
+        guard !weeks.isEmpty else {
+            currentWeekNumber = 1
+            return
+        }
+
         let calendar = Calendar.current
-        let today = Date()
+        let today = calendar.startOfDay(for: Date())
+        let sorted = weeks.sorted { $0.weekNumber < $1.weekNumber }
 
-        let daysSinceStart = calendar.dateComponents([.day], from: planStartDate, to: today).day ?? 0
-        let weekNumber = (daysSinceStart / 7) + 1
+        // 1. Find the week whose [startDate, endDate] range contains today.
+        if let match = sorted.first(where: { week in
+            let start = calendar.startOfDay(for: week.startDate)
+            let end = calendar.startOfDay(for: week.endDate)
+            return today >= start && today <= end
+        }) {
+            currentWeekNumber = match.weekNumber
+            return
+        }
 
-        // Clamp between 1 and total weeks
-        currentWeekNumber = max(1, min(weeks.count, weekNumber))
+        // 2. Before the plan starts → week 1. After the plan ends → last week.
+        let firstStart = calendar.startOfDay(for: sorted.first!.startDate)
+        let lastEnd = calendar.startOfDay(for: sorted.last!.endDate)
+        if today < firstStart {
+            currentWeekNumber = sorted.first!.weekNumber
+        } else if today > lastEnd {
+            currentWeekNumber = sorted.last!.weekNumber
+        } else {
+            // Gap between weeks — pick the closest prior week.
+            let prior = sorted.last(where: { calendar.startOfDay(for: $0.startDate) <= today })
+            currentWeekNumber = prior?.weekNumber ?? sorted.first!.weekNumber
+        }
     }
 
     func getWeek(_ weekNumber: Int) -> TrainingWeek? {
@@ -281,7 +372,8 @@ class TrainingPlanManager: ObservableObject {
     /// Replace current plan with externally generated weeks.
     /// Automatically re-inserts secondary race cards so they survive regeneration.
     func loadPlan(_ newWeeks: [TrainingWeek]) {
-        weeks = newWeeks
+        let anchor = OnboardingStore.onboardingDate ?? Date()
+        weeks = TrainingWeek.anchorWeek1(to: anchor, weeks: newWeeks)
         insertAllSecondaryRaceCards()
         calculateCurrentWeek()
         AppGroupConstants.syncWeeksToWidget(weeks)
@@ -650,6 +742,23 @@ class TrainingPlanManager: ObservableObject {
         }
     }
 
+    /// Wipes every persisted WorkoutPlanVersion so re-onboarding doesn't inherit
+    /// stale chat-edited plan data from the prior onboarding.
+    func clearAllPlanVersions() {
+        let context = container.viewContext
+        let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
+        let deleteRequest = NSBatchDeleteRequest(fetchRequest: fetchRequest)
+        do {
+            try context.execute(deleteRequest)
+            try context.save()
+            self.currentPlanVersion = nil
+            self.previousPlanVersion = nil
+            print("[COREDATA] Cleared all WorkoutPlanVersion rows")
+        } catch {
+            print("[COREDATA] Failed to clear plan versions: \(error)")
+        }
+    }
+
     func loadPlanVersions() {
         let context = container.viewContext
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")
@@ -664,7 +773,9 @@ class TrainingPlanManager: ObservableObject {
                 if let data = currentVersion.value(forKey: "weeklyPlanData") as? Data {
                     let decoder = JSONDecoder()
                     if let restoredWeeks = try? decoder.decode([TrainingWeek].self, from: data) {
-                        self.weeks = restoredWeeks
+                        // Snap to Mon–Sun but preserve saved positioning —
+                        // the user's prior edits shouldn't jump in time.
+                        self.weeks = TrainingWeek.snapToMondaySunday(restoredWeeks)
                         print("[COREDATA] Restored current plan version from Core Data")
                     }
                 }

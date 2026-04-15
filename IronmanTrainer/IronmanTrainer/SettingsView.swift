@@ -397,10 +397,18 @@ struct SettingsView: View {
             .alert("Generate New Plan?", isPresented: $showReOnboardAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Continue") {
-                    authService.onboardingComplete = false
+                    // Wipe persisted plan state so re-onboarding starts clean.
+                    // Without this, cached saved_plan + Core Data WorkoutPlanVersion
+                    // from the prior onboarding leak through and overwrite the
+                    // freshly generated plan.
                     if let uid = authService.currentUserID {
                         UserDefaults.standard.set(false, forKey: "onboarding_complete_\(uid)")
+                        UserDefaults.standard.removeObject(forKey: "saved_plan_\(uid)")
                     }
+                    OnboardingStore.onboardingDate = nil
+                    authService.savedPlan = nil
+                    trainingPlan.clearAllPlanVersions()
+                    authService.onboardingComplete = false
                 }
             } message: {
                 Text("This will take you through onboarding to create a new AI-generated training plan. Your current plan will be saved as a backup.")

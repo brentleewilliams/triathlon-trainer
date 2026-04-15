@@ -203,7 +203,12 @@ struct HomeView: View {
         // onboarding show their real plan content so edits are visible.
         return dayOrder.enumerated().compactMap { (index, day) in
             let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
-            if OnboardingStore.isPrePlan(dayDate) { return nil }
+            if OnboardingStore.isPrePlan(dayDate) {
+                // Surface the day, but mark it as before-onboarding so week 1
+                // reads "Mon/Tue were before you started; rest of week has plan".
+                let marker = DayWorkout(day: day, type: "Before onboarding", duration: "-", zone: "-", status: "pre_onboarding", nutritionTarget: nil, notes: nil)
+                return (day: day, workouts: [marker])
+            }
             if let workouts = grouped[day] {
                 return (day: day, workouts: workouts)
             } else {
@@ -425,6 +430,10 @@ struct HomeView: View {
                     selectedWeek = trainingPlan.currentWeekNumber
                     hasAppearedOnce = true
                 }
+            }
+            .onChange(of: trainingPlan.currentWeekNumber) { newValue in
+                // If the plan loaded/changed after the view appeared, snap to the new current week.
+                selectedWeek = newValue
             }
             .onReceive(NotificationCenter.default.publisher(for: .navigateToWeek)) { notification in
                 if let week = notification.userInfo?["week"] as? Int {

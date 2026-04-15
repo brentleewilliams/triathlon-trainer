@@ -751,9 +751,9 @@ struct PrepRacesOnboardingSection: View {
         }
         .sheet(isPresented: $showAddSheet) {
             // During onboarding the plan hasn't been generated yet — just add the race.
-            AddPrepRaceSheet { race, _ in
+            AddPrepRaceSheet(onAdd: { race, _ in
                 prepRaces.add(race)
-            }
+            }, isOnboarding: true)
         }
     }
 }
@@ -804,6 +804,10 @@ struct AddPrepRaceSheet: View {
 
     /// Called with the race and a Bool indicating whether the user wants surrounding plan adjustment.
     let onAdd: (PrepRace, Bool) -> Void
+
+    /// When true (onboarding flow), skip the "adjust surrounding plan?" prompt —
+    /// the full plan is about to be generated, so per-race adjustment is moot.
+    var isOnboarding: Bool = false
 
     private let distanceOptions = ["5K", "10K", "Half Marathon", "Marathon", "Sprint Tri", "Olympic Tri", "Century Ride", "Other"]
 
@@ -864,7 +868,7 @@ struct AddPrepRaceSheet: View {
                             distance: distance,
                             notes: notes.isEmpty ? nil : notes
                         )
-                        if race.isBigRace {
+                        if race.isBigRace && !isOnboarding {
                             pendingRace = race
                             showAdjustAlert = true
                         } else {
@@ -1021,15 +1025,14 @@ struct TutorialStep: View {
                 Button {
                     viewModel.advance()
                 } label: {
-                    Text(viewModel.minimumWeeksLoaded ? "Build My Plan" : "Please wait...")
+                    Text("Build My Plan")
                         .font(.body.weight(.semibold))
-                        .foregroundStyle(viewModel.minimumWeeksLoaded ? Color(hex: "00C7BE") : .gray)
+                        .foregroundStyle(Color(hex: "00C7BE"))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 14)
-                        .background(viewModel.minimumWeeksLoaded ? Color.white : Color.white.opacity(0.3))
+                        .background(Color.white)
                         .clipShape(Capsule())
                 }
-                .disabled(!viewModel.minimumWeeksLoaded)
                 .padding(.horizontal, 16)
                 .padding(.vertical, 16)
             }

@@ -112,13 +112,10 @@ class AuthService: ObservableObject {
 
     func markOnboardingComplete(plan: [TrainingWeek]? = nil) {
         guard let uid = currentUserID else { return }
-        onboardingComplete = true
-        UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
-        // Record onboarding date once so past days (before the user had the app)
-        // are treated as pre-plan — no missed markers, excluded from compliance.
-        if OnboardingStore.onboardingDate == nil {
-            OnboardingStore.onboardingDate = Date()
-        }
+        // Record onboarding date and plan BEFORE flipping onboardingComplete so
+        // the SwiftUI rebuild that instantiates ContentView sees fresh data.
+        // Always update onboardingDate so re-onboarding re-anchors Week 1.
+        OnboardingStore.onboardingDate = Date()
 
         if let plan {
             savedPlan = plan
@@ -140,6 +137,10 @@ class AuthService: ObservableObject {
                 }
             }
         }
+
+        // Flip last so SwiftUI rebuilds with all persisted state in place.
+        UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
+        onboardingComplete = true
     }
 
     deinit {
