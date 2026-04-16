@@ -127,6 +127,42 @@ final class CheckInManagerTests: XCTestCase {
         XCTAssertEqual(cached?.notificationBody, "push body")
     }
 
+    // MARK: - Cache corruption drops UserDefaults entry
+
+    @MainActor
+    func testLoadCachedOpeningMessage_corruptDataIsDropped() {
+        // Write bogus bytes to the cache key — simulates a cross-version format change.
+        UserDefaults.standard.set(Data([0xDE, 0xAD, 0xBE, 0xEF]), forKey: "checkIn.cachedOpeningMessage")
+
+        XCTAssertNil(manager.loadCachedOpeningMessage(), "Corrupt data should be ignored")
+        XCTAssertNil(UserDefaults.standard.data(forKey: "checkIn.cachedOpeningMessage"),
+                     "Corrupt cache should be removed so future writes start clean")
+    }
+
+    // MARK: - DayNames helper
+
+    func testDayNames_fromWeekday_Bounds() {
+        // Calendar's weekday is 1 (Sun) … 7 (Sat). Index 0 is the empty sentinel.
+        XCTAssertEqual(DayNames.fromWeekday(1), "Sun")
+        XCTAssertEqual(DayNames.fromWeekday(2), "Mon")
+        XCTAssertEqual(DayNames.fromWeekday(7), "Sat")
+        XCTAssertEqual(DayNames.fromWeekday(0), "", "Out-of-range index returns empty string")
+        XCTAssertEqual(DayNames.fromWeekday(8), "", "Out-of-range index returns empty string")
+        XCTAssertEqual(DayNames.fromWeekday(-1), "", "Negative index returns empty string")
+    }
+
+    func testDayNames_fromDate_MatchesCalendarWeekday() {
+        // Known Monday: 2026-01-05. Use UTC calendar to avoid DST flakiness.
+        var cal = Calendar(identifier: .gregorian)
+        cal.timeZone = TimeZone(identifier: "UTC")!
+        let comps = DateComponents(year: 2026, month: 1, day: 5) // Mon
+        let monday = cal.date(from: comps)!
+        XCTAssertEqual(DayNames.from(monday, calendar: cal), "Mon")
+
+        let sunday = cal.date(byAdding: .day, value: 6, to: monday)!
+        XCTAssertEqual(DayNames.from(sunday, calendar: cal), "Sun")
+    }
+
     // MARK: - Chat filter predicate (tested via static helper)
 
     func testChatFilter_allReturnsEverything() {

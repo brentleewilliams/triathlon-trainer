@@ -41,9 +41,10 @@ struct ContentView: View {
                 }
         }
         .onAppear {
+            // Inject the plan into NotificationManager and chatViewModel in a
+            // single lifecycle pass. Both assignments are order-independent —
+            // they target different managers and neither reads the other.
             NotificationManager.shared.setTrainingPlan(trainingPlan)
-        }
-        .onAppear {
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
         }

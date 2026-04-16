@@ -143,6 +143,50 @@ final class RaceCourseServiceTests: XCTestCase {
         XCTAssertEqual(p.dataSource, .bundled)
     }
 
+    // MARK: - formatMinSecPace
+
+    func testFormatMinSecPace_TypicalValues() {
+        // 7:30/mi → 450s
+        XCTAssertEqual(RaceCourseService.formatMinSecPace(seconds: 450), "7:30")
+        // 1:35/100yd → 95s
+        XCTAssertEqual(RaceCourseService.formatMinSecPace(seconds: 95), "1:35")
+        // Edge: exactly at a minute
+        XCTAssertEqual(RaceCourseService.formatMinSecPace(seconds: 60), "1:00")
+    }
+
+    func testFormatMinSecPace_PadsSingleDigitSeconds() {
+        // 5:05 — critical the seconds are zero-padded.
+        XCTAssertEqual(RaceCourseService.formatMinSecPace(seconds: 305), "5:05")
+        XCTAssertEqual(RaceCourseService.formatMinSecPace(seconds: 9), "0:09")
+    }
+
+    // MARK: - Environment persistence round-trip
+
+    @MainActor
+    func testSaveEnvironment_PersistsAcrossInstances() {
+        var env = service.athleteEnvironment
+        env.trainingElevationFeet = 4321
+        env.trainingClimate = "arid desert"
+        env.poolAccess = false
+        service.saveEnvironment(env)
+
+        // Fresh instance reads from UserDefaults.
+        let reloaded = RaceCourseService()
+        XCTAssertEqual(reloaded.athleteEnvironment.trainingElevationFeet, 4321)
+        XCTAssertEqual(reloaded.athleteEnvironment.trainingClimate, "arid desert")
+        XCTAssertFalse(reloaded.athleteEnvironment.poolAccess)
+    }
+
+    @MainActor
+    func testLoadEnvironment_CorruptDataFallsBackToDefaults() {
+        // Simulate a schema-incompatible blob in the persisted env key.
+        UserDefaults.standard.set(Data([0x00, 0xFF, 0x00]), forKey: "raceCourse.athleteEnvironment")
+        let reloaded = RaceCourseService()
+        XCTAssertEqual(reloaded.athleteEnvironment.trainingClimate,
+                       AthleteEnvironment.defaultInferred().trainingClimate,
+                       "Corrupt env data should not crash; should fall back to defaults")
+    }
+
     // MARK: - Climate classification heuristic
 
     func testClimateClassification_Oregon_IsTemperateMarine() {

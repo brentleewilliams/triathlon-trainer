@@ -18,11 +18,9 @@ struct Race1App: App {
     init() {
         FirebaseApp.configure()
         UNUserNotificationCenter.current().delegate = notificationDelegate
-        // TODO(v1): FCM device token registration — wire up
-        // `Messaging.messaging().token` and post to Firestore at
-        // `users/{uid}.fcmToken` so the backend cron can target it.
-        // For v1 we fall back to local UNUserNotificationCenter scheduling
-        // (see CheckInManager.scheduleLocalFallbackNotification()).
+        // FCM device token registration is not yet wired up; v1 falls back to
+        // local UNUserNotificationCenter scheduling via
+        // CheckInManager.scheduleLocalFallbackNotification().
     }
 
     var body: some Scene {

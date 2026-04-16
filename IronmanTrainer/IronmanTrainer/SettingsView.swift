@@ -87,9 +87,7 @@ class NotificationManager: ObservableObject {
         for dayOffset in 0..<14 {
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: today) else { continue }
 
-            let dayOfWeek = calendar.component(.weekday, from: date)
-            let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-            let dayName = dayNames[dayOfWeek]
+            let dayName = DayNames.from(date, calendar: calendar)
 
             // Find the week this date falls in
             let planStart = plan.weeks.first?.startDate ?? today
@@ -208,14 +206,7 @@ struct SettingsView: View {
                     HStack {
                         Text("Elevation")
                         Spacer()
-                        TextField("feet", value: Binding(
-                            get: { courseService.athleteEnvironment.trainingElevationFeet },
-                            set: { newValue in
-                                var env = courseService.athleteEnvironment
-                                env.trainingElevationFeet = newValue
-                                courseService.saveEnvironment(env)
-                            }
-                        ), format: .number)
+                        TextField("feet", value: envBinding(\.trainingElevationFeet), format: .number)
                             .keyboardType(.numberPad)
                             .multilineTextAlignment(.trailing)
                             .frame(maxWidth: 100)
@@ -223,43 +214,15 @@ struct SettingsView: View {
                             .foregroundColor(.secondary)
                     }
 
-                    Picker("Climate", selection: Binding(
-                        get: { courseService.athleteEnvironment.trainingClimate },
-                        set: { newValue in
-                            var env = courseService.athleteEnvironment
-                            env.trainingClimate = newValue
-                            courseService.saveEnvironment(env)
-                        }
-                    )) {
+                    Picker("Climate", selection: envBinding(\.trainingClimate)) {
                         ForEach(AthleteEnvironment.defaultClimateOptions, id: \.self) { option in
                             Text(option).tag(option)
                         }
                     }
 
-                    Toggle("Pool access", isOn: Binding(
-                        get: { courseService.athleteEnvironment.poolAccess },
-                        set: { newValue in
-                            var env = courseService.athleteEnvironment
-                            env.poolAccess = newValue
-                            courseService.saveEnvironment(env)
-                        }
-                    ))
-                    Toggle("Open-water access", isOn: Binding(
-                        get: { courseService.athleteEnvironment.openWaterAccess },
-                        set: { newValue in
-                            var env = courseService.athleteEnvironment
-                            env.openWaterAccess = newValue
-                            courseService.saveEnvironment(env)
-                        }
-                    ))
-                    Toggle("Indoor trainer access", isOn: Binding(
-                        get: { courseService.athleteEnvironment.trainerAccess },
-                        set: { newValue in
-                            var env = courseService.athleteEnvironment
-                            env.trainerAccess = newValue
-                            courseService.saveEnvironment(env)
-                        }
-                    ))
+                    Toggle("Pool access", isOn: envBinding(\.poolAccess))
+                    Toggle("Open-water access", isOn: envBinding(\.openWaterAccess))
+                    Toggle("Indoor trainer access", isOn: envBinding(\.trainerAccess))
                 }
 
                 Section(header: Text("HR Zones")) {
@@ -434,6 +397,20 @@ struct SettingsView: View {
         let m = seconds / 60
         let s = seconds % 60
         return String(format: "%d:%02d", m, s)
+    }
+
+    /// Produces a `Binding` to a single field on `courseService.athleteEnvironment`
+    /// that persists the whole struct via `saveEnvironment` on every mutation.
+    /// Keeps the Training Environment section from needing one custom Binding per field.
+    private func envBinding<Value>(_ keyPath: WritableKeyPath<AthleteEnvironment, Value>) -> Binding<Value> {
+        Binding(
+            get: { courseService.athleteEnvironment[keyPath: keyPath] },
+            set: { newValue in
+                var env = courseService.athleteEnvironment
+                env[keyPath: keyPath] = newValue
+                courseService.saveEnvironment(env)
+            }
+        )
     }
 
     private func regeneratePlan() {

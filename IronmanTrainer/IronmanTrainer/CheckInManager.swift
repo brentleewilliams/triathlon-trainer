@@ -112,10 +112,17 @@ final class CheckInManager: ObservableObject {
     // MARK: - Cached opening message
 
     /// Returns the cached opening message if it is still within the freshness
-    /// window. Returns nil if missing or expired.
+    /// window. Returns nil if missing, corrupt, or expired.
     func loadCachedOpeningMessage(now: Date = Date()) -> CachedOpeningMessage? {
-        guard let data = UserDefaults.standard.data(forKey: Keys.cachedMessage),
-              let cached = try? JSONDecoder().decode(CachedOpeningMessage.self, from: data) else {
+        guard let data = UserDefaults.standard.data(forKey: Keys.cachedMessage) else {
+            return nil
+        }
+        let cached: CachedOpeningMessage
+        do {
+            cached = try JSONDecoder().decode(CachedOpeningMessage.self, from: data)
+        } catch {
+            print("[CheckInManager] Failed to decode cached opening message: \(error). Dropping cache.")
+            UserDefaults.standard.removeObject(forKey: Keys.cachedMessage)
             return nil
         }
         if now.timeIntervalSince(cached.generatedAt) > freshnessWindow {
@@ -127,8 +134,11 @@ final class CheckInManager: ObservableObject {
     /// Writes a cached opening message. Exposed for tests and for the
     /// live-regeneration path.
     func saveCachedOpeningMessage(_ message: CachedOpeningMessage) {
-        if let data = try? JSONEncoder().encode(message) {
+        do {
+            let data = try JSONEncoder().encode(message)
             UserDefaults.standard.set(data, forKey: Keys.cachedMessage)
+        } catch {
+            print("[CheckInManager] Failed to encode cached opening message: \(error)")
         }
     }
 
@@ -263,10 +273,7 @@ final class CheckInManager: ObservableObject {
 
     private func todayWorkouts(plan: TrainingPlanManager?, date: Date) -> [DayWorkout] {
         guard let plan = plan else { return [] }
-        let cal = Calendar.current
-        let weekday = cal.component(.weekday, from: date)
-        let dayNames = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        let name = dayNames[weekday]
+        let name = DayNames.from(date)
         guard let week = plan.getWeek(plan.currentWeekNumber) else { return [] }
         return week.workouts.filter { $0.day == name && $0.type.lowercased() != "rest" }
     }

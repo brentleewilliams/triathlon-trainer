@@ -12,17 +12,15 @@ struct CourseDetailView: View {
     @ObservedObject private var service = RaceCourseService.shared
     @Environment(\.dismiss) private var dismiss
 
-    /// Weeks from today to race day. Derived from the active profile when
-    /// available; falls back to 0 (treat as race week).
-    var weeksToRace: Int {
-        guard let profile = service.currentProfile else { return 0 }
-        let days = Calendar.current.dateComponents([.day], from: Date(), to: profile.raceDate).day ?? 0
-        return max(0, Int((Double(days) / 7.0).rounded(.toNearestOrEven)))
-    }
-
+    /// Days from today to race day. Falls back to 0 when no profile is loaded.
     var daysToRace: Int {
         guard let profile = service.currentProfile else { return 0 }
         return Calendar.current.dateComponents([.day], from: Date(), to: profile.raceDate).day ?? 0
+    }
+
+    /// Weeks from today to race day, rounded to nearest even (no negatives).
+    var weeksToRace: Int {
+        max(0, Int((Double(daysToRace) / 7.0).rounded(.toNearestOrEven)))
     }
 
     var body: some View {

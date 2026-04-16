@@ -69,6 +69,23 @@ enum AppGroupConstants {
     }
 }
 
+// MARK: - Day Name Helpers
+/// Single source of truth for the app's `"Mon","Tue",...` convention used by
+/// `DayWorkout.day`, HomeView, CheckInManager and NotificationManager.
+enum DayNames {
+    /// Indexed by `Calendar`'s weekday component (1 = Sunday … 7 = Saturday).
+    /// Returns the short 3-letter name (or empty string for out-of-range input).
+    static func fromWeekday(_ weekday: Int) -> String {
+        let names = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+        return names.indices.contains(weekday) ? names[weekday] : ""
+    }
+
+    /// Convenience: the short day name for the given `Date` in the current calendar.
+    static func from(_ date: Date, calendar: Calendar = .current) -> String {
+        fromWeekday(calendar.component(.weekday, from: date))
+    }
+}
+
 // MARK: - Shared Formatters
 enum Formatters {
     static let shortDate: DateFormatter = {

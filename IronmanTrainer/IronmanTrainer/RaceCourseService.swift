@@ -44,9 +44,13 @@ final class RaceCourseService: ObservableObject {
     // MARK: Init
 
     init() {
-        if let data = UserDefaults.standard.data(forKey: Keys.environment),
-           let decoded = try? JSONDecoder().decode(AthleteEnvironment.self, from: data) {
-            self.athleteEnvironment = decoded
+        if let data = UserDefaults.standard.data(forKey: Keys.environment) {
+            do {
+                self.athleteEnvironment = try JSONDecoder().decode(AthleteEnvironment.self, from: data)
+            } catch {
+                print("[RaceCourseService] Failed to decode stored AthleteEnvironment: \(error). Falling back to defaults.")
+                self.athleteEnvironment = AthleteEnvironment.defaultInferred()
+            }
         } else {
             self.athleteEnvironment = AthleteEnvironment.defaultInferred()
         }
@@ -215,7 +219,7 @@ final class RaceCourseService: ObservableObject {
         // Swim
         let swimNumeric: String? = {
             guard let css = t.cssSecondsPer100yd else { return nil }
-            return "~\(formatPace(secondsPer100yd: css))/100yd"
+            return "~\(Self.formatMinSecPace(seconds: css))/100yd"
         }()
         let swim = PacingTarget(
             discipline: .swim,
@@ -249,7 +253,7 @@ final class RaceCourseService: ObservableObject {
         let runNumeric: String? = {
             guard let pace = t.thresholdPaceSecondsPerMile else { return nil }
             let target = pace + 60 // ~Z2 for a half-marathon off the bike
-            return "~\(formatPace(secondsPerMile: target))/mi"
+            return "~\(Self.formatMinSecPace(seconds: target))/mi"
         }()
         let run = PacingTarget(
             discipline: .run,
@@ -270,15 +274,12 @@ final class RaceCourseService: ObservableObject {
         )
     }
 
-    private nonisolated func formatPace(secondsPerMile: Int) -> String {
-        let m = secondsPerMile / 60
-        let s = secondsPerMile % 60
-        return String(format: "%d:%02d", m, s)
-    }
-
-    private nonisolated func formatPace(secondsPer100yd: Int) -> String {
-        let m = secondsPer100yd / 60
-        let s = secondsPer100yd % 60
+    /// Formats an integer duration in seconds as `m:ss`. Used for pace strings
+    /// (both per-mile and per-100yd — caller appends the unit). Pure function,
+    /// so `nonisolated` to allow use from any actor context (incl. tests).
+    nonisolated static func formatMinSecPace(seconds: Int) -> String {
+        let m = seconds / 60
+        let s = seconds % 60
         return String(format: "%d:%02d", m, s)
     }
 
@@ -286,8 +287,11 @@ final class RaceCourseService: ObservableObject {
 
     func saveEnvironment(_ env: AthleteEnvironment) {
         athleteEnvironment = env
-        if let data = try? JSONEncoder().encode(env) {
+        do {
+            let data = try JSONEncoder().encode(env)
             UserDefaults.standard.set(data, forKey: Keys.environment)
+        } catch {
+            print("[RaceCourseService] Failed to encode AthleteEnvironment: \(error)")
         }
     }
 
@@ -312,7 +316,8 @@ final class RaceCourseService: ObservableObject {
     }
 
     /// Köppen-style heuristic on US admin area → one of the climate picker options.
-    static func climateClassification(adminArea: String?) -> String {
+    /// Pure function, so `nonisolated` to allow use from any actor context.
+    nonisolated static func climateClassification(adminArea: String?) -> String {
         guard let area = adminArea?.lowercased() else { return "temperate marine" }
         // Arid desert (hottest, driest)
         let aridDesert: Set<String> = ["arizona", "nevada", "new mexico"]

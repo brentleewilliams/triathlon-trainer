@@ -17,10 +17,13 @@ enum TerrainProfile: String, Codable, CaseIterable {
 
 // MARK: - Data Source
 
+/// Where a `RaceCourseProfile` came from. v1 only emits `.bundled`; `.llmResearch`
+/// and `.userEntered` are populated by the v2 `courseResearch` Cloud Function +
+/// Firestore cache path (PRD §4.3.3 / §11.2).
 enum DataSource: String, Codable {
-    case llmResearch
-    case userEntered
-    case bundled
+    case llmResearch    // v2: returned by courseResearch Cloud Function
+    case userEntered    // v2: fallback form when research returns unusable data
+    case bundled        // v1: hardcoded in BundledCourseProfiles
 }
 
 // MARK: - Expected Weather
@@ -40,6 +43,8 @@ struct RaceCourseProfile: Codable, Equatable {
     let raceDate: Date
 
     // Race shape
+    // v2: differentiates profile types for non-triathlon races (marathon, ultra,
+    // etc.) when the Cloud Function research path ships. v1 hardcodes .triathlon703.
     let raceType: RaceType
     let totalDistanceDescription: String
 
@@ -53,6 +58,8 @@ struct RaceCourseProfile: Codable, Equatable {
 
     // Metadata
     let dataSource: DataSource
+    /// v2: Firestore cache TTL (PRD §4.3.3) — re-research when >90 days old or
+    /// <2 weeks to race. v1 bundled profiles use an arbitrary epoch value.
     let lastRefreshed: Date
 }
 
@@ -91,6 +98,8 @@ struct AthleteEnvironment: Codable, Equatable {
 
 enum ThresholdSource: String, Codable {
     case userEntered
+    /// v2: reserved for a feature that estimates thresholds from HealthKit
+    /// race history (PRD §4.4.5 footnote). v1 always emits .userEntered.
     case inferredFromHistory
 }
 

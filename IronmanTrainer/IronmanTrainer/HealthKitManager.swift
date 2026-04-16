@@ -40,20 +40,23 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         // checkAuthorization() is called explicitly after onboarding completes.
     }
 
+    /// HealthKit types the app reads. Force-unwraps are safe here: all identifiers
+    /// are standard Apple-defined constants that cannot return nil at runtime.
+    /// Morning Check-In v1: includes sleep analysis. HRV + resting HR deferred to v2.
+    private static let requiredHKTypes: Set<HKObjectType> = [
+        HKObjectType.workoutType(),
+        HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+        HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
+        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+    ]
+
     func checkAuthorization() {
         guard HKHealthStore.isHealthDataAvailable() else {
             syncError = "HealthKit not available"
             return
         }
 
-        let workoutType = HKObjectType.workoutType()
-        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
-        let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        // Morning Check-In v1: request sleep analysis. HRV + resting HR deferred to v2.
-        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType, sleepType]
-
-        healthStore.getRequestStatusForAuthorization(toShare: [], read: typesToRead) { status, _ in
+        healthStore.getRequestStatusForAuthorization(toShare: [], read: Self.requiredHKTypes) { status, _ in
             DispatchQueue.main.async {
                 self.isAuthorized = (status == .unnecessary)
             }
@@ -68,15 +71,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             return
         }
 
-        let workoutType = HKObjectType.workoutType()
-        let heartRateType = HKQuantityType.quantityType(forIdentifier: .heartRate)!
-        let dobType = HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!
-        // Morning Check-In v1: request sleep analysis. HRV + resting HR deferred to v2.
-        let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let typesToRead: Set<HKObjectType> = [workoutType, heartRateType, dobType, sleepType]
-
         do {
-            try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
+            try await healthStore.requestAuthorization(toShare: [], read: Self.requiredHKTypes)
             await MainActor.run {
                 self.isAuthorized = true
                 self.syncError = nil
@@ -229,7 +225,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                     zone = "Z5"
                 }
 
-                zones[zone] = zones[zone]! + 1
+                zones[zone, default: 0] += 1
             }
 
             onComplete(zones)
@@ -269,7 +265,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 else if bpm < bounds.z4 { zone = "Z3" }
                 else if bpm < bounds.z5 { zone = "Z4" }
                 else { zone = "Z5" }
-                zones[zone] = zones[zone]! + 1
+                zones[zone, default: 0] += 1
             }
 
             // Convert counts to percentages

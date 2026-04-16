@@ -24,7 +24,6 @@ struct CheckInView: View {
     private let maxExchanges = 3
 
     @State private var replyText: String = ""
-    @State private var didLoadOpening = false
 
     var body: some View {
         NavigationStack {
@@ -69,10 +68,8 @@ struct CheckInView: View {
                 }
             }
             .task {
-                if !didLoadOpening {
-                    didLoadOpening = true
-                    await loadOpeningMessage()
-                }
+                // `.task` fires once per view identity, so no manual guard is needed.
+                await loadOpeningMessage()
             }
         }
     }
@@ -96,10 +93,7 @@ struct CheckInView: View {
         guard let week = trainingPlan.getWeek(trainingPlan.currentWeekNumber) else {
             return "No plan loaded"
         }
-        let cal = Calendar.current
-        let weekday = cal.component(.weekday, from: Date())
-        let names = ["", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
-        let today = names[weekday]
+        let today = DayNames.from(Date())
         let todayWorkouts = week.workouts.filter { $0.day == today && $0.type.lowercased() != "rest" }
         if todayWorkouts.isEmpty {
             return "Rest day"

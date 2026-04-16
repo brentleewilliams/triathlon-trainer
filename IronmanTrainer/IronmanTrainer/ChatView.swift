@@ -27,6 +27,12 @@ struct ChatView: View {
         }
     }
 
+    /// Scrolls the chat transcript to the bottom anchor with an animation.
+    /// Used by both the initial appearance and every state-change trigger.
+    private static func scrollChatToBottom(_ proxy: ScrollViewProxy) {
+        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+    }
+
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
@@ -89,18 +95,15 @@ struct ChatView: View {
                 .scrollDismissesKeyboard(.immediately)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
+                        Self.scrollChatToBottom(proxy)
                     }
                 }
-                .onChange(of: viewModel.messages.count) {
-                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                }
-                .onChange(of: viewModel.isLoading) {
-                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                }
-                .onChange(of: viewModel.negotiationState) {
-                    withAnimation { proxy.scrollTo("chat-bottom", anchor: .bottom) }
-                }
+                // Keep three separate onChange calls (not one combined) so every
+                // state transition fires reliably, even when the underlying value
+                // types hash equal after mutation.
+                .onChange(of: viewModel.messages.count) { Self.scrollChatToBottom(proxy) }
+                .onChange(of: viewModel.isLoading) { Self.scrollChatToBottom(proxy) }
+                .onChange(of: viewModel.negotiationState) { Self.scrollChatToBottom(proxy) }
                 .safeAreaInset(edge: .bottom) {
                     ChatInputBar(viewModel: viewModel)
                 }
