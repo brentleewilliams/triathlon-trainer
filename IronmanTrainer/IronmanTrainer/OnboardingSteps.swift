@@ -808,7 +808,7 @@ struct AddPrepRaceSheet: View {
     private let distanceOptions = ["5K", "10K", "Half Marathon", "Marathon", "Sprint Tri", "Olympic Tri", "Century Ride", "Other"]
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             Form {
                 Section(header: Text("Search for Race"), footer: Text("Or enter details manually below.")) {
                     HStack {

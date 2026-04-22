@@ -117,7 +117,7 @@ struct WeekPickerSheet: View {
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             List {
                 ForEach(trainingPlan.weeks.sorted(by: { $0.weekNumber < $1.weekNumber }), id: \.weekNumber) { week in
                     Button(action: {
