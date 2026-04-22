@@ -52,6 +52,8 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 ✅ Home screen widget with race-agnostic countdown + tip cards
 ✅ Architecture refactored: weak self patterns, shared date helper, WorkoutDetailParser, AnalyticsViewModel
 ✅ Silent print() suppression in non-Debug builds
+✅ Onboarding profile step gates Continue until all fields (sex, height, weight, resting HR, home zip) are filled
+✅ Account deletion (Settings → Delete Account) — wipes Firestore data, UserDefaults caches, and Firebase Auth user
 
 ## Architecture
 

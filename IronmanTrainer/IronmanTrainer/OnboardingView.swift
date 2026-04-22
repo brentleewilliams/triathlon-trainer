@@ -249,7 +249,8 @@ struct OnboardingNavBar: View {
         case .healthKit:
             return viewModel.hkDataLoaded
         case .profile:
-            return true
+            // Intro screen advances freely; form requires all fields filled.
+            return isOnGradient ? true : viewModel.isProfileComplete
         case .raceSearch:
             return viewModel.raceSearchResult != nil
         case .goalSetting:

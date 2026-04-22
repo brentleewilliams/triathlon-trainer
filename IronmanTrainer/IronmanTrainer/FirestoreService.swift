@@ -89,6 +89,24 @@ class FirestoreService: ObservableObject {
             .collection("plans").document(planId).setData(payload)
     }
 
+    // MARK: - Account Deletion
+
+    /// Deletes all Firestore data under users/{uid}, including subcollections
+    /// (races, plans). Does NOT delete the Firebase Auth user — that's handled
+    /// separately by AuthService.
+    func deleteUserData(uid: String) async throws {
+        let userDoc = db.collection("users").document(uid)
+
+        for sub in ["races", "plans"] {
+            let snapshot = try await userDoc.collection(sub).getDocuments()
+            for doc in snapshot.documents {
+                try await doc.reference.delete()
+            }
+        }
+
+        try await userDoc.delete()
+    }
+
     func getTrainingPlan(
         for uid: String
     ) async throws -> (weeks: [TrainingWeek], metadata: PlanMetadata)? {

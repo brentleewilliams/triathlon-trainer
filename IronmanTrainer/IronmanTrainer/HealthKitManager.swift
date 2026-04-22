@@ -375,7 +375,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         guard total > 0 || inBed > 0 else { return nil }
 
         // Pick a representative source name. Prefer the longest sample's source.
-        let source = samples.max(by: { $0.endDate.timeIntervalSince($0.startDate) < $1.endDate.timeIntervalSince($1.startDate) })?.sourceRevision.source.name ?? "Unknown"
+        let rawSource = samples.max(by: { $0.endDate.timeIntervalSince($0.startDate) < $1.endDate.timeIntervalSince($1.startDate) })?.sourceRevision.source.name
+        let source = (rawSource?.isEmpty == false) ? rawSource! : "Unknown"
 
         return SleepSummary(
             date: date,

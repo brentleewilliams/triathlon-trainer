@@ -136,6 +136,9 @@ struct SettingsView: View {
     @State private var showSignOutAlert = false
     @State private var showReOnboardAlert = false
     @State private var showRestorePlanAlert = false
+    @State private var showDeleteAccountAlert = false
+    @State private var isDeletingAccount = false
+    @State private var deleteAccountError: String?
     @State private var isRegeneratingPlan = false
     @State private var regenerateError: String?
     @State private var storedThresholds: PerformanceThresholds = PerformanceThresholdsStore.load() ?? .empty
@@ -354,6 +357,26 @@ struct SettingsView: View {
                         showSignOutAlert = true
                     }
                     .foregroundColor(.red)
+
+                    Button {
+                        showDeleteAccountAlert = true
+                    } label: {
+                        HStack {
+                            Text("Delete Account")
+                            Spacer()
+                            if isDeletingAccount {
+                                ProgressView()
+                            }
+                        }
+                    }
+                    .foregroundColor(.red)
+                    .disabled(isDeletingAccount)
+
+                    if let error = deleteAccountError {
+                        Text(error)
+                            .font(.caption)
+                            .foregroundColor(.red)
+                    }
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -389,6 +412,33 @@ struct SettingsView: View {
                 }
             } message: {
                 Text("This will replace your current plan with the original Ironman 70.3 Oregon 17-week training plan.")
+            }
+            .alert("Delete Account?", isPresented: $showDeleteAccountAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Delete", role: .destructive) {
+                    deleteAccount()
+                }
+            } message: {
+                Text("This permanently deletes your account, training plan, and all data. This cannot be undone.")
+            }
+        }
+    }
+
+    private func deleteAccount() {
+        isDeletingAccount = true
+        deleteAccountError = nil
+        Task {
+            do {
+                try await authService.deleteAccount()
+                await MainActor.run {
+                    trainingPlan.clearAllPlanVersions()
+                    isDeletingAccount = false
+                }
+            } catch {
+                await MainActor.run {
+                    deleteAccountError = error.localizedDescription
+                    isDeletingAccount = false
+                }
             }
         }
     }

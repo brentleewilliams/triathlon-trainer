@@ -172,6 +172,37 @@ class AuthService: ObservableObject {
         self.currentUserID = nil
     }
 
+    /// Permanently delete the account: Firestore data, local caches, and the
+    /// Firebase Auth user. Throws `AuthError.reauthRequired` if Firebase
+    /// rejects the delete because the sign-in is stale — caller should prompt
+    /// the user to sign out and sign back in before retrying.
+    func deleteAccount() async throws {
+        guard let user = Auth.auth().currentUser else {
+            throw AuthError.notSignedIn
+        }
+        let uid = user.uid
+
+        try await FirestoreService.shared.deleteUserData(uid: uid)
+
+        UserDefaults.standard.removeObject(forKey: "onboarding_complete_\(uid)")
+        UserDefaults.standard.removeObject(forKey: "saved_plan_\(uid)")
+
+        do {
+            try await user.delete()
+        } catch let error as NSError {
+            if error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                throw AuthError.reauthRequired
+            }
+            throw error
+        }
+
+        self.isAuthenticated = false
+        self.currentUserID = nil
+        self.currentUserEmail = nil
+        self.savedPlan = nil
+        self.onboardingComplete = false
+    }
+
     // MARK: - Email OTP
 
     private let functionsBaseURL = "https://us-central1-brents-trainer.cloudfunctions.net"
@@ -215,6 +246,8 @@ class AuthService: ObservableObject {
         case missingToken
         case otpSendFailed(_ message: String?)
         case otpVerifyFailed(_ message: String?)
+        case notSignedIn
+        case reauthRequired
 
         var errorDescription: String? {
             switch self {
@@ -224,6 +257,10 @@ class AuthService: ObservableObject {
                 return msg ?? "Failed to send verification code."
             case .otpVerifyFailed(let msg):
                 return msg ?? "Failed to verify code."
+            case .notSignedIn:
+                return "No signed-in user."
+            case .reauthRequired:
+                return "For security, please sign out and sign back in before deleting your account."
             }
         }
     }

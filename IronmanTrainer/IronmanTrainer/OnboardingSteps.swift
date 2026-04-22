@@ -100,8 +100,6 @@ struct ProfileStep: View {
     @State private var weightLbs: String = ""
     // Track which HK fields user has tapped to edit
     @State private var editing: Set<String> = []
-    // Local state for text fields — avoids publishing to viewModel on every keystroke
-    @State private var localHomeZip: String = ""
 
     var body: some View {
         if !showingForm {
@@ -138,7 +136,7 @@ struct ProfileStep: View {
                             editing.insert("location")
                         }
                     } else {
-                        OnboardingTextField(label: "Home Training Area (zip code)", text: $localHomeZip, placeholder: "e.g. 80202")
+                        OnboardingTextField(label: "Home Training Area (zip code)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
                     }
 
                     // Date of Birth
@@ -255,8 +253,6 @@ struct ProfileStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
-        .onAppear { localHomeZip = viewModel.homeZip }
-        .onDisappear { viewModel.homeZip = localHomeZip }
     }
 
     private func updateHeightCm() {
