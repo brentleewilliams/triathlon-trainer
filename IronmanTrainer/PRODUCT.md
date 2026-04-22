@@ -1,6 +1,6 @@
 # Race1 Trainer Product Spec
 
-*Centralized product decisions, feature specs, and roadmap. Updated 2026-04-13.*
+*Centralized product decisions, feature specs, and roadmap. Updated 2026-04-22.*
 *For architecture/build details, see `CLAUDE.md`. For competitive analysis, see `product-planning-and-differentiation.md`.*
 
 ---
@@ -9,7 +9,7 @@
 
 An AI-powered race coaching app that knows your specific race — the course, the elevation, the aid stations, the weather — and builds training and race-day plans around it. Not a generic training platform. A coach for YOUR next race.
 
-**Current state:** Race-agnostic architecture supporting triathlon, running, and custom race types. Tool-calling plan changes, secondary races, AI-generated plans via Cloud Functions + LangSmith prompt management. Firebase auth, Firestore sync, onboarding flow. Primary user: Brent's Ironman 70.3 Oregon (July 19, 2026, sub-6:00 goal).
+**Current state:** Race-agnostic architecture supporting triathlon, running, and custom race types. Tool-calling plan changes with visual diff negotiation UI (PlanDiffCard), secondary races, AI-generated plans via Cloud Functions + LangSmith prompt management. Morning check-in with daily push notification + focused coaching sheet. Race Course Intelligence v1 with bundled Oregon 70.3 profile. Firebase auth, Firestore sync, onboarding flow. Primary user: Brent's Ironman 70.3 Oregon (July 19, 2026, sub-6:00 goal).
 
 **V2 vision:** Public product — any race, any athlete. Race course intelligence, post-race failure analysis, Apple Watch app.
 
@@ -115,6 +115,62 @@ struct AidStation: Codable {
 
 ---
 
+### Plan Negotiation UI (Built — 2026-04-14)
+
+**Problem:** The original plan change confirmation was a simple Apply/Dismiss button with no context about what was changing, why, or the impact on weekly volume.
+
+**Solution:** PlanDiffEngine enriches Claude's tool-call proposals with per-day diff data and volume deltas. PlanDiffCard renders a color-coded visual diff: unchanged days grey, modified days amber, dropped days red, added days green. Key sessions (long runs, race-pace workouts) get badges. Each change shows Claude's `rationale` field. Accept/Modify/Reject replaces the old Apply/Dismiss.
+
+**Key details:**
+- `DayDiffStatus` enum: unchanged, modified, dropped, added, swapped
+- `rationale` field added to PlanChange schema (Cloud Function tool updated)
+- `EnrichedProposal` wraps original proposal with `[WeekDiff]` for rendering
+- 22 unit tests in PlanDiffEngineTests.swift
+
+---
+
+### Morning Check-In v1 (Built — 2026-04-14)
+
+**Problem:** The coach was reactive — athletes had to open the chat to get guidance. No proactive outreach when something changed (bad sleep, missed workout, high training load).
+
+**Solution:** Daily push notification triggers a focused check-in sheet at user-configured time. CheckInManager generates a contextual opening message from HealthKit sleep data + yesterday's workout. Sheet limits to 3 message exchanges, then surfaces Accept/Keep-Original buttons to apply or discard any plan tweaks Claude suggests.
+
+**User Flow:**
+1. User enables check-in in Settings, sets preferred time
+2. Cloud Function scheduleCheckInNotifications fires on cron (*/5 * * * *)
+3. Push notification arrives with contextual preview
+4. User taps → app opens CheckInView sheet (not main chat)
+5. Claude's opening message: "You slept 6.2 hours — how are you feeling about today's long run?"
+6. Max 3 exchanges, then Accept / Keep-Original buttons
+7. Accepted changes routed through standard plan change flow (PlanDiffCard)
+
+**Key details:**
+- CheckInManager.shared: caches message 6h, tier-2/3 fallback for users without FCM token
+- CheckInView: isolated from main chat (separate history, max 3 messages)
+- ChatFilter enum in ChatView: All / Check-ins filter chips
+- Fallback: local UNUserNotification when FCM token unavailable
+- Sleep data: HealthKitManager.fetchSleepData + summarizeSleep
+
+---
+
+### Race Course Intelligence v1 (Built — 2026-04-14)
+
+**Problem:** The coach gave generic pacing and effort advice without knowing the Oregon course — flat swim, rolling bike with overpasses, flat shaded run. Context-free advice misses race-specific preparation.
+
+**Solution:** Bundled Oregon 70.3 course profile injected into Claude's system prompt at race-appropriate tiers. RaceCourseService provides phase-dependent context: general terrain always, altitude strategy at +5 weeks out, detailed segment pacing at +2 weeks. CourseDetailView shows athletes the course overview, altitude comparison, phase checklist, and race-week weather.
+
+**Key details:**
+- `RaceCourseProfile` struct: terrain, elevation gain, phase thresholds, pacing targets by discipline
+- `TerrainProfile` enum: flat, rolling, hilly, mountainous
+- Three context tiers: always (terrain overview), +5wk (altitude adjustment), +2wk (pacing targets)
+- `AthleteEnvironment`: elevation, climate, timezone offset (UserDefaults persisted)
+- `PerformanceThresholds`: FTP, lactate threshold, pace thresholds (inferred or user-entered)
+- HomeView race countdown banner taps to CourseDetailView
+- SettingsView: Training Environment section + Performance Thresholds disclosure
+- v2 seam: BundledCourseProfiles.swift structured for Cloud Function research path + Firestore cache
+
+---
+
 ### Tool-Calling Plan Changes (Built — 2026-04-09)
 
 **Problem:** Original plan change approach used fragile JSON-in-text parsing — Claude would embed `PLAN_CHANGES` JSON in its response text, which was unreliable and hard to parse.
@@ -189,6 +245,9 @@ struct AidStation: Codable {
 
 ### Pre-Race (Now → July 19, 2026)
 - [x] Tool-calling plan changes (swap/replace/add/remove)
+- [x] Plan Negotiation UI (PlanDiffCard with color-coded diffs + rationale)
+- [x] Morning Check-In v1 (daily push notification + focused coaching sheet)
+- [x] Race Course Intelligence v1 (bundled Oregon profile + CourseDetailView)
 - [x] Secondary races support
 - [x] Race-agnostic architecture
 - [x] VerifiedRaceDatabase for date validation

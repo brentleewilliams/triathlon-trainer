@@ -1,6 +1,6 @@
 # Race1 Trainer Project Specification
 
-*Updated 2026-04-13.*
+*Updated 2026-04-22.*
 
 ## Project Overview
 
@@ -54,18 +54,21 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 ✅ Silent print() suppression in non-Debug builds
 ✅ Onboarding profile step gates Continue until all fields (sex, height, weight, resting HR, home zip) are filled
 ✅ Account deletion (Settings → Delete Account) — wipes Firestore data, UserDefaults caches, and Firebase Auth user
+✅ Plan Negotiation UI — PlanDiffEngine enriches proposals with per-day diffs, key session badges, rationale; PlanDiffCard shows color-coded visual diff with Accept/Modify/Reject buttons
+✅ Morning Check-In v1 — daily push notification triggers focused 3-message check-in sheet; contextual opening message from HealthKit sleep + yesterday's workout; Accept/Keep-Original buttons apply or discard plan tweaks
+✅ Race Course Intelligence v1 — bundled Oregon 70.3 course profile with altitude adjustment, phase-based pacing strategy, and course detail view accessible from race countdown banner
 
 ## Architecture
 
 ### App Entry
-- **IronmanTrainerApp.swift** — App lifecycle, Firebase init, auth flow, HealthKit manager init, foreground sync
+- **IronmanTrainerApp.swift** (105 lines) — App lifecycle, Firebase init, auth flow, HealthKit manager init, foreground sync, notification center delegate for check-in routing (.openCheckIn)
 
 ### Constants & Utilities
 - **AppConstants.swift** — Notification.Name extensions, AppGroupConstants, Formatters, Secrets (loads API keys from Config.xcconfig)
 
 ### Data Managers
 - **TrainingPlanManager.swift** (678 lines) — DayWorkout model, TrainingWeek model, TrainingPlanManager (manages training data, dynamic week calculation from user's race date, plan change execution)
-- **HealthKitManager.swift** — HealthKit permissions, syncs workouts, caches per-workout HR zone breakdowns. Zone boundaries derived from `maxHeartRate` via computed `zoneBoundaries` property. Supports non-triathlon sport types.
+- **HealthKitManager.swift** (391 lines) — HealthKit permissions, syncs workouts, caches per-workout HR zone breakdowns. Zone boundaries derived from `maxHeartRate` via computed `zoneBoundaries` property. Supports non-triathlon sport types. Includes `fetchSleepData` and `summarizeSleep` helpers for check-in context.
 - **HealthKitOnboardingData.swift** (549 lines) — Pre-populate user profile from HealthKit during onboarding
 - **ClaudeService.swift** — API integration with Anthropic Claude (claude-sonnet-4-6), loads API key from Secrets
 - **ChatViewModel.swift** (580 lines) — Chat message management, builds training context, tool-calling for plan changes (swap/replace/add/remove), conversation history persistence, reschedule context with ±2 week window
@@ -77,6 +80,9 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 - **WorkoutMatchingHelpers.swift** — Type + date + duration matching for HealthKit → planned workout
 - **VerifiedRaceDatabase.swift** (413 lines) — Local race database for date validation with fuzzy matching
 - **AnalyticsService.swift** — Analytics data computation extracted from view layer
+- **CheckInManager.swift** (280 lines) — @MainActor singleton for morning check-in orchestration; 6h cache, tier-2/3 fallback, generates contextual opening message from HealthKit sleep + workout data, local UNUserNotification fallback when FCM token unavailable
+- **RaceCourseService.swift** (351 lines) — @MainActor singleton for course-aware coaching; loads bundled or user-entered course profile, provides phase-dependent context at always/+5wk/+2wk tiers, altitude adjustment, pacing strategy, UserDefaults persistence for AthleteEnvironment
+- **PlanDiffEngine.swift** (285 lines) — Enriches Claude plan proposals with week-by-week diffs (DayDiff/WeekDiff/EnrichedProposal), detects key sessions, tracks volume deltas, adds per-change rationale
 
 ### Auth & Cloud
 - **AuthService.swift** — Firebase Auth with Sign In with Apple, onboarding state listener
@@ -84,15 +90,18 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 - **UserProfile.swift** (388 lines) — RaceType, GoalType, Race models
 
 ### Views
-- **ContentView.swift** — TabView container (Home, Analytics, Chat, Settings)
-- **HomeView.swift** (431 lines) — Weekly plan display, race countdown, completion status, widget tip card
+- **ContentView.swift** (64 lines) — TabView container (Home, Analytics, Chat, Settings); presents CheckInView sheet on .openCheckIn notification
+- **HomeView.swift** (449 lines) — Weekly plan display, race countdown, completion status, widget tip card; race countdown banner taps through to CourseDetailView
 - **DayDetailView.swift** (454 lines) — Full day workout detail view (extracted from HomeView)
 - **DayRowComponents.swift** — Reusable day row UI components (extracted from HomeView)
 - **WorkoutDayRows.swift** — Workout-specific day row renderers
 - **AnalyticsView.swift** (554 lines) — Volume summary and zone distribution with week navigator
-- **ChatView.swift** — Chat messaging interface with keyboard handling and image support
+- **ChatView.swift** (416 lines) — Chat messaging interface with keyboard handling, image support, ChatFilter enum (All/Check-ins filter chips), CheckInManager integration
 - **PlanView.swift** — Calendar overview of all training weeks
-- **SettingsView.swift** (509 lines) — Notification settings, workout reminders, plan regeneration
+- **SettingsView.swift** (678 lines) — Notification settings, workout reminders, plan regeneration, Morning Check-In section (toggle + time picker), Training Environment section (elevation, climate), Performance Thresholds disclosure
+- **CheckInView.swift** (246 lines) — Focused check-in sheet UI (max 3 message exchanges, Accept/Keep-Original buttons)
+- **CourseDetailView.swift** (184 lines) — Race course detail UI (overview, altitude comparison, phase checklist, race-week weather)
+- **PlanDiffCard.swift** (324 lines) — Visual diff card UI for plan proposals (color-coded day changes, key session badges, per-change rationale, volume bars, Accept/Modify/Reject buttons)
 - **SharedComponents.swift** — WeekNavigationHeader, WeekPickerSheet (shared week navigation)
 - **SignInView.swift** — Sign In with Apple UI
 
@@ -109,6 +118,10 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 ### Core Data
 - **CompletedWorkoutEntity+CoreDataClass.swift** / **+CoreDataProperties.swift** — Completed workout persistence
 - **WorkoutPlanVersion+CoreDataClass.swift** / **+CoreDataProperties.swift** — Workout plan version persistence (supports undo/rollback)
+
+### Race Course Data
+- **RaceCourseProfile.swift** (173 lines) — Data models: `RaceCourseProfile`, `AthleteEnvironment`, `PerformanceThresholds`, `AltitudeContext`, `PacingTarget`, `PacingPlan`; enums: `TerrainProfile`, `DataSource`, `ThresholdSource`, `PacingDiscipline`
+- **BundledCourseProfiles.swift** (44 lines) — Hardcoded Ironman 70.3 Oregon profile; v2 seam for Cloud Function + Firestore research path
 
 ### Supporting Files
 - **Config.xcconfig** — API keys (gitignored, only exists locally)
@@ -134,7 +147,7 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 
 ### Claude AI Coach
 - **API:** Anthropic Claude API (claude-sonnet-4-6 model) via LLMProxyService → Cloud Functions
-- **Tool Calling:** Plan changes use structured tool calls (not JSON-in-text). ChatViewModel parses tool_use blocks, presents PlanChangeProposal to user, executes on confirmation.
+- **Tool Calling:** Plan changes use structured tool calls (not JSON-in-text). ChatViewModel parses tool_use blocks, PlanDiffEngine enriches proposals with visual diff data, PlanDiffCard presents color-coded day changes with Accept/Modify/Reject. `rationale` field on PlanChange populated by Cloud Function tool.
 - **Context Window:** Current week ±2 weeks of plan data + tool-call instructions. Kept small to ensure tool-call rules stay prominent.
 - **Context Passed:**
   - Current week ±2 planned workouts (with nutrition targets when present)
@@ -142,6 +155,7 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
   - Per-workout HR zone breakdowns for last 14 days
   - Race date (dynamic from user profile), goals, dynamic HR zones from maxHR
   - Current date in local timezone
+  - Race course phase context from RaceCourseService (always/+5wk/+2wk tiers: terrain, altitude, pacing targets)
 - **HR Zones:** Dynamically computed from maxHeartRate: Z1 <69%, Z2 69-79%, Z3 79-85%, Z4 85-92%, Z5 >92%
 - **System Prompt:** Race-agnostic coaching prompt with tool-call instructions, safety boundary (coaching topics only)
 - **API Key:** Loaded from Config.xcconfig via Secrets
@@ -167,20 +181,25 @@ Test infrastructure fully configured:
 - Scheme "IronmanTrainer" configured for `xcodebuild test` execution
 - XCTest framework integrated
 
-11 test files, 9 active:
+18 test files, active:
 - **ChatSwapTests.swift** — Swap command parsing, chat history persistence, HR zone calculations, nutrition targets, zone percentages
 - **WeatherForecastTests.swift** — Determinism, seasonal progression, bounds checking, humidity/wind, daily variation, edge cases
 - **PlanChangeToolTests.swift** — Tool-calling plan change parsing and execution
+- **PlanDiffEngineTests.swift** — Plan diff enrichment, DayDiff/WeekDiff logic, volume delta calculations
 - **ComplianceTests.swift** — Workout compliance tracking tests
 - **OnboardingTests.swift** — Onboarding flow tests
 - **RaceDateParsingTests.swift** — Race date parsing and validation against VerifiedRaceDatabase
 - **TemplateSelectionTests.swift** — Plan template selection logic
 - **WorkoutMatchingTests.swift** — HealthKit → planned workout matching
+- **TrainingPlanManagerTests.swift** — Training plan manager logic
+- **CheckInManagerTests.swift** — Morning check-in caching, tier logic, freshness validation
+- **SleepFetchTests.swift** — HealthKit sleep data fetching and summarization
+- **RaceCourseServiceTests.swift** — Course profile loading, phase context, altitude/pacing math
+- **ThresholdCaptureTests.swift** — Performance threshold capture and inference
 - **CIScriptTests.swift** — CI script validation (API key scan)
 
 Disabled (pre-existing compile errors, wrapped in `#if false`):
 - **PlanChangeTests.swift** — Legacy plan change tests (pre-tool-calling)
-- **ChatSwapTests.swift** — Partial `#if false` for deprecated swap tests
 
 ## Configuration
 
