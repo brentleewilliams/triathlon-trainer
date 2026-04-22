@@ -47,12 +47,12 @@ struct SignInView: View {
                     switch result {
                     case .success(let authorization):
                         guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                            errorMessage = "Unexpected credential type."
+                            errorMessage = "Sign in failed. Please try again."
                             showError = true
                             return
                         }
                         guard let nonce = currentNonce else {
-                            errorMessage = "Missing nonce. Please try again."
+                            errorMessage = "Sign in failed. Please try again."
                             showError = true
                             return
                         }
@@ -61,20 +61,21 @@ struct SignInView: View {
                                 try await authService.signInWithApple(credential: appleIDCredential, nonce: nonce)
                             } catch {
                                 print("[AUTH] Apple Sign In failed: \(error)")
-                                errorMessage = "\(error)"
+                                errorMessage = "Sign in failed. Please check your internet connection and try again."
                                 showError = true
                             }
                         }
                     case .failure(let error):
                         print("[AUTH] Apple authorization failed: \(error)")
                         if (error as? ASAuthorizationError)?.code != .canceled {
-                            errorMessage = "\(error)"
+                            errorMessage = "Sign in failed. Please try again."
                             showError = true
                         }
                     }
                 }
-                .signInWithAppleButtonStyle(.white)
+                .signInWithAppleButtonStyle(.black)
                 .frame(height: 50)
+                .cornerRadius(8)
 
                 // Divider
                 HStack {
