@@ -105,6 +105,21 @@ struct DayDetailView: View {
         }
     }
 
+    /// HealthKit workouts completed on this day that don't correspond to any
+    /// planned workout — e.g. a spontaneous strength session on an easy-bike day,
+    /// or a run on a rest day. Surfaced in an "Other Activity" section so
+    /// off-plan work is visible instead of silently dropped.
+    var unplannedWorkouts: [HKWorkout] {
+        // Gather every planned workout for this weekday from the week (there
+        // may be AM/PM sessions, a brick leg, etc.) rather than just `day`.
+        let dayPlanned = week.workouts.filter { $0.day == day.day }
+        return findUnplannedWorkouts(
+            on: getDateForDay(),
+            plannedWorkouts: dayPlanned,
+            hkWorkouts: healthKit.workouts
+        )
+    }
+
     func getDateForDay() -> Date {
         dateForWorkoutDay(day.day, weekStartDate: week.startDate)
     }
@@ -414,6 +429,74 @@ struct DayDetailView: View {
                                     .foregroundColor(.orange)
                                 Text("No completed workouts")
                                     .foregroundColor(.gray)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(12)
+                    }
+
+                    // Other Activity (off-plan HealthKit workouts)
+                    if !unplannedWorkouts.isEmpty {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack(spacing: 6) {
+                                Image(systemName: "plus.diamond.fill")
+                                    .foregroundColor(.orange)
+                                Text("Other Activity")
+                                    .font(.headline)
+                                Spacer()
+                                Text("Not in plan")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(Color.orange.opacity(0.15))
+                                    .cornerRadius(4)
+                            }
+
+                            ForEach(unplannedWorkouts, id: \.uuid) { workout in
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text(getWorkoutTypeName(workout.workoutActivityType))
+                                        .fontWeight(.semibold)
+                                    HStack {
+                                        Text("Duration:")
+                                        Spacer()
+                                        Text(String(format: "%.0f", workout.duration / 60) + " min")
+                                    }
+                                    .font(.caption)
+                                    if let distance = workout.totalDistance {
+                                        let meters = distance.doubleValue(for: .meter())
+                                        // Show distance for non-swim workouts in miles, swim in yards.
+                                        if workout.workoutActivityType == .swimming {
+                                            let yards = meters * 1.09361
+                                            HStack {
+                                                Text("Distance:")
+                                                Spacer()
+                                                Text(String(format: "%.0f yd", yards))
+                                            }
+                                            .font(.caption)
+                                        } else {
+                                            let miles = meters / 1609.34
+                                            HStack {
+                                                Text("Distance:")
+                                                Spacer()
+                                                Text(String(format: "%.2f mi", miles))
+                                            }
+                                            .font(.caption)
+                                        }
+                                    }
+                                    if let energy = workout.totalEnergyBurned {
+                                        HStack {
+                                            Text("Calories:")
+                                            Spacer()
+                                            Text(String(format: "%.0f", energy.doubleValue(for: .kilocalorie())) + " kcal")
+                                        }
+                                        .font(.caption)
+                                    }
+                                }
+                                .padding(10)
+                                .background(Color.orange.opacity(0.1))
+                                .cornerRadius(8)
                             }
                         }
                         .padding()

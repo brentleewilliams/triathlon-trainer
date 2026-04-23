@@ -57,6 +57,7 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 ✅ Plan Negotiation UI — PlanDiffEngine enriches proposals with per-day diffs, key session badges, rationale; PlanDiffCard shows color-coded visual diff with Accept/Modify/Reject buttons
 ✅ Morning Check-In v1 — daily push notification triggers focused 3-message check-in sheet; contextual opening message from HealthKit sleep + yesterday's workout; Accept/Keep-Original buttons apply or discard plan tweaks
 ✅ Race Course Intelligence v1 — bundled Oregon 70.3 course profile with altitude adjustment, phase-based pacing strategy, and course detail view accessible from race countdown banner
+✅ Unplanned workout visibility — off-plan HealthKit workouts (strength on easy-bike day, run on rest day) surface as a "N bonus" badge on HomeView day rows, an "Other Activity" section in DayDetailView, and a per-discipline bonus-hours footer in Analytics. Shared `findUnplannedWorkouts` helper + 10 unit tests on the pure `unplannedActivityIndices` core.
 
 ## Architecture
 
@@ -77,7 +78,7 @@ iOS race coaching app (display name "Race1 Trainer", Xcode scheme "IronmanTraine
 - **PlanGenerationService.swift** (464 lines) — Training plan generation orchestration
 - **OpenAIService.swift** — OpenAI API client for plan generation calls
 - **WorkoutComplianceService.swift** — Green/yellow/red workout deviation tracking (±20%/±50%)
-- **WorkoutMatchingHelpers.swift** — Type + date + duration matching for HealthKit → planned workout
+- **WorkoutMatchingHelpers.swift** — Type + date + duration matching for HealthKit → planned workout. Also hosts `findUnplannedWorkouts(on:plannedWorkouts:hkWorkouts:)` and its pure testable core `unplannedActivityIndices(plannedTypes:actualTypes:hasBrick:)` — used by DayDetailView, WorkoutDayRows, and AnalyticsViewModel to surface off-plan activity.
 - **VerifiedRaceDatabase.swift** (413 lines) — Local race database for date validation with fuzzy matching
 - **AnalyticsService.swift** — Analytics data computation extracted from view layer
 - **CheckInManager.swift** (280 lines) — @MainActor singleton for morning check-in orchestration; 6h cache, tier-2/3 fallback, generates contextual opening message from HealthKit sleep + workout data, local UNUserNotification fallback when FCM token unavailable
@@ -190,7 +191,7 @@ Test infrastructure fully configured:
 - **OnboardingTests.swift** — Onboarding flow tests
 - **RaceDateParsingTests.swift** — Race date parsing and validation against VerifiedRaceDatabase
 - **TemplateSelectionTests.swift** — Plan template selection logic
-- **WorkoutMatchingTests.swift** — HealthKit → planned workout matching
+- **WorkoutMatchingTests.swift** — HealthKit → planned workout matching; includes 10 tests for `unplannedActivityIndices` (extras on planned days, rest-day runs, brick-day bike/run handling, multi-extra ordering)
 - **TrainingPlanManagerTests.swift** — Training plan manager logic
 - **CheckInManagerTests.swift** — Morning check-in caching, tier logic, freshness validation
 - **SleepFetchTests.swift** — HealthKit sleep data fetching and summarization

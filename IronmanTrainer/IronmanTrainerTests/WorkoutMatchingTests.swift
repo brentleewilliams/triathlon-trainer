@@ -179,4 +179,98 @@ class WorkoutMatchingTests: XCTestCase {
         XCTAssertNil(parseWorkoutDuration("Race"))
         XCTAssertNil(parseWorkoutDuration("~5:45-5:58"))
     }
+
+    // MARK: - Unplanned Activity Detection (unplannedActivityIndices)
+
+    func testUnplanned_AllMatched_ReturnsEmpty() {
+        // Planned Bike + Run; user did a bike and a run → nothing unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Bike", "Run"],
+            actualTypes: [.cycling, .running]
+        )
+        XCTAssertTrue(indices.isEmpty)
+    }
+
+    func testUnplanned_ExtraHikeOnBikeDay() {
+        // Planned Bike; user did a bike + a hike → hike is unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Bike"],
+            actualTypes: [.cycling, .hiking]
+        )
+        XCTAssertEqual(indices, [1])
+    }
+
+    func testUnplanned_RunOnRestDay() {
+        // Planned nothing (rest day, filtered out); user ran → run is unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: [],
+            actualTypes: [.running]
+        )
+        XCTAssertEqual(indices, [0])
+    }
+
+    func testUnplanned_StrengthOnSwimDay() {
+        // Planned Swim; user did a swim + strength → strength is unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Swim"],
+            actualTypes: [.swimming, .traditionalStrengthTraining]
+        )
+        XCTAssertEqual(indices, [1])
+    }
+
+    func testUnplanned_MultipleExtras_PreservesOrder() {
+        // Planned Run; user did yoga, a run, and a bike → yoga + bike unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Run"],
+            actualTypes: [.yoga, .running, .cycling]
+        )
+        XCTAssertEqual(indices, [0, 2])
+    }
+
+    func testUnplanned_BrickDay_BikeAndRunBothCountAsPlanned() {
+        // Brick days don't always have explicit Bike/Run planned types —
+        // both cycling and running should count as planned when hasBrick=true.
+        let indices = unplannedActivityIndices(
+            plannedTypes: [],  // brick notes may not yield explicit types
+            actualTypes: [.cycling, .running],
+            hasBrick: true
+        )
+        XCTAssertTrue(indices.isEmpty)
+    }
+
+    func testUnplanned_BrickDay_SwimStillCountsAsUnplanned() {
+        // On a brick day, a swim is still off-plan.
+        let indices = unplannedActivityIndices(
+            plannedTypes: [],
+            actualTypes: [.cycling, .swimming, .running],
+            hasBrick: true
+        )
+        XCTAssertEqual(indices, [1])
+    }
+
+    func testUnplanned_DuplicatePlannedType_MultipleMatchingActualsAllPlanned() {
+        // User did two bike rides on a bike-only day — neither is unplanned.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Bike"],
+            actualTypes: [.cycling, .cycling]
+        )
+        XCTAssertTrue(indices.isEmpty)
+    }
+
+    func testUnplanned_NoActualWorkouts() {
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Bike", "Run"],
+            actualTypes: []
+        )
+        XCTAssertTrue(indices.isEmpty)
+    }
+
+    func testUnplanned_YogaOnBikeDay() {
+        // Yoga is its own HK type — plans rarely have yoga scheduled.
+        let indices = unplannedActivityIndices(
+            plannedTypes: ["Bike"],
+            actualTypes: [.yoga]
+        )
+        XCTAssertEqual(indices, [0])
+    }
 }

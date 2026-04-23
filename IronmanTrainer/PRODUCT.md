@@ -115,6 +115,24 @@ struct AidStation: Codable {
 
 ---
 
+### Unplanned Workout Visibility (Built — 2026-04-22)
+
+**Problem:** HealthKit workouts that didn't match a planned session were silently dropped from the UI. If an athlete did a spontaneous run on a rest day, a strength session on an easy-bike day, or a hike for fun, none of it showed up on Home, the day detail, or analytics — even though the data was right there in the app.
+
+**Solution:** A shared `findUnplannedWorkouts(on:plannedWorkouts:hkWorkouts:)` helper identifies HK workouts on a given date whose activity type doesn't match any of that day's planned workouts. Surfaced in three places:
+- **Home day row:** small orange "N bonus" badge next to the weather icon for past/today days with off-plan activity.
+- **Day detail:** dedicated "Other Activity" section (orange tint, "Not in plan" chip) listing each off-plan workout with duration, distance (miles or yards for swim), and calories.
+- **Analytics Volume Summary:** footer shows total bonus hours with per-discipline breakdown (Swim/Bike/Run/Other) when the week includes off-plan activity.
+
+Rest days count every HK workout as unplanned (nothing was expected). Brick/race-sim days treat both cycling and running as planned so the bike or run leg of a brick workout isn't mislabeled as bonus. Claude already saw "EXTRA" labeled workouts in its context (per-planned greedy matching in `ChatViewModel.getWorkoutHistoryForClaude`); no change there.
+
+**Key details:**
+- `unplannedActivityIndices(plannedTypes:actualTypes:hasBrick:)` is the pure, testable core — returns indices of unmatched activity types. 10 unit tests in `WorkoutMatchingTests.swift` cover all-matched, extras on planned days, rest days, brick day handling, and multi-extra ordering.
+- `AnalyticsViewModel.cachedUnplannedVolume: (swim, bike, run, other)` computed per-day in `recalculate()`, reusing the same helper as the UI so the split stays consistent.
+- Badge only shown for past/today days to avoid empty placeholders on future days.
+
+---
+
 ### Plan Negotiation UI (Built — 2026-04-14)
 
 **Problem:** The original plan change confirmation was a simple Apply/Dismiss button with no context about what was changing, why, or the impact on weekly volume.
@@ -201,6 +219,57 @@ struct AidStation: Codable {
 
 ---
 
+### Plan-Wide Chat Changes (Not Yet Built)
+
+**Problem:** Tool-calling currently supports per-workout operations (swap/replace/add/remove on a specific date). Athletes can't make sweeping requests like "move all swims to Tue/Thu" or "drop the Wednesday run every week" — they have to edit each week individually, and Claude only sees ±2 weeks of context.
+
+**Solution:** Add an `apply_pattern_change` tool with arguments like `{workout_type, new_day_of_week, scope: "rest_of_plan" | "all_weeks"}`. The Cloud Function applies the change across every matching week and emits a single `EnrichedProposal` with a multi-week diff. PlanDiffCard gets a summary mode — "17 swim sessions will move — 9 to Tue, 8 to Thu" with drill-in to see every affected week.
+
+**Open UX questions:**
+- Show every affected week in the diff card (scrollable), or a summary with drill-in?
+- Should the tool support scope `"this_week_only"` or is that covered by existing per-workout swap?
+
+**Depends on:** nothing new — existing tool-calling infrastructure can carry this with a new tool definition.
+
+---
+
+### Adaptive Plan (React to Actual Performance) (Not Yet Built)
+
+**Problem:** The plan is generated once at onboarding and never changes on its own. If an athlete misses workouts, runs 20% short, or shows cardiac drift (HR climbing at a fixed pace), nothing happens — the next week's plan still assumes the baseline is intact.
+
+**Solution — three tiers:**
+- **Reactive (per workout):** When a workout lands in yellow/red compliance, a proposal fires via `CheckInManager`-style coaching event ("You ran 20% short today — shift tomorrow's long run?").
+- **Weekly roll-up:** Every Sunday, a "week review" uses compliance + HR trends to propose adjustments for next week (fatigue drift, missed volume, zone drift).
+- **Trend-based:** Detect cardiac drift or overreaching patterns across 2-3 weeks and suggest a recovery week.
+
+Extends `CheckInManager` into a general "coaching event" system triggered by workout completion, weekly boundary, or app launch. Proposals flow through the standard PlanDiffCard Accept/Reject UI.
+
+**Open UX questions:**
+- Always Accept/Reject, or auto-apply low-risk changes (shift tomorrow by ±10%) with a toast-level undo?
+- Weekly roll-up: Sunday notification, or surfaced on first open Monday morning?
+
+**Depends on:** Unplanned Workout Visibility (built) — so the data the adaptive engine reads is complete. Best paired with Plan-Wide Chat Changes so Claude can act at both scopes.
+
+---
+
+### App-Open Coaching Prompts (Not Yet Built)
+
+**Problem:** Morning Check-In only fires via scheduled push notification. If the user opens the app mid-day after missing a workout, or a few days after last interacting, nothing prompts them — the coach stays silent until tomorrow morning.
+
+**Solution:** `CoachingEventManager` checks on `scenePhase == .active`:
+- Pending proposals from the adaptive plan engine
+- Stale plan (>2 consecutive missed workouts)
+- No coach interaction in >24h
+If any are true, show a non-modal banner on HomeView ("Coach has an update — tap to review") that opens CheckInView. Rate-limited to once per day, skipped if Morning Check-In already ran that day.
+
+**Open UX questions:**
+- If Morning Check-In ran at 7am and user opens at 3pm after a missed workout, prompt again or wait until tomorrow?
+- Banner placement: above the race countdown, or below the weekly plan?
+
+**Depends on:** Adaptive Plan (to generate events worth surfacing).
+
+---
+
 ### Weekly Volume Deviation Warning (Not Yet Built)
 
 **Problem:** No alert when actual training hours fall significantly below planned hours for the week.
@@ -252,6 +321,12 @@ struct AidStation: Codable {
 - [x] Race-agnostic architecture
 - [x] VerifiedRaceDatabase for date validation
 - [x] Home screen widget
+- [x] Unplanned workout visibility (bonus badge, Other Activity, analytics footer)
+- [ ] Plan-wide chat changes (`apply_pattern_change` tool — "move all swims to Tue/Thu")
+- [ ] Adaptive plan — tier 1 reactive (propose adjustments after yellow/red compliance workouts)
+- [ ] App-open coaching prompts (CoachingEventManager banner on HomeView)
+- [ ] Adaptive plan — tier 2 weekly roll-up (Sunday review → next-week adjustments)
+- [ ] Adaptive plan — tier 3 trend-based (cardiac drift, overreach detection)
 - [ ] Race Profile Import (WebView + PDF extraction)
 - [ ] Weekly volume deviation warning
 - [ ] Hardcoded zone values override option

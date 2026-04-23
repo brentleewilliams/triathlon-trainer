@@ -105,3 +105,71 @@ func workoutTypeMatchesActivityType(plannedType: String, healthKitType: HKWorkou
         return false
     }
 }
+
+// MARK: - Unplanned Workout Detection
+
+/// Pure (testable) core: given the planned workout types for a day and the list of
+/// actual HealthKit activity types that day, return the indices of actual activities
+/// that don't correspond to any planned workout.
+///
+/// - Parameters:
+///   - plannedTypes: Extracted planned types (e.g. `["Bike", "Swim"]`). Pass the
+///     results of `extractWorkoutTypeFromString(...)` here, with Rest days removed.
+///   - actualTypes: HealthKit activity types in their original order.
+///   - hasBrick: `true` when any planned workout for the day is a brick or race-sim —
+///     in that case cycling and running both count as planned regardless of the
+///     `plannedTypes` contents (brick notes often omit explicit "Bike"/"Run" types).
+/// - Returns: Indices into `actualTypes` that are *not* matched by any planned type.
+func unplannedActivityIndices(
+    plannedTypes: [String],
+    actualTypes: [HKWorkoutActivityType],
+    hasBrick: Bool = false
+) -> [Int] {
+    return actualTypes.enumerated().compactMap { (index, actualType) -> Int? in
+        // Brick / race-sim days: bike + run always count as planned.
+        if hasBrick && (actualType == .cycling || actualType == .running) {
+            return nil
+        }
+        let isPlanned = plannedTypes.contains { planned in
+            workoutTypeMatchesActivityType(plannedType: planned, healthKitType: actualType)
+        }
+        return isPlanned ? nil : index
+    }
+}
+
+/// Return the HealthKit workouts on a given date that don't match any of the
+/// planned workouts for that day. Used to surface "Other Activity" in the UI
+/// so off-plan work (a spontaneous strength session, an extra run on a rest
+/// day, a hike on an easy-bike day) is visible instead of silently dropped.
+///
+/// Rest days are ignored on the planned side: any HK workout on a rest day
+/// is considered unplanned. Brick days treat both cycling and running as
+/// planned since brick notes don't always specify both legs explicitly.
+func findUnplannedWorkouts(
+    on date: Date,
+    plannedWorkouts: [DayWorkout],
+    hkWorkouts: [HKWorkout]
+) -> [HKWorkout] {
+    let calendar = Calendar.current
+    let targetStart = calendar.startOfDay(for: date)
+
+    let onDate = hkWorkouts.filter { hk in
+        calendar.startOfDay(for: hk.startDate) == targetStart
+    }
+    guard !onDate.isEmpty else { return [] }
+
+    let hasBrick = plannedWorkouts.contains { planned in
+        let lower = planned.type.lowercased()
+        return lower.contains("brick") || lower.contains("race sim")
+    }
+    let plannedTypes = plannedWorkouts
+        .filter { !$0.type.lowercased().contains("rest") }
+        .map { extractWorkoutTypeFromString($0.type) }
+
+    let indices = unplannedActivityIndices(
+        plannedTypes: plannedTypes,
+        actualTypes: onDate.map { $0.workoutActivityType },
+        hasBrick: hasBrick
+    )
+    return indices.map { onDate[$0] }
+}

@@ -1,6 +1,29 @@
 import SwiftUI
 import HealthKit
 
+// MARK: - Bonus Volume Formatting
+
+/// Format total bonus hours with "h" / "min" granularity based on magnitude.
+/// Short bonus sessions (<1h) render as minutes to avoid "0.3h" rounding.
+fileprivate func formatBonusHours(_ hours: Double) -> String {
+    if hours >= 1 {
+        return String(format: "%.1fh", hours)
+    } else {
+        return "\(Int(round(hours * 60)))min"
+    }
+}
+
+/// Render a per-discipline breakdown of bonus activity, omitting zero buckets.
+/// E.g. `(0, 0.5, 0, 0.75)` → `["Bike 30min", "Other 45min"]`.
+fileprivate func bonusBreakdown(_ u: (swim: Double, bike: Double, run: Double, other: Double)) -> [String] {
+    var parts: [String] = []
+    if u.swim > 0 { parts.append("Swim \(formatBonusHours(u.swim))") }
+    if u.bike > 0 { parts.append("Bike \(formatBonusHours(u.bike))") }
+    if u.run > 0 { parts.append("Run \(formatBonusHours(u.run))") }
+    if u.other > 0 { parts.append("Other \(formatBonusHours(u.other))") }
+    return parts
+}
+
 // MARK: - Analytics ViewModel
 
 @MainActor
@@ -8,12 +31,17 @@ class AnalyticsViewModel: ObservableObject {
     @Published var cachedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
     @Published var cachedPlannedVolume: (swim: Double, bike: Double, run: Double) = (0, 0, 0)
     @Published var cachedZonePercentages: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+    /// Off-plan volume for the week, split by discipline. "other" captures types we
+    /// don't chart (strength, hike, yoga, etc). Used by the Volume Summary footer
+    /// to surface bonus activity the user completed outside their plan.
+    @Published var cachedUnplannedVolume: (swim: Double, bike: Double, run: Double, other: Double) = (0, 0, 0, 0)
 
     func recalculate(week: TrainingWeek?, hkWorkouts: [HKWorkout]) {
         guard let week else {
             cachedVolume = (0, 0, 0)
             cachedPlannedVolume = (0, 0, 0)
             cachedZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
+            cachedUnplannedVolume = (0, 0, 0, 0)
             return
         }
 
@@ -35,6 +63,27 @@ class AnalyticsViewModel: ObservableObject {
             }
         }
         cachedVolume = (swimH, bikeH, runH)
+
+        // Off-plan volume: per-day, find HK workouts that don't match any
+        // planned workout for that weekday. Uses the shared helper so the
+        // split stays consistent with DayDetailView's "Other Activity" section.
+        var uSwim: Double = 0, uBike: Double = 0, uRun: Double = 0, uOther: Double = 0
+        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        for (offset, abbrev) in dayOrder.enumerated() {
+            guard let dayDate = calendar.date(byAdding: .day, value: offset, to: weekStart) else { continue }
+            let dayPlanned = week.workouts.filter { $0.day == abbrev }
+            let unplanned = findUnplannedWorkouts(on: dayDate, plannedWorkouts: dayPlanned, hkWorkouts: hkWorkouts)
+            for hk in unplanned {
+                let hours = hk.duration / 3600
+                switch hk.workoutActivityType {
+                case .swimming: uSwim += hours
+                case .cycling: uBike += hours
+                case .running: uRun += hours
+                default: uOther += hours
+                }
+            }
+        }
+        cachedUnplannedVolume = (uSwim, uBike, uRun, uOther)
 
         // Planned volume + zone distribution (single pass over workouts)
         var pSwim: Double = 0, pBike: Double = 0, pRun: Double = 0
@@ -216,6 +265,31 @@ struct AnalyticsView: View {
                             .foregroundColor(.secondary)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
+                    }
+
+                    // Bonus (off-plan) activity summary
+                    let u = analyticsVM.cachedUnplannedVolume
+                    let totalBonusHours = u.swim + u.bike + u.run + u.other
+                    if totalBonusHours > 0 {
+                        Divider()
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.orange)
+                                .font(.caption)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Bonus activity: \(formatBonusHours(totalBonusHours))")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.orange)
+                                let parts = bonusBreakdown(u)
+                                if !parts.isEmpty {
+                                    Text(parts.joined(separator: " \u{2022} "))
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                            Spacer()
+                        }
                     }
                 }
                 .padding()

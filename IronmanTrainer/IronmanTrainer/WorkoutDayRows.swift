@@ -74,6 +74,18 @@ struct WorkoutDayRows: View {
         let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
         let showWeather = daysUntil < 0 || daysUntil <= 7
 
+        // Count off-plan HealthKit workouts on this day (spontaneous strength,
+        // extra run on a rest day, etc). Only shown for past/today so we don't
+        // flash empty badges on future days.
+        let unplannedCount: Int = {
+            guard daysUntil <= 0 else { return 0 }
+            return findUnplannedWorkouts(
+                on: date,
+                plannedWorkouts: dayGroup.workouts,
+                hkWorkouts: parent.healthKit.workouts
+            ).count
+        }()
+
         return VStack(alignment: .leading, spacing: 8) {
             // Day header - separate from cards
             HStack(spacing: 12) {
@@ -99,6 +111,22 @@ struct WorkoutDayRows: View {
                 }
 
                 Spacer()
+
+                if unplannedCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                        Text("\(unplannedCount) bonus")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(4)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
