@@ -101,7 +101,7 @@ struct DayRowView: View {
         } else if isSecondaryRaceDay {
             SecondaryRaceRow(dayGroup: dayGroup, weekStartDate: weekStartDate)
         } else if isRestDay {
-            RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent)
+            RestDayRow(dayGroup: dayGroup, weekStartDate: weekStartDate, parent: parent, week: week, healthKit: healthKit)
         } else {
             WorkoutDayRows(
                 dayGroup: dayGroup,
@@ -241,6 +241,8 @@ struct RestDayRow: View {
     let dayGroup: (day: String, workouts: [DayWorkout])
     let weekStartDate: Date
     let parent: HomeView
+    let week: TrainingWeek?
+    @ObservedObject var healthKit: HealthKitManager
 
     private static let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
@@ -254,14 +256,22 @@ struct RestDayRow: View {
         let offset = Self.dayOrder.firstIndex(of: dayGroup.day) ?? 0
         let date = Calendar.current.date(byAdding: .day, value: offset, to: mondayOfWeek(weekStartDate)) ?? weekStartDate
 
-        // Show weather for past days and up to 7 days ahead
         let calendar = Calendar.current
         let today = Date()
         let daysUntil = calendar.dateComponents([.day], from: today, to: date).day ?? 0
         let showWeather = daysUntil < 0 || daysUntil <= 7
 
+        let unplannedCount: Int = {
+            guard daysUntil <= 0 else { return 0 }
+            return findUnplannedWorkouts(
+                on: date,
+                plannedWorkouts: dayGroup.workouts,
+                hkWorkouts: healthKit.workouts
+            ).count
+        }()
+
         return VStack(alignment: .leading, spacing: 8) {
-            // Day header - separate from card
+            // Day header
             HStack(spacing: 12) {
                 VStack(spacing: 0) {
                     Text(dayGroup.day)
@@ -285,36 +295,59 @@ struct RestDayRow: View {
                 }
 
                 Spacer()
+
+                if unplannedCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "plus.circle.fill")
+                            .font(.caption2)
+                            .foregroundColor(.orange)
+                        Text("\(unplannedCount) bonus")
+                            .font(.caption2)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.orange.opacity(0.12))
+                    .cornerRadius(4)
+                }
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
 
-            // Rest card
-            HStack(spacing: 12) {
-                HStack(spacing: 6) {
-                    Text("\u{1F6CC}")
-                        .font(.title3)
-                    Text("Rest")
-                        .fontWeight(.semibold)
-                        .foregroundColor(.blue)
-                }
+            // Rest card — tappable to show detail (including any unplanned workouts)
+            NavigationLink(destination: DayDetailView(
+                day: dayGroup.workouts[0],
+                week: week ?? TrainingWeek(weekNumber: 1, phase: "", startDate: Date(), endDate: Date(), workouts: []),
+                healthKit: healthKit
+            )) {
+                HStack(spacing: 12) {
+                    HStack(spacing: 6) {
+                        Text("\u{1F6CC}")
+                            .font(.title3)
+                        Text("Rest")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.blue)
+                    }
 
-                Spacer()
+                    Spacer()
 
-                if parent.isRestDayCompleted(for: dayGroup.workouts[0]) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundColor(.green)
-                        .font(.title3)
-                } else {
-                    Image(systemName: "circle")
-                        .foregroundColor(.gray)
-                        .font(.title3)
+                    if parent.isRestDayCompleted(for: dayGroup.workouts[0]) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.title3)
+                    } else {
+                        Image(systemName: "circle")
+                            .foregroundColor(.gray)
+                            .font(.title3)
+                    }
                 }
+                .padding(12)
+                .background(Color(.systemGray6))
+                .cornerRadius(8)
+                .padding(.horizontal, 12)
             }
-            .padding(12)
-            .background(Color(.systemGray6))
-            .cornerRadius(8)
-            .padding(.horizontal, 12)
+            .buttonStyle(.plain)
         }
     }
 }
