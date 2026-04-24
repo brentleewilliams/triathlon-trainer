@@ -145,10 +145,13 @@ class HealthKitOnboardingHelper {
     private func fetchBiologicalSex() -> String? {
         do {
             let bioSex = try healthStore.biologicalSex()
+            // Returned values match the onboarding picker options ("Male" | "Female" | "Other")
+            // so HealthKit-prepopulated profiles display correctly and the picker's initial
+            // selection matches the stored value.
             switch bioSex.biologicalSex {
-            case .male: return "male"
-            case .female: return "female"
-            case .other: return "other"
+            case .male: return "Male"
+            case .female: return "Female"
+            case .other: return "Other"
             case .notSet: return nil
             @unknown default: return nil
             }
