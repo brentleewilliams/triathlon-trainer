@@ -177,6 +177,7 @@ class AnalyticsViewModel: ObservableObject {
 struct AnalyticsView: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
+    @EnvironmentObject var trainingStatusService: TrainingStatusService
     @StateObject private var analyticsVM = AnalyticsViewModel()
     @State private var selectedWeek: Int = 1
     @State private var hasAppearedOnce = false
@@ -383,6 +384,11 @@ struct AnalyticsView: View {
                 .padding()
                 .background(Color(.systemGray6))
                 .cornerRadius(12)
+
+                // Training Load & Readiness
+                if let ts = trainingStatusService.status {
+                    TrainingLoadCard(status: ts)
+                }
 
                 Spacer()
             }
@@ -623,6 +629,300 @@ struct WorkoutDropDelegate: DropDelegate {
         } else {
             print("[DROP] Could not find week with number \(selectedWeek)")
             return false
+        }
+    }
+}
+
+// MARK: - Training Load & Readiness Card
+
+private struct TrainingLoadCard: View {
+    let status: TrainingStatus
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Training Load & Readiness")
+                .font(.headline)
+
+            ReadinessBadgeView(readiness: status.readiness)
+
+            if let combined = status.combinedFitness {
+                FitnessMetricsRow(metrics: combined)
+            }
+
+            DisciplineBalanceRow(
+                fitnessPerDiscipline: status.fitnessPerDiscipline,
+                gaps: status.disciplineGaps
+            )
+
+            HRVTrendRow(hrv: status.hrvTrend)
+
+            IntensityPatternRow(pattern: status.intensityPattern)
+
+            if status.loadSpike.isSpiked {
+                LoadSpikeWarningRow(spike: status.loadSpike)
+            }
+
+            if let decoupling = status.recentDecoupling.first {
+                DecouplingRow(result: decoupling)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+private struct ReadinessBadgeView: View {
+    let readiness: CompositeReadiness
+
+    private var ringColor: Color {
+        switch readiness.level {
+        case .race: return .green
+        case .fresh: return .blue
+        case .training: return .yellow
+        case .tired: return .orange
+        case .overreached: return .red
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .stroke(ringColor, lineWidth: 4)
+                    .frame(width: 64, height: 64)
+                VStack(spacing: 2) {
+                    Text("\(readiness.score)")
+                        .font(.title2).fontWeight(.bold)
+                    Text("/ 100")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(readiness.level.rawValue.capitalized)
+                    .font(.headline)
+                    .foregroundStyle(ringColor)
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading) {
+                        Text("TSB").font(.caption2).foregroundStyle(.secondary)
+                        Text("\(readiness.tsbScore)/40").font(.caption).fontWeight(.medium)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("HRV").font(.caption2).foregroundStyle(.secondary)
+                        Text("\(readiness.hrvScore)/30").font(.caption).fontWeight(.medium)
+                    }
+                    VStack(alignment: .leading) {
+                        Text("Load").font(.caption2).foregroundStyle(.secondary)
+                        Text("\(readiness.loadSpikeScore)/30").font(.caption).fontWeight(.medium)
+                    }
+                }
+            }
+            Spacer()
+        }
+    }
+}
+
+private struct FitnessMetricsRow: View {
+    let metrics: FitnessMetrics
+
+    private var tsbColor: Color {
+        let tsb = metrics.tsb
+        if tsb > 5 { return .green }
+        if tsb > -10 { return .primary }
+        return .red
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            MetricCell(label: "CTL", value: String(format: "%.0f", metrics.ctl))
+            Divider().frame(height: 32)
+            MetricCell(label: "ATL", value: String(format: "%.0f", metrics.atl))
+            Divider().frame(height: 32)
+            MetricCell(label: "Form", value: String(format: "%+.0f", metrics.tsb), valueColor: tsbColor)
+        }
+        .background(Color(.systemBackground))
+        .cornerRadius(8)
+    }
+}
+
+private struct MetricCell: View {
+    let label: String
+    let value: String
+    var valueColor: Color = .primary
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(value).font(.subheadline).fontWeight(.semibold).foregroundStyle(valueColor)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+    }
+}
+
+private struct DisciplineBalanceRow: View {
+    let fitnessPerDiscipline: [FitnessMetrics]
+    let gaps: [DisciplineGap]
+
+    private func metrics(for disc: TrainingDiscipline) -> FitnessMetrics? {
+        fitnessPerDiscipline.first { $0.discipline == disc }
+    }
+    private func gap(for disc: TrainingDiscipline) -> DisciplineGap? {
+        gaps.first { $0.discipline == disc }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Discipline Balance (CTL)")
+                .font(.caption).foregroundStyle(.secondary)
+
+            let swim = metrics(for: .swim)?.ctl ?? 0
+            let bike = metrics(for: .bike)?.ctl ?? 0
+            let run = metrics(for: .run)?.ctl ?? 0
+            let total = swim + bike + run
+
+            if total > 0 {
+                GeometryReader { geo in
+                    HStack(spacing: 2) {
+                        ForEach([TrainingDiscipline.swim, .bike, .run], id: \.rawValue) { disc in
+                            let ctl: Double = metrics(for: disc)?.ctl ?? 0
+                            let width = geo.size.width * CGFloat(ctl / total)
+                            let g = gap(for: disc)
+                            let barColor: Color = {
+                                if g?.severity == .critical { return .red }
+                                if g?.severity == .warning { return .orange }
+                                switch disc {
+                                case .swim: return .blue
+                                case .bike: return .orange
+                                case .run: return .green
+                                default: return .gray
+                                }
+                            }()
+                            Rectangle()
+                                .fill(barColor)
+                                .frame(width: max(width, 2))
+                                .cornerRadius(3)
+                        }
+                    }
+                }
+                .frame(height: 16)
+
+                HStack {
+                    ForEach([TrainingDiscipline.swim, .bike, .run], id: \.rawValue) { disc in
+                        let g = gap(for: disc)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(disc.rawValue.capitalized)
+                                .font(.caption2)
+                            if g?.severity == .critical {
+                                Text("⚠️ No sessions in 14d")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.red)
+                            } else if g?.severity == .warning {
+                                Text("Undertrained")
+                                    .font(.system(size: 9))
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                }
+            } else {
+                Text("No data").font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct HRVTrendRow: View {
+    let hrv: HRVTrend
+
+    private var arrowIcon: String {
+        switch hrv.direction {
+        case .improving: return "arrow.up.circle.fill"
+        case .declining: return "arrow.down.circle.fill"
+        case .stable: return "arrow.right.circle.fill"
+        case .insufficient: return "questionmark.circle"
+        }
+    }
+    private var arrowColor: Color {
+        switch hrv.direction {
+        case .improving: return .green
+        case .declining: return .red
+        case .stable: return .blue
+        case .insufficient: return .secondary
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: arrowIcon).foregroundStyle(arrowColor)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("HRV").font(.caption2).foregroundStyle(.secondary)
+                if let today = hrv.todaySDNN {
+                    Text(String(format: "%.0f ms today", today)).font(.caption)
+                } else {
+                    Text("No reading today").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if let pct = hrv.percentFromBaseline {
+                Text(String(format: "%+.0f%% vs baseline", pct))
+                    .font(.caption)
+                    .foregroundStyle(pct >= 0 ? .green : .red)
+            }
+        }
+    }
+}
+
+private struct IntensityPatternRow: View {
+    let pattern: IntensityPattern
+
+    private var color: Color {
+        switch pattern {
+        case .polarized: return .green
+        case .pyramidal: return .yellow
+        case .thresholdHeavy: return .red
+        case .mixed: return .orange
+        case .insufficientData: return .secondary
+        }
+    }
+
+    var body: some View {
+        HStack {
+            Text("Intensity Pattern (14d)").font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Text(pattern.rawValue.capitalized)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundStyle(color)
+        }
+    }
+}
+
+private struct LoadSpikeWarningRow: View {
+    let spike: LoadSpike
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text(String(format: "Load spike: +%.0f%% vs last week", spike.increasePercent))
+                .font(.caption)
+                .foregroundStyle(.orange)
+        }
+    }
+}
+
+private struct DecouplingRow: View {
+    let result: DecouplingResult
+
+    var body: some View {
+        HStack {
+            Text("Aerobic Decoupling (\(result.discipline.rawValue))")
+                .font(.caption).foregroundStyle(.secondary)
+            Spacer()
+            Text(String(format: "%.1f%%", result.decouplingPercent))
+                .font(.caption).fontWeight(.semibold)
+            Text(result.isRaceReady ? "✅" : "❌").font(.caption)
         }
     }
 }

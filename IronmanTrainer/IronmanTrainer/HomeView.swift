@@ -102,6 +102,7 @@ struct WidgetInstructionsSheet: View {
 struct HomeView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingPlan: TrainingPlanManager
+    @EnvironmentObject var trainingStatusService: TrainingStatusService
     @State private var selectedWeek: Int = 1
     @State private var hasAppearedOnce = false
     @State private var draggedFromDay: String?
@@ -365,6 +366,11 @@ struct HomeView: View {
                     }
                 }
 
+                // Training Readiness Badge
+                if let ts = trainingStatusService.status {
+                    ReadinessHomeBadge(readiness: ts.readiness, tsb: ts.combinedTSB, gaps: ts.criticalGaps)
+                }
+
                 // Sync Error Display
                 if let error = healthKit.syncError {
                     VStack(alignment: .leading, spacing: 8) {
@@ -444,6 +450,70 @@ struct HomeView: View {
                 CourseDetailView()
             }
         }
+    }
+}
+
+// MARK: - Readiness Home Badge
+
+struct ReadinessHomeBadge: View {
+    let readiness: CompositeReadiness
+    let tsb: Double?
+    let gaps: [DisciplineGap]
+
+    private var circleColor: Color {
+        switch readiness.level {
+        case .race: return .green
+        case .fresh: return .blue
+        case .training: return .yellow
+        case .tired: return .orange
+        case .overreached: return .red
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .stroke(circleColor, lineWidth: 3)
+                    .frame(width: 44, height: 44)
+                Text("\(readiness.score)")
+                    .font(.subheadline)
+                    .fontWeight(.bold)
+            }
+
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(readiness.level.rawValue.capitalized)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    if let tsb = tsb {
+                        Text(String(format: "Form %+.0f", tsb))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                if !gaps.isEmpty {
+                    HStack(spacing: 4) {
+                        ForEach(gaps, id: \.discipline.rawValue) { gap in
+                            Text("⚠️ No \(gap.discipline.rawValue) in 14d")
+                                .font(.caption2)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(Color.red.opacity(0.15))
+                                .foregroundStyle(.red)
+                                .clipShape(Capsule())
+                        }
+                    }
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color(.systemGray6))
+        .cornerRadius(10)
+        .padding(.horizontal, 12)
     }
 }
 

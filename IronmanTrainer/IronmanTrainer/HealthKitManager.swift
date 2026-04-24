@@ -46,6 +46,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     private static let requiredHKTypes: Set<HKObjectType> = [
         HKObjectType.workoutType(),
         HKQuantityType.quantityType(forIdentifier: .heartRate)!,
+        HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
         HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
     ]
@@ -101,8 +102,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             }
 
             // Only fetch workouts from last 30 days to avoid freezing
-            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-            let predicate = HKQuery.predicateForSamples(withStart: thirtyDaysAgo, end: Date(), options: .strictStartDate)
+            let sixtyDaysAgo = Calendar.current.date(byAdding: .day, value: -60, to: Date()) ?? Date()
+            let predicate = HKQuery.predicateForSamples(withStart: sixtyDaysAgo, end: Date(), options: .strictStartDate)
 
             let workoutType = HKObjectType.workoutType()
             let sortDescriptor = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: false)
@@ -387,5 +388,59 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             awakeMinutes: sawStages ? awake : nil,
             source: source
         )
+    }
+
+    // MARK: - Training Status Helpers
+
+    func fetchHRSamples(for workout: HKWorkout) async -> [HKQuantitySample] {
+        guard let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: hrType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func fetchHRSamples(from startDate: Date, to endDate: Date) async -> [HKQuantitySample] {
+        guard let hrType = HKQuantityType.quantityType(forIdentifier: .heartRate) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: hrType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func fetchDistanceSamples(for workout: HKWorkout) async -> [HKQuantitySample] {
+        let identifier: HKQuantityTypeIdentifier = workout.workoutActivityType == .cycling
+            ? .distanceCycling
+            : .distanceWalkingRunning
+        guard let distType = HKQuantityType.quantityType(forIdentifier: identifier) else { return [] }
+        let predicate = HKQuery.predicateForSamples(withStart: workout.startDate, end: workout.endDate, options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: distType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    func fetchHRVSamples(days: Int = 60) async -> [HKQuantitySample] {
+        guard let hrvType = HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN) else { return [] }
+        let startDate = Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: Date(), options: [])
+        let sort = NSSortDescriptor(key: HKSampleSortIdentifierStartDate, ascending: true)
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: hrvType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
+                continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
     }
 }
