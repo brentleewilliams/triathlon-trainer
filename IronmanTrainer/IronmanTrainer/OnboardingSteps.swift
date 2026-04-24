@@ -374,6 +374,42 @@ struct RaceSearchStep: View {
                     .padding(.horizontal, 16)
                 }
 
+                if !viewModel.raceSuggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Did you mean…")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.9))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+
+                        ForEach(viewModel.raceSuggestions, id: \.name) { entry in
+                            Button {
+                                viewModel.selectRaceSuggestion(entry)
+                                localQuery = entry.name
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(entry.name)
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundStyle(Color(hex: "FF9500"))
+                                        Text(entry.location)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                    Image(systemName: "arrow.up.right.circle.fill")
+                                        .foregroundStyle(Color(hex: "FF9500"))
+                                }
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(Color.white)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
                 Spacer()
             }
             .padding(.horizontal, 16)

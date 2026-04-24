@@ -49,6 +49,21 @@ enum VerifiedRaceDatabase {
         }
     }
 
+    /// Returns up to `limit` verified races whose name or distance label contains
+    /// the normalized query. Used to offer suggestion chips when the query is
+    /// too generic for a confident lookup (e.g. "marathon", "ironman").
+    static func suggest(query: String, limit: Int = 5) -> [VerifiedRaceEntry] {
+        let normalized = normalize(query).trimmingCharacters(in: .whitespaces)
+        guard !normalized.isEmpty else { return [] }
+        let nameMatches = entries.filter { $0.name.lowercased().contains(normalized) }
+        let nameMatchNames = Set(nameMatches.map(\.name))
+        let labelMatches = entries.filter { entry in
+            !nameMatchNames.contains(entry.name)
+                && entry.distanceLabel.lowercased().contains(normalized)
+        }
+        return Array((nameMatches + labelMatches).prefix(limit))
+    }
+
     // MARK: - Normalization
 
     private static func normalize(_ query: String) -> String {

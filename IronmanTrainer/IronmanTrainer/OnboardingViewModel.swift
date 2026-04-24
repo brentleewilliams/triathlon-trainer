@@ -41,6 +41,31 @@ class OnboardingViewModel: ObservableObject {
     @Published var raceSearchQuery: String = ""
     @Published var raceSearchResult: RaceSearchResult?
     @Published var isSearchingRace = false
+    @Published var raceSuggestions: [VerifiedRaceEntry] = []
+
+    /// Single-word generic queries that can't yield a specific race without more context.
+    /// Matches the *entire* normalized query — "chicago marathon" is fine; "marathon" alone is not.
+    private static let genericRaceTerms: Set<String> = [
+        "marathon", "half marathon", "half",
+        "triathlon", "tri", "ironman", "iron man",
+        "5k", "10k", "15k", "ultra", "ultramarathon",
+        "sprint", "sprint triathlon", "olympic", "olympic triathlon",
+        "half iron", "70.3", "140.6"
+    ]
+
+    private func isTooGenericQuery(_ query: String) -> Bool {
+        let normalized = query.lowercased().trimmingCharacters(in: .whitespaces)
+        return Self.genericRaceTerms.contains(normalized)
+    }
+
+    /// Accept a suggestion chip: populate the result directly, skipping the LLM roundtrip.
+    func selectRaceSuggestion(_ entry: VerifiedRaceEntry) {
+        raceSearchResult = entry.toRaceSearchResult()
+        raceSearchQuery = entry.name
+        raceSuggestions = []
+        error = nil
+        updateStrengthDefault()
+    }
 
     // Goal data (step 4)
     @Published var goalType: GoalSelection = .justComplete
@@ -407,11 +432,22 @@ class OnboardingViewModel: ObservableObject {
         guard !raceSearchQuery.isEmpty else { return }
         isSearchingRace = true
         error = nil
+        raceSuggestions = []
 
         // Check local overrides first — guarantees correct date for known races
         if let override = localRaceOverride(query: raceSearchQuery) {
             raceSearchResult = override
             updateStrengthDefault()
+            isSearchingRace = false
+            return
+        }
+
+        // Pre-filter: queries that are *only* a generic term (e.g. "Marathon")
+        // can't identify a specific race. Ask for more context and offer
+        // suggestions from the verified DB instead of hitting the LLM.
+        if isTooGenericQuery(raceSearchQuery) {
+            raceSuggestions = VerifiedRaceDatabase.suggest(query: raceSearchQuery)
+            error = "Too broad — try adding a city or event name, like 'Chicago Marathon' or 'Ironman Oregon'."
             isSearchingRace = false
             return
         }
@@ -437,6 +473,9 @@ class OnboardingViewModel: ObservableObject {
             updateStrengthDefault()
         } catch {
             self.error = "Could not find race details: \(error.localizedDescription)"
+            // Offer any verified-DB matches for the same query so the user has a
+            // way forward even if the LLM couldn't help.
+            raceSuggestions = VerifiedRaceDatabase.suggest(query: raceSearchQuery)
         }
 
         isSearchingRace = false
