@@ -4,6 +4,8 @@
  *
  * Fetches the current live commit, modifies the system prompt template,
  * and creates a new commit.
+ *
+ * Run via GitHub Actions: .github/workflows/update-langsmith-prompt.yml
  */
 
 const { Client } = require('langsmith');
