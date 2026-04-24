@@ -6,15 +6,36 @@ struct PlanDiffCard: View {
     @ObservedObject var viewModel: ChatViewModel
     let enriched: EnrichedProposal
 
+    // Wide proposals (3+ weeks) start collapsed; narrow ones are always expanded.
+    @State private var weeksExpanded: Bool
+
+    private var isWideProposal: Bool { enriched.weekDiffs.count >= 3 }
+
+    init(viewModel: ChatViewModel, enriched: EnrichedProposal) {
+        self.viewModel = viewModel
+        self.enriched = enriched
+        self._weeksExpanded = State(initialValue: enriched.weekDiffs.count < 3)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             // Header
             Text(enriched.proposal.summary)
                 .font(.body.bold())
 
-            // Per-week sections
-            ForEach(enriched.weekDiffs) { weekDiff in
-                WeekDiffSection(weekDiff: weekDiff)
+            // Wide proposal summary bar (replaces per-week list when collapsed)
+            if isWideProposal {
+                WidePlanSummaryHeader(
+                    enriched: enriched,
+                    isExpanded: $weeksExpanded
+                )
+            }
+
+            // Per-week sections (always shown for narrow; toggle for wide)
+            if !isWideProposal || weeksExpanded {
+                ForEach(enriched.weekDiffs) { weekDiff in
+                    WeekDiffSection(weekDiff: weekDiff)
+                }
             }
 
             // Volume summary bar
@@ -28,6 +49,50 @@ struct PlanDiffCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(Color(.systemGray6))
         )
+    }
+}
+
+// MARK: - Wide Plan Summary Header
+
+private struct WidePlanSummaryHeader: View {
+    let enriched: EnrichedProposal
+    @Binding var isExpanded: Bool
+
+    var body: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                isExpanded.toggle()
+            }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "list.bullet.clipboard")
+                    .font(.subheadline)
+                    .foregroundStyle(.blue)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Plan-Wide Change")
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.primary)
+                    Text("\(enriched.weekDiffs.count) weeks affected · \(PlanDiffEngine.formatVolumeChange(enriched.volumeChangeMinutes))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+
+                Spacer()
+
+                Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                    .font(.caption.bold())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(10)
+            .background(Color.blue.opacity(0.07))
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .strokeBorder(Color.blue.opacity(0.15), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }
 

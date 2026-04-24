@@ -410,7 +410,7 @@ async function streamLLM({ messages, model, temperature, maxTokens, onToken, onD
 // Tool definition for plan changes — used by streamLLMWithTools
 const PROPOSE_PLAN_CHANGE_TOOL = {
   name: "propose_plan_change",
-  description: "Propose changes to the user's training plan. Call this whenever the user asks to add, remove, cancel, replace, or reschedule workouts. The user sees a confirmation dialog before any changes are applied. Past workouts CAN be modified (e.g. logging an unplanned workout the user actually did, correcting history, or retroactively swapping a missed session) — do not refuse past-dated changes.",
+  description: "Propose changes to the user's training plan. Call this whenever the user asks to add, remove, cancel, replace, or reschedule workouts — including plan-wide changes spanning many weeks. The user sees a confirmation dialog before any changes are applied. Past workouts CAN be modified (e.g. logging an unplanned workout the user actually did, correcting history, or retroactively swapping a missed session) — do not refuse past-dated changes. For plan-wide requests (e.g. 'reduce run volume for weeks 8–12', 'add strength every Tuesday'), emit one change entry per affected week — arrays of 10+ changes are valid and expected.",
   parameters: {
     type: "object",
     properties: {
@@ -466,20 +466,33 @@ const PROPOSE_PLAN_CHANGE_TOOL = {
 };
 
 /**
- * Lightweight intent classifier: does this message require a training plan change?
- * Uses a cheap/fast model for yes/no determination before the expensive coaching call.
- * Returns true if a plan change is needed.
+ * Lightweight intent classifier: determines the scope of a training plan change request.
+ * Uses a cheap/fast model for 3-way classification before the expensive coaching call.
+ * Returns "none" | "local" | "wide".
+ *   none  → text-only coaching response (toolChoice = auto)
+ *   local → single day/week change (toolChoice = required)
+ *   wide  → multi-week / plan-wide change (toolChoice = required, logs scope=wide)
  */
 async function classifyPlanChangeIntent(userMessage, conversationHistory = []) {
   // Include last 2 turns for context (e.g. "yes, apply that" references prior proposal)
   const recentHistory = conversationHistory.slice(-2);
   const historyText = recentHistory.map((m) => `${m.role}: ${m.content}`).join("\n");
 
-  const systemPrompt = `You are a classifier. Determine if the user's message is requesting a change to their training plan (add, remove, move, cancel, swap, reschedule, or drop workouts).
+  const systemPrompt = `You are a classifier. Determine the scope of a user's training plan change request.
 
-Reply with ONLY "yes" or "no". No other text.
+Reply with ONLY one word: "none", "local", or "wide".
 
-"yes" examples:
+"wide" — plan-wide change spanning multiple weeks:
+- "reduce my run volume for the next 3 weeks"
+- "add strength every Tuesday through race week"
+- "no running for 2 weeks, I'm injured"
+- "shift everything back a week"
+- "cut my bike volume for the rest of the plan"
+- "drop all my long rides in weeks 8-12"
+- "increase swim volume every week from now on"
+- "take out all brick workouts for the next month"
+
+"local" — single day or week change:
 - "skip my swim tomorrow"
 - "move Wednesday's run to Friday"
 - "I'm sick, cancel the next 3 days"
@@ -487,13 +500,15 @@ Reply with ONLY "yes" or "no". No other text.
 - "drop the long ride this week"
 - "can you reschedule my brick workout"
 - "replace tomorrow's run with rest"
+- "add a recovery run on Friday"
 
-"no" examples:
+"none" — no plan change requested:
 - "how is my training going?"
 - "what zone should I target?"
 - "undo"
 - "yes please apply those changes"
-- "when is my race?"`;
+- "when is my race?"
+- "what should I eat before a long ride?"`;
 
   const classifierMessages = [{ role: "system", content: systemPrompt }];
   if (historyText) {
@@ -512,12 +527,16 @@ Reply with ONLY "yes" or "no". No other text.
       temperature: 0,
       maxTokens: 5,
     });
-    const yes = result.trim().toLowerCase().startsWith("yes");
-    console.log(`[classifyIntent] message="${userMessage.slice(0, 60)}" → ${yes ? "YES (force tool)" : "NO (text only)"}`);
-    return yes;
+    const scope = result.trim().toLowerCase().startsWith("wide")
+      ? "wide"
+      : result.trim().toLowerCase().startsWith("local")
+      ? "local"
+      : "none";
+    console.log(`[classifyIntent] message="${userMessage.slice(0, 60)}" → ${scope}`);
+    return scope;
   } catch (err) {
     console.warn("[classifyIntent] classifier failed:", err.message);
-    return false; // on failure, fall back to auto (don't force tool)
+    return "none"; // on failure, fall back to auto (don't force tool)
   }
 }
 
@@ -674,7 +693,7 @@ async function withRetry(fn, maxAttempts = 3) {
 // ---------------------------------------------------------------------------
 
 async function handleCoaching(req, res, userId) {
-  const { userMessage, trainingContext, workoutHistory, zoneBoundaries, conversationHistory, imageData } = req.body;
+  const { userMessage, trainingContext, workoutHistory, zoneBoundaries, conversationHistory, imageData, planScope: clientPlanScope } = req.body;
 
   if (!userMessage || typeof userMessage !== "string") {
     res.status(400).json({ error: "userMessage is required" });
@@ -719,14 +738,23 @@ async function handleCoaching(req, res, userId) {
   // Run intent classification and prompt fetch in parallel to avoid added latency.
   // The classifier decides whether to force tool_choice=required, eliminating
   // the failure mode where the LLM describes a change in text instead of calling the tool.
-  const [needsPlanChange, promptResult] = await Promise.all([
+  // clientPlanScope from iOS pre-classifier: "local" | "wide" (undefined for old clients)
+  const [serverScope, promptResult] = await Promise.all([
     classifyPlanChangeIntent(userMessage, conversationHistory || []),
     formatPrompt("coaching-chat", variables),
   ]);
   const { messages: promptMessages, model, temperature, maxTokens } = promptResult;
+
+  // Merge iOS and server scopes: if either says wide, treat as wide
+  const effectiveScope = (clientPlanScope === "wide" || serverScope === "wide")
+    ? "wide"
+    : (clientPlanScope === "local" || serverScope === "local")
+    ? "local"
+    : "none";
+  const needsPlanChange = effectiveScope !== "none";
   const toolChoice = needsPlanChange ? "required" : "auto";
 
-  console.log(`[coaching] model=${model}, toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
+  console.log(`[coaching] model=${model}, scope=${effectiveScope} (client=${clientPlanScope}, server=${serverScope}), toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
 
   // Append conversation history if provided
   const allMessages = [...promptMessages];
@@ -783,6 +811,7 @@ async function handleCoaching(req, res, userId) {
         model,
         tool_choice: toolChoice,
         needs_plan_change: needsPlanChange,
+        plan_scope: effectiveScope,
         user_id: userId ?? "anonymous",
         env: process.env.NODE_ENV === "production" ? "beta" : "development",
       },

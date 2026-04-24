@@ -277,8 +277,18 @@ class ChatViewModel: ObservableObject {
             let context = getContextForClaude()
             let history = getWorkoutHistoryForClaude()
 
+            // Detect wide intent before building context
+            let isWide = isWidePlanRequest(text)
+            let planScope = isWide ? "wide" : "local"
+
             // Include reschedule context (plan data + tool instructions)
             var updatedContext = context + "\n\n" + buildRescheduleContext()
+
+            // Append compact full-plan summary only for wide requests
+            if isWide {
+                let summary = buildFullPlanSummary()
+                if !summary.isEmpty { updatedContext += "\n\n" + summary }
+            }
 
             // Inject Race Course Intelligence context (phase-dependent).
             let courseContext = await MainActor.run { buildCourseContext() }
@@ -313,6 +323,7 @@ class ChatViewModel: ObservableObject {
                 zoneBoundaries: healthKit?.zoneBoundaries,
                 conversationHistory: conversationHistory,
                 imageData: imageData,
+                planScope: planScope,
                 traceContext: traceContext
             )
             LangSmithTracer.shared.endCoachingTrace(
@@ -430,6 +441,84 @@ class ChatViewModel: ObservableObject {
             }
         }
         return nil
+    }
+
+    // MARK: - Wide Plan Request Detection
+
+    /// Returns true if the user's message requests a change spanning multiple weeks.
+    /// Used to decide whether to include the full plan summary in context.
+    func isWidePlanRequest(_ text: String) -> Bool {
+        let lower = text.lowercased()
+        let patterns: [String] = [
+            #"next \d+ weeks?"#,
+            #"rest of (the )?plan"#,
+            #"every (monday|tuesday|wednesday|thursday|friday|saturday|sunday)"#,
+            #"every week"#,
+            #"(reduce|cut|increase|lower|raise|drop) .{0,30}(volume|mileage|hours?)"#,
+            #"no (running|swimming|biking|cycling|swim|bike|run) for"#,
+            #"shift everything"#,
+            #"move everything"#,
+            #"all (my )?(remaining )?(weeks?|workouts?|runs?|rides?|swims?)"#,
+            #"through (race|week|the end)"#,
+            #"weeks? \d+ (through|to|-) \d+"#,
+            #"for (the )?(next|remaining) (few )?\d"#,
+        ]
+        for pattern in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               regex.firstMatch(in: lower, range: NSRange(lower.startIndex..., in: lower)) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    /// Compact one-line-per-week summary of the full plan (all weeks).
+    /// Sent to Claude only when a wide plan request is detected (~300 tokens for 17 weeks).
+    func buildFullPlanSummary() -> String {
+        guard let plan = trainingPlan, !plan.weeks.isEmpty else { return "" }
+
+        var lines = ["====== FULL PLAN OVERVIEW (\(plan.weeks.count) weeks) ======"]
+        for week in plan.weeks {
+            var swimYards = 0
+            var bikeMinutes = 0
+            var runMinutes = 0
+
+            for workout in week.workouts {
+                let lower = workout.type.lowercased()
+                if lower.contains("swim") {
+                    let dur = workout.duration.lowercased()
+                    if dur.contains("yd") {
+                        swimYards += Int(dur.filter { $0.isNumber }) ?? 0
+                    } else if let mins = PlanDiffEngine.durationMinutes(workout.duration) {
+                        swimYards += mins * 30
+                    }
+                } else if lower.contains("bike") || lower.contains("cycling") {
+                    bikeMinutes += PlanDiffEngine.durationMinutes(workout.duration) ?? 0
+                } else if lower.contains("run") {
+                    runMinutes += PlanDiffEngine.durationMinutes(workout.duration) ?? 0
+                } else if lower.contains("brick") {
+                    if let mins = PlanDiffEngine.durationMinutes(workout.duration) {
+                        bikeMinutes += mins * 3 / 4
+                        runMinutes += mins / 4
+                    }
+                }
+            }
+
+            var parts: [String] = []
+            if swimYards > 0 { parts.append("Swim ~\(swimYards)yd") }
+            if bikeMinutes > 0 { parts.append("Bike ~\(planFormatHours(bikeMinutes))") }
+            if runMinutes > 0 { parts.append("Run ~\(planFormatHours(runMinutes))") }
+            let summary = parts.isEmpty ? "Rest week" : parts.joined(separator: ", ")
+            lines.append("Week \(week.weekNumber) (\(week.phase)): \(summary)")
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    private func planFormatHours(_ minutes: Int) -> String {
+        let h = minutes / 60, m = minutes % 60
+        if h > 0 && m > 0 { return "\(h)h \(m)m" }
+        if h > 0 { return "\(h)h" }
+        return "\(m)m"
     }
 
     func buildRescheduleContext() -> String {

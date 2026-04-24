@@ -50,6 +50,7 @@ class LLMProxyService {
         zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil,
         conversationHistory: [[String: Any]] = [],
         imageData: Data? = nil,
+        planScope: String = "local",
         traceContext: LangSmithTraceContext? = nil
     ) async throws -> CoachingResponse {
         return try await streamCoachingMessage(
@@ -59,6 +60,7 @@ class LLMProxyService {
             zoneBoundaries: zoneBoundaries,
             conversationHistory: conversationHistory,
             imageData: imageData,
+            planScope: planScope,
             traceContext: traceContext,
             onToken: { _ in }
         )
@@ -73,6 +75,7 @@ class LLMProxyService {
         zoneBoundaries: (z2: Int, z3: Int, z4: Int, z5: Int)? = nil,
         conversationHistory: [[String: Any]] = [],
         imageData: Data? = nil,
+        planScope: String = "local",
         traceContext: LangSmithTraceContext? = nil,
         onToken: @escaping (String) -> Void
     ) async throws -> CoachingResponse {
@@ -81,7 +84,8 @@ class LLMProxyService {
             "userMessage": userMessage,
             "trainingContext": trainingContext,
             "workoutHistory": workoutHistory,
-            "conversationHistory": conversationHistory
+            "conversationHistory": conversationHistory,
+            "planScope": planScope
         ]
 
         if let zones = zoneBoundaries {
