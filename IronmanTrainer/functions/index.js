@@ -741,7 +741,7 @@ async function handleCoaching(req, res, userId) {
   // clientPlanScope from iOS pre-classifier: "local" | "wide" (undefined for old clients)
   const [serverScope, promptResult] = await Promise.all([
     classifyPlanChangeIntent(userMessage, conversationHistory || []),
-    formatPrompt("coaching-chat", variables),
+    formatPrompt("coaching-chat:production", variables),
   ]);
   const { messages: promptMessages, model, temperature, maxTokens } = promptResult;
 
