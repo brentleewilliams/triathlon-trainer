@@ -18,6 +18,38 @@ if (!LANGSMITH_API_KEY) {
 
 const DRY_RUN = process.env.DRY_RUN === 'true';
 const PROMPT_NAME = 'coaching-chat';
+const PRODUCTION_TAG = 'production';
+const LANGSMITH_API_URL = 'https://api.smith.langchain.com';
+
+async function ensureProductionTag(owner, repo, commitId) {
+  const base = `${LANGSMITH_API_URL}/api/v1/repos/${owner}/${repo}/tags`;
+  const headers = { 'x-api-key': LANGSMITH_API_KEY, 'Content-Type': 'application/json' };
+
+  const createRes = await fetch(base, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ tag_name: PRODUCTION_TAG, commit_id: commitId }),
+  });
+  if (createRes.ok) {
+    console.log(`Created '${PRODUCTION_TAG}' tag on ${owner}/${repo}@${commitId.slice(0, 8)}`);
+    return;
+  }
+  if (createRes.status === 409 || createRes.status === 400) {
+    const moveRes = await fetch(`${base}/${PRODUCTION_TAG}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ commit_id: commitId }),
+    });
+    if (!moveRes.ok) {
+      const body = await moveRes.text();
+      throw new Error(`Failed to move tag: ${moveRes.status} ${body}`);
+    }
+    console.log(`Moved '${PRODUCTION_TAG}' tag to ${owner}/${repo}@${commitId.slice(0, 8)}`);
+    return;
+  }
+  const body = await createRes.text();
+  throw new Error(`Failed to create tag: ${createRes.status} ${body}`);
+}
 
 const TRAINING_STATUS_SECTION = `
 TRAINING STATUS CONTEXT
@@ -77,9 +109,18 @@ async function run() {
       console.log(currentTemplate.slice(-500));
       console.log('=== END CURRENT SYSTEM PROMPT ===\n');
 
-      // Check if the section already exists
+      // Check if the section already exists — if so, skip the commit step
+      // but still ensure the production tag points at the latest commit.
       if (currentTemplate.includes('TRAINING STATUS CONTEXT')) {
-        console.log('TRAINING STATUS CONTEXT section already exists in the prompt. No update needed.');
+        console.log('TRAINING STATUS CONTEXT section already exists in the prompt. Skipping commit; will ensure production tag.');
+        if (!DRY_RUN) {
+          try {
+            await ensureProductionTag(commit.owner, commit.repo, commit.commit_hash);
+          } catch (err) {
+            console.error('Failed to ensure production tag:', err.message);
+            process.exit(1);
+          }
+        }
         process.exit(0);
       }
 
@@ -132,6 +173,15 @@ async function run() {
     if (err.message.includes('403') || err.message.includes('Forbidden')) {
       console.error('Permission denied - check that LANGSMITH_API_KEY has write access to this prompt.');
     }
+    process.exit(1);
+  }
+
+  // Tag the new commit as 'production' so pullPromptCommit("coaching-chat:production") resolves to it.
+  try {
+    const newHead = await client.pullPromptCommit(PROMPT_NAME, { includeModel: true });
+    await ensureProductionTag(newHead.owner, newHead.repo, newHead.commit_hash);
+  } catch (err) {
+    console.error('Failed to tag commit as production:', err.message);
     process.exit(1);
   }
 
