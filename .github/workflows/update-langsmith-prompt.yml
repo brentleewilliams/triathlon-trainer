@@ -29,7 +29,7 @@ jobs:
 
       - name: Update coaching-chat prompt
         env:
-          LSKEY: bHN2Ml9wdF8xODU0YTI4NzlkMzE0NDQyOTZlMGUxNTM1ODIyMzczZV8yMzk5ZGQwZjgx
+          LSKEY: bHN2Ml9wdF9mZDgzMjk5M2EwNWQ0MDBjOTE0NzliMjZhOGI2MjA3NF8yY2YzNjgxNDMw
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
         run: |
           export LANGSMITH_API_KEY=$(echo "$LSKEY" | base64 -d)

@@ -21,34 +21,47 @@ const PROMPT_NAME = 'coaching-chat';
 const PRODUCTION_TAG = 'production';
 const LANGSMITH_API_URL = 'https://api.smith.langchain.com';
 
-async function ensureProductionTag(owner, repo, commitId) {
-  const base = `${LANGSMITH_API_URL}/api/v1/repos/${owner}/${repo}/tags`;
+async function ensureProductionTag(owner, repo, commitHash) {
+  // The tag endpoint expects the commit's UUID (`id`), not the 64-char
+  // `commit_hash` returned by pullPromptCommit. Look it up from the
+  // commits list.
   const headers = { 'x-api-key': LANGSMITH_API_KEY, 'Content-Type': 'application/json' };
+  const listRes = await fetch(`${LANGSMITH_API_URL}/commits/${owner}/${repo}?limit=20`, { headers });
+  if (!listRes.ok) {
+    throw new Error(`Failed to list commits: ${listRes.status} ${await listRes.text()}`);
+  }
+  const { commits } = await listRes.json();
+  const match = (commits || []).find((c) => c.commit_hash === commitHash);
+  if (!match) {
+    throw new Error(`Commit ${commitHash.slice(0, 12)} not found in first 20 commits; can't map to UUID`);
+  }
+  const commitUuid = match.id;
 
+  const base = `${LANGSMITH_API_URL}/api/v1/repos/${owner}/${repo}/tags`;
   const createRes = await fetch(base, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ tag_name: PRODUCTION_TAG, commit_id: commitId }),
+    body: JSON.stringify({ tag_name: PRODUCTION_TAG, commit_id: commitUuid }),
   });
   if (createRes.ok) {
-    console.log(`Created '${PRODUCTION_TAG}' tag on ${owner}/${repo}@${commitId.slice(0, 8)}`);
+    console.log(`Created '${PRODUCTION_TAG}' tag on ${owner}/${repo}@${commitHash.slice(0, 8)}`);
     return;
   }
+  // 409: tag exists (on this or another commit) — move it. 400 can also
+  // indicate a conflict depending on server version.
   if (createRes.status === 409 || createRes.status === 400) {
     const moveRes = await fetch(`${base}/${PRODUCTION_TAG}`, {
       method: 'PATCH',
       headers,
-      body: JSON.stringify({ commit_id: commitId }),
+      body: JSON.stringify({ commit_id: commitUuid }),
     });
     if (!moveRes.ok) {
-      const body = await moveRes.text();
-      throw new Error(`Failed to move tag: ${moveRes.status} ${body}`);
+      throw new Error(`Failed to move tag: ${moveRes.status} ${await moveRes.text()}`);
     }
-    console.log(`Moved '${PRODUCTION_TAG}' tag to ${owner}/${repo}@${commitId.slice(0, 8)}`);
+    console.log(`Moved '${PRODUCTION_TAG}' tag to ${owner}/${repo}@${commitHash.slice(0, 8)}`);
     return;
   }
-  const body = await createRes.text();
-  throw new Error(`Failed to create tag: ${createRes.status} ${body}`);
+  throw new Error(`Failed to create tag: ${createRes.status} ${await createRes.text()}`);
 }
 
 const TRAINING_STATUS_SECTION = `
