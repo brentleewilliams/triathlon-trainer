@@ -32,20 +32,21 @@ final class TrainingStatusServiceTests: XCTestCase {
         XCTAssertEqual(result, 0.0, accuracy: 0.001, "EWA of all zeros should be zero")
     }
 
-    func testEWA_singleDay_CTL() {
-        // CTL lambda ≈ 0.04651 — slow build means a single 100 HRSS day decays quickly
+    func testEWA_singleDay_seedsFromFirstNonzero() {
+        // EWA seeds with the first non-zero value (per PRD §EWA formulas); a single
+        // 100-HRSS day leaves ewa = 100 because no subsequent day applies the formula.
         let ctlLambda = 2.0 / 43.0
         let result = TrainingStatusService.computeEWA(dailyValues: [100], lambda: ctlLambda)
-        XCTAssertLessThan(result, 100, "A single day of 100 HRSS should build CTL slowly (result < 100)")
+        XCTAssertEqual(result, 100, accuracy: 0.001, "A single non-zero day should seed EWA to that value")
     }
 
-    func testEWA_singleDay_ATL() {
-        // ATL lambda = 0.25 — fast build; result should be > CTL result for same input
+    func testEWA_buildRate_ATLOutpacesCTL() {
+        // With a rising load (50 → 100), ATL (λ=0.25) should rise faster than CTL (λ≈0.047).
         let ctlLambda = 2.0 / 43.0
         let atlLambda = 0.25
-        let ctlResult = TrainingStatusService.computeEWA(dailyValues: [100], lambda: ctlLambda)
-        let atlResult = TrainingStatusService.computeEWA(dailyValues: [100], lambda: atlLambda)
-        XCTAssertGreaterThan(atlResult, ctlResult, "ATL should accumulate faster than CTL from the same single-day load")
+        let ctlResult = TrainingStatusService.computeEWA(dailyValues: [50, 100], lambda: ctlLambda)
+        let atlResult = TrainingStatusService.computeEWA(dailyValues: [50, 100], lambda: atlLambda)
+        XCTAssertGreaterThan(atlResult, ctlResult, "ATL should respond to rising load faster than CTL")
     }
 
     func testEWA_decayWithRest() {

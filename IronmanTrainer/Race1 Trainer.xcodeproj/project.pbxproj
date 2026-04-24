@@ -24,6 +24,7 @@
 		1AA000050A0A0001 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1AA000060A0A0001 /* SwiftUI.framework */; };
 		1AA000070A0A0001 /* Race1TrainerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 1AA000080A0A0001 /* Race1TrainerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		26944AB5AD8038D18D2A1D3A /* FirestoreService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */; };
+		5528772A22A99A6B57A315CD /* TrainingStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A85C9E306E6A265417BF160F /* TrainingStatusService.swift */; };
 		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */; };
@@ -44,30 +45,31 @@
 		84D0F0D10A0B0002007D9BC7 /* LLMProxyService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */; };
 		84D0F0D22F7C35A8007D9BC7 /* SharedComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */; };
 		84D0F0D42F7C3624007D9BC7 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D32F7C3624007D9BC7 /* HomeView.swift */; };
+		84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */; };
+		84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D72F7C3672007D9BC7 /* ChatView.swift */; };
+		84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D92F7C367C007D9BC7 /* PlanView.swift */; };
+		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
 		84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */; };
 		84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */; };
 		84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */; };
 		84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */; };
 		84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */; };
-		84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */; };
-		84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D72F7C3672007D9BC7 /* ChatView.swift */; };
-		84D0F0DA2F7C367C007D9BC7 /* PlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0D92F7C367C007D9BC7 /* PlanView.swift */; };
-		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
 		9F2B4F4C9A203C9E873B0A4C /* OnboardingChatHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */; };
+		BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001001F1B0001 /* PlanDiffEngine.swift */; };
+		BD0001041F1B0001 /* PlanDiffCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001031F1B0001 /* PlanDiffCard.swift */; };
+		BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001051F1B0001 /* PlanDiffEngineTests.swift */; };
 		C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EEB4860AEA33842F967FEB4 /* AuthService.swift */; };
+		CI0001011F1C0001 /* CheckInManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001001F1C0001 /* CheckInManager.swift */; };
+		CI0001031F1C0001 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001021F1C0001 /* CheckInView.swift */; };
+		CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001041F1C0001 /* CheckInManagerTests.swift */; };
+		CI0001071F1C0001 /* SleepFetchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001061F1C0001 /* SleepFetchTests.swift */; };
 		F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29D426AAD0F04F2CAAE16BF /* SignInView.swift */; };
 		F1D84CD399E2031469782E91 /* HealthKitOnboardingData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 012B43DD81DAFFDC8DE08DFD /* HealthKitOnboardingData.swift */; };
 		FB000004000000001 /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = FB000002000000001 /* FirebaseAuth */; };
 		FB000005000000001 /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = FB000003000000001 /* FirebaseFirestore */; };
 		FB000006000000001 /* OnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB000007000000001 /* OnboardingTests.swift */; };
 		FB000008000000001 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = FB000009000000001 /* FirebaseFunctions */; };
-		BD0001021F1B0001 /* PlanDiffEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001001F1B0001 /* PlanDiffEngine.swift */; };
-		BD0001041F1B0001 /* PlanDiffCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001031F1B0001 /* PlanDiffCard.swift */; };
-		BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0001051F1B0001 /* PlanDiffEngineTests.swift */; };
-		CI0001011F1C0001 /* CheckInManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001001F1C0001 /* CheckInManager.swift */; };
-		CI0001031F1C0001 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001021F1C0001 /* CheckInView.swift */; };
-		CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001041F1C0001 /* CheckInManagerTests.swift */; };
-		CI0001071F1C0001 /* SleepFetchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001061F1C0001 /* SleepFetchTests.swift */; };
+		FCEEC16A42BA7B4B88B21184 /* TrainingStatusServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4744AFE81BBA992D4673828C /* TrainingStatusServiceTests.swift */; };
 		RC0001011F1D0001 /* RaceCourseProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001001F1D0001 /* RaceCourseProfile.swift */; };
 		RC0001031F1D0001 /* RaceCourseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001021F1D0001 /* RaceCourseService.swift */; };
 		RC0001051F1D0001 /* BundledCourseProfiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001041F1D0001 /* BundledCourseProfiles.swift */; };
@@ -130,6 +132,7 @@
 		1AA000080A0A0001 /* Race1TrainerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = Race1TrainerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		1AA000150A0A0001 /* IronmanTrainerWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = IronmanTrainerWidget.entitlements; sourceTree = "<group>"; };
 		1B514A0F839F901530837044 /* OnboardingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingViewModel.swift; path = IronmanTrainer/OnboardingViewModel.swift; sourceTree = SOURCE_ROOT; };
+		4744AFE81BBA992D4673828C /* TrainingStatusServiceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TrainingStatusServiceTests.swift; sourceTree = "<group>"; };
 		64F2428F89A590D906E6358F /* GoogleService-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; name = "GoogleService-Info.plist"; path = "IronmanTrainer/GoogleService-Info.plist"; sourceTree = SOURCE_ROOT; };
 		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
@@ -150,19 +153,18 @@
 		84D0F0D00A0B0002007D9BC7 /* LLMProxyService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMProxyService.swift; sourceTree = "<group>"; };
 		84D0F0D12F7C35A8007D9BC7 /* SharedComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedComponents.swift; sourceTree = "<group>"; };
 		84D0F0D32F7C3624007D9BC7 /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
+		84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
+		84D0F0D72F7C3672007D9BC7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
+		84D0F0D92F7C367C007D9BC7 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
+		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRowComponents.swift; sourceTree = "<group>"; };
 		84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDayRows.swift; sourceTree = "<group>"; };
 		84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSteps.swift; sourceTree = "<group>"; };
-		84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnalyticsView.swift; sourceTree = "<group>"; };
-		84D0F0D72F7C3672007D9BC7 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
-		84D0F0D92F7C367C007D9BC7 /* PlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanView.swift; sourceTree = "<group>"; };
-		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		93BC4A45AD574335045A9A44 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingView.swift; path = IronmanTrainer/OnboardingView.swift; sourceTree = SOURCE_ROOT; };
 		9C4E4D6BB6A1CE58FDDCA692 /* FirestoreService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = FirestoreService.swift; path = IronmanTrainer/FirestoreService.swift; sourceTree = SOURCE_ROOT; };
-		D29D426AAD0F04F2CAAE16BF /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = IronmanTrainer/SignInView.swift; sourceTree = SOURCE_ROOT; };
-		FB000007000000001 /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
+		A85C9E306E6A265417BF160F /* TrainingStatusService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TrainingStatusService.swift; sourceTree = "<group>"; };
 		BD0001001F1B0001 /* PlanDiffEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngine.swift; sourceTree = "<group>"; };
 		BD0001031F1B0001 /* PlanDiffCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffCard.swift; sourceTree = "<group>"; };
 		BD0001051F1B0001 /* PlanDiffEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDiffEngineTests.swift; sourceTree = "<group>"; };
@@ -170,6 +172,8 @@
 		CI0001021F1C0001 /* CheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInView.swift; sourceTree = "<group>"; };
 		CI0001041F1C0001 /* CheckInManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManagerTests.swift; sourceTree = "<group>"; };
 		CI0001061F1C0001 /* SleepFetchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepFetchTests.swift; sourceTree = "<group>"; };
+		D29D426AAD0F04F2CAAE16BF /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = IronmanTrainer/SignInView.swift; sourceTree = SOURCE_ROOT; };
+		FB000007000000001 /* OnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingTests.swift; sourceTree = "<group>"; };
 		RC0001001F1D0001 /* RaceCourseProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseProfile.swift; sourceTree = "<group>"; };
 		RC0001021F1D0001 /* RaceCourseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseService.swift; sourceTree = "<group>"; };
 		RC0001041F1D0001 /* BundledCourseProfiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BundledCourseProfiles.swift; sourceTree = "<group>"; };
@@ -281,6 +285,7 @@
 				RC0001021F1D0001 /* RaceCourseService.swift */,
 				RC0001041F1D0001 /* BundledCourseProfiles.swift */,
 				RC0001061F1D0001 /* CourseDetailView.swift */,
+				A85C9E306E6A265417BF160F /* TrainingStatusService.swift */,
 			);
 			path = IronmanTrainer;
 			sourceTree = "<group>";
@@ -309,6 +314,7 @@
 				CI0001061F1C0001 /* SleepFetchTests.swift */,
 				RC0001081F1D0001 /* RaceCourseServiceTests.swift */,
 				RC00010A1F1D0001 /* ThresholdCaptureTests.swift */,
+				4744AFE81BBA992D4673828C /* TrainingStatusServiceTests.swift */,
 			);
 			path = IronmanTrainerTests;
 			sourceTree = "<group>";
@@ -569,6 +575,7 @@
 				RC0001031F1D0001 /* RaceCourseService.swift in Sources */,
 				RC0001051F1D0001 /* BundledCourseProfiles.swift in Sources */,
 				RC0001071F1D0001 /* CourseDetailView.swift in Sources */,
+				5528772A22A99A6B57A315CD /* TrainingStatusService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -589,6 +596,7 @@
 				CI0001071F1C0001 /* SleepFetchTests.swift in Sources */,
 				RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */,
 				RC00010B1F1D0001 /* ThresholdCaptureTests.swift in Sources */,
+				FCEEC16A42BA7B4B88B21184 /* TrainingStatusServiceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

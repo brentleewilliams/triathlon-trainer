@@ -112,6 +112,63 @@ struct TrainingStatus: Codable, Equatable {
     var combinedTSB: Double? { combinedFitness?.tsb }
     var criticalGaps: [DisciplineGap] { disciplineGaps.filter { $0.severity == .critical } }
     var warningGaps: [DisciplineGap] { disciplineGaps.filter { $0.severity == .warning } }
+
+    func contextString(brief: Bool = false) -> String {
+        let combined = combinedFitness
+        let tsb = combined?.tsb ?? 0
+        let ctl = combined?.ctl ?? 0
+        let atl = combined?.atl ?? 0
+        let score = readiness.score
+        let level = readiness.level.rawValue.capitalized
+
+        if brief {
+            var lines: [String] = []
+            let hrvPctStr: String
+            if let pct = hrvTrend.percentFromBaseline {
+                hrvPctStr = String(format: "%+.0f%%", pct)
+            } else {
+                hrvPctStr = "n/a"
+            }
+            lines.append(String(format: "READINESS: %d/100 (%@) — Form: %+.0f, HRV: %@ above baseline", score, level, tsb, hrvPctStr))
+            if !criticalGaps.isEmpty {
+                let gapDesc = criticalGaps.map { "\($0.discipline.rawValue.capitalized) (\($0.daysSinceLastSession)d gap)" }.joined(separator: ", ")
+                lines.append("⚠️ DISCIPLINE GAPS: \(gapDesc)")
+            }
+            return lines.joined(separator: "\n")
+        }
+
+        var out = "====== TRAINING STATUS ======\n"
+        out += String(format: "Overall — CTL: %.0f | ATL: %.0f | Form (TSB): %+.0f\n", ctl, atl, tsb)
+        out += String(format: "Readiness: %d/100 (%@)\n", score, level)
+
+        if let today = hrvTrend.todaySDNN, let pct = hrvTrend.percentFromBaseline {
+            out += String(format: "HRV: %.0f ms today, %+.0f%% vs 60-day baseline (%@)\n", today, pct, hrvTrend.direction.rawValue)
+        } else {
+            out += "HRV: insufficient data\n"
+        }
+
+        if !criticalGaps.isEmpty {
+            let gapDesc = criticalGaps.map { "\($0.discipline.rawValue.capitalized) (\($0.daysSinceLastSession)d gap)" }.joined(separator: ", ")
+            out += "⚠️ DISCIPLINE GAPS: \(gapDesc) — athlete has not trained these in 14+ days\n"
+        }
+
+        for disc in [TrainingDiscipline.swim, .bike, .run] {
+            guard let m = fitnessPerDiscipline.first(where: { $0.discipline == disc }) else { continue }
+            let lastStr = m.lastSessionDaysAgo.map { "\($0)d ago" } ?? "never"
+            out += String(format: "  %@ — CTL: %.0f | ATL: %.0f | TSB: %+.0f | Last: %@ | This week: %dx\n",
+                          disc.rawValue.capitalized, m.ctl, m.atl, m.tsb, lastStr, m.weeklySessionCount)
+        }
+
+        out += "Intensity pattern (14d): \(intensityPattern.rawValue)\n"
+
+        if let lastDec = recentDecoupling.first {
+            let readyStr = lastDec.isRaceReady ? "✅ race-ready" : "❌ needs base work"
+            let discLabel = lastDec.discipline.rawValue
+            out += String(format: "Aerobic decoupling (last %@ ≥60min): %.1f%% (%@)\n", discLabel, lastDec.decouplingPercent, readyStr)
+        }
+
+        return out
+    }
 }
 
 // MARK: - TrainingStatusService
@@ -318,66 +375,6 @@ final class TrainingStatusService: ObservableObject {
 
         self.status = newStatus
         Self.saveCache(newStatus)
-    }
-
-    // MARK: - Context String
-
-    func contextString(brief: Bool = false) -> String {
-        guard let s = status else { return "" }
-        let combined = s.combinedFitness
-        let tsb = combined?.tsb ?? 0
-        let ctl = combined?.ctl ?? 0
-        let atl = combined?.atl ?? 0
-        let score = s.readiness.score
-        let level = s.readiness.level.rawValue.capitalized
-
-        if brief {
-            var lines: [String] = []
-            let hrvPctStr: String
-            if let pct = s.hrvTrend.percentFromBaseline {
-                hrvPctStr = String(format: "%+.0f%%", pct)
-            } else {
-                hrvPctStr = "n/a"
-            }
-            lines.append(String(format: "READINESS: %d/100 (%@) — Form: %+.0f, HRV: %@ above baseline", score, level, tsb, hrvPctStr))
-            if !s.criticalGaps.isEmpty {
-                let gapDesc = s.criticalGaps.map { "\($0.discipline.rawValue.capitalized) (\($0.daysSinceLastSession)d gap)" }.joined(separator: ", ")
-                lines.append("⚠️ DISCIPLINE GAPS: \(gapDesc)")
-            }
-            return lines.joined(separator: "\n")
-        }
-
-        var out = "====== TRAINING STATUS ======\n"
-        out += String(format: "Overall — CTL: %.0f | ATL: %.0f | Form (TSB): %+.0f\n", ctl, atl, tsb)
-        out += String(format: "Readiness: %d/100 (%@)\n", score, level)
-
-        if let today = s.hrvTrend.todaySDNN, let pct = s.hrvTrend.percentFromBaseline {
-            out += String(format: "HRV: %.0f ms today, %+.0f%% vs 60-day baseline (%@)\n", today, pct, s.hrvTrend.direction.rawValue)
-        } else {
-            out += "HRV: insufficient data\n"
-        }
-
-        if !s.criticalGaps.isEmpty {
-            let gapDesc = s.criticalGaps.map { "\($0.discipline.rawValue.capitalized) (\($0.daysSinceLastSession)d gap)" }.joined(separator: ", ")
-            out += "⚠️ DISCIPLINE GAPS: \(gapDesc) — athlete has not trained these in 14+ days\n"
-        }
-
-        for disc in [TrainingDiscipline.swim, .bike, .run] {
-            guard let m = s.fitnessPerDiscipline.first(where: { $0.discipline == disc }) else { continue }
-            let lastStr = m.lastSessionDaysAgo.map { "\($0)d ago" } ?? "never"
-            out += String(format: "  %@ — CTL: %.0f | ATL: %.0f | TSB: %+.0f | Last: %@ | This week: %dx\n",
-                          disc.rawValue.capitalized, m.ctl, m.atl, m.tsb, lastStr, m.weeklySessionCount)
-        }
-
-        out += "Intensity pattern (14d): \(s.intensityPattern.rawValue)\n"
-
-        if let lastDec = s.recentDecoupling.first {
-            let readyStr = lastDec.isRaceReady ? "✅ race-ready" : "❌ needs base work"
-            let discLabel = lastDec.discipline.rawValue
-            out += String(format: "Aerobic decoupling (last %@ ≥60min): %.1f%% (%@)\n", discLabel, lastDec.decouplingPercent, readyStr)
-        }
-
-        return out
     }
 
     // MARK: - Static helpers (internal for tests)

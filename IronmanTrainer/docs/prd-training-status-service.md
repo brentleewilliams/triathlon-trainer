@@ -342,8 +342,8 @@ Test only pure static/instance methods — no live HealthKit. Pattern: `@testabl
 
 ### EWA tests
 - `testEWA_allZeros`: returns 0
-- `testEWA_singleDay_CTL`: one 100-pt day → CTL result < 100 (slow build)
-- `testEWA_singleDay_ATL`: same day → ATL result > CTL result (faster response)
+- `testEWA_singleDay_seedsFromFirstNonzero`: one 100-pt day → ewa == 100 (per §EWA formulas, the first non-zero day seeds the series; the recurrence has no prior state to apply against)
+- `testEWA_buildRate_ATLOutpacesCTL`: rising load `[50, 100]` → ATL rises faster than CTL
 - `testEWA_decayWithRest`: 100 pts day 0, zeros for 7 days → ATL decays faster than CTL
 
 ### Intensity pattern tests

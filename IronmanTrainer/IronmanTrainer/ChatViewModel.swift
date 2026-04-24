@@ -275,7 +275,7 @@ class ChatViewModel: ObservableObject {
         )
 
         do {
-            let context = getContextForClaude()
+            let context = await getContextForClaude()
             let history = getWorkoutHistoryForClaude()
 
             // Detect wide intent before building context
@@ -612,6 +612,7 @@ class ChatViewModel: ObservableObject {
         UserDefaults.standard.removeObject(forKey: "coaching_chat_history")
     }
 
+    @MainActor
     private func getContextForClaude() -> String {
         guard let plan = trainingPlan else {
             return "No training plan available"
