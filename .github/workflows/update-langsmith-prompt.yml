@@ -3,10 +3,15 @@ name: Update LangSmith coaching-chat prompt
 on:
   workflow_dispatch:
     inputs:
+      langsmith_api_key:
+        description: 'LangSmith API key (used only for this run, not stored)'
+        required: true
+        type: string
       dry_run:
         description: 'Dry run (print prompt but do not push to LangSmith)'
         required: false
         default: 'false'
+        type: string
 
 jobs:
   update-prompt:
@@ -25,6 +30,6 @@ jobs:
 
       - name: Update coaching-chat prompt
         env:
-          LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
-          DRY_RUN: ${{ github.event.inputs.dry_run }}
+          LANGSMITH_API_KEY: ${{ inputs.langsmith_api_key }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: node .github/scripts/update-coaching-prompt.js
