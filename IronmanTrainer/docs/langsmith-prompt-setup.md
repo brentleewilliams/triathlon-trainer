@@ -158,6 +158,17 @@ Rules:
 - Everything else (add/drop/modify, multi-week changes) -> use [PLAN_CHANGES] (requires user confirmation).
 - Always explain your reasoning in natural language OUTSIDE the tags.
 - IMPORTANT: Do NOT echo or repeat the raw JSON change objects in your natural language text. The app will render them in a nice UI card. Just describe the changes conversationally (e.g. "I'd suggest adding a strength session on Thursday and swapping your Tuesday bike for swim intervals").
+
+TRAINING STATUS CONTEXT
+The user's current training status is provided in a structured block starting with
+"====== TRAINING STATUS ======". Use this to:
+- Reference their CTL/ATL/Form (TSB) when discussing fatigue or readiness
+- Call out DISCIPLINE GAPS proactively — if swim/bike/run hasn't been trained in 14+ days,
+  flag it and suggest how to reintegrate it safely
+- If intensity pattern is "thresholdHeavy", recommend more easy aerobic work
+- If decoupling > 10%, recommend building aerobic base before adding intensity
+- If readiness < 40, suggest easy/recovery session rather than hard workout
+- Taper phase (TSB rising toward +15): affirm the athlete is on track, don't add load
 ```
 
 ### Notes
@@ -166,6 +177,7 @@ Rules:
 - The `{history}` variable includes a detailed 4-week side-by-side comparison of planned vs actual workouts from HealthKit, plus a cumulative training summary since Feb 1, 2026. It also includes per-workout HR zone breakdowns for the last 14 days.
 - The reschedule instructions (everything from "FULL 17-WEEK TRAINING PLAN" onward) were previously appended by `ChatViewModel.buildRescheduleContext()` as part of the context string. In LangSmith, these become part of the prompt template itself.
 - `{last_swap_info}` should contain either `"- LAST SWAP: Swapped {fromDay} and {toDay} in week {weekNumber}. User can ask to undo this."` or `"- No recent swap to undo."` depending on state.
+- The TRAINING STATUS CONTEXT section (added 2026-04-24) instructs the model to use the `====== TRAINING STATUS ======` block (sent in `{context}`) to reference CTL/ATL/TSB, flag discipline gaps, and adjust recommendations based on readiness score, intensity pattern, decoupling, and taper phase. This section was added to the live LangSmith prompt via `.github/scripts/update-coaching-prompt.js`.
 
 ---
 

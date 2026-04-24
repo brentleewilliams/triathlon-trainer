@@ -82,6 +82,7 @@ class ChatViewModel: ObservableObject {
     private let coachingService = LLMProxyService.shared
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
+    var trainingStatus: TrainingStatusService?
 
     init(skipHistory: Bool = false) {
         if !skipHistory {
@@ -644,6 +645,10 @@ class ChatViewModel: ObservableObject {
         // Include prep races context
         if let prepContext = PrepRacesManager.shared.contextString() {
             context += "\n\(prepContext)\n"
+        }
+
+        if let ts = trainingStatus?.status {
+            context += "\n\n" + ts.contextString(brief: false)
         }
 
         return context

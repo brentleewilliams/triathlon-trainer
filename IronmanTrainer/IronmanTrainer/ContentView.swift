@@ -5,6 +5,7 @@ struct ContentView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @StateObject private var chatViewModel = ChatViewModel()
     @StateObject private var checkInManager = CheckInManager.shared
+    @StateObject private var trainingStatus = TrainingStatusService(healthKit: HealthKitManager.shared)
     @State private var showCheckIn = false
 
     init() {
@@ -16,12 +17,14 @@ struct ContentView: View {
         TabView {
             HomeView()
                 .environmentObject(trainingPlan)
+                .environmentObject(trainingStatus)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
 
             AnalyticsView()
                 .environmentObject(trainingPlan)
+                .environmentObject(trainingStatus)
                 .tabItem {
                     Label("Analytics", systemImage: "chart.bar.fill")
                 }
@@ -47,6 +50,8 @@ struct ContentView: View {
             NotificationManager.shared.setTrainingPlan(trainingPlan)
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
+            chatViewModel.trainingStatus = trainingStatus
+            Task { await trainingStatus.compute() }
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
             showCheckIn = true
@@ -55,6 +60,7 @@ struct ContentView: View {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+                .environmentObject(trainingStatus)
         }
     }
 }

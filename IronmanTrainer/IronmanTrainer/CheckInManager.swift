@@ -154,6 +154,7 @@ final class CheckInManager: ObservableObject {
     func prepareCheckInContext(
         trainingPlan: TrainingPlanManager?,
         healthKit: HealthKitManager?,
+        trainingStatus: TrainingStatusService? = nil,
         now: Date = Date()
     ) async -> String {
         var out = "MORNING CHECK-IN CONTEXT\n"
@@ -174,6 +175,10 @@ final class CheckInManager: ObservableObject {
         if let hk = healthKit, let sleep = await hk.fetchSleepData(for: now) {
             let hrs = Double(sleep.totalSleepMinutes) / 60.0
             out += "\nSLEEP LAST NIGHT: \(String(format: "%.1f", hrs))h (source: \(sleep.source))\n"
+        }
+
+        if let ts = trainingStatus?.status {
+            out += "\n\(ts.contextString(brief: true))\n"
         }
 
         return out
