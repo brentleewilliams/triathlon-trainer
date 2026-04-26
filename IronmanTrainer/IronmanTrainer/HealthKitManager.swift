@@ -64,6 +64,10 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    private static let typesToShare: Set<HKSampleType> = [
+        HKObjectType.workoutType()
+    ]
+
     func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else {
             await MainActor.run {
@@ -73,7 +77,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         }
 
         do {
-            try await healthStore.requestAuthorization(toShare: [], read: Self.requiredHKTypes)
+            try await healthStore.requestAuthorization(toShare: Self.typesToShare, read: Self.requiredHKTypes)
             await MainActor.run {
                 self.isAuthorized = true
                 self.syncError = nil
@@ -84,6 +88,17 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 self.syncError = error.localizedDescription
             }
         }
+    }
+
+    // MARK: - Save Workout
+
+    func saveWorkout(activityType: HKWorkoutActivityType, start: Date, end: Date) async throws {
+        let config = HKWorkoutConfiguration()
+        config.activityType = activityType
+        let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
+        try await builder.beginCollection(at: start)
+        try await builder.endCollection(at: end)
+        try await builder.finishWorkout()
     }
 
     func syncWorkouts() async {

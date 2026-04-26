@@ -13,6 +13,8 @@ extension Notification.Name {
     /// Posted when the user taps a Morning Check-In push (FCM or local) so the
     /// app can route to CheckInView.
     static let openCheckIn = Notification.Name("openCheckIn")
+    /// Posted when any view wants to navigate the root TabView to the Chat tab (index 2).
+    static let navigateToChat = Notification.Name("navigateToChat")
 }
 
 // MARK: - Onboarding Date Store

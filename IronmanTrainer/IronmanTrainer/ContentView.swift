@@ -7,6 +7,7 @@ struct ContentView: View {
     @StateObject private var checkInManager = CheckInManager.shared
     @StateObject private var trainingStatus = TrainingStatusService(healthKit: HealthKitManager.shared)
     @State private var showCheckIn = false
+    @State private var selectedTab = 0
 
     init() {
         let plan = AuthService.shared.savedPlan
@@ -14,13 +15,14 @@ struct ContentView: View {
     }
 
     var body: some View {
-        TabView {
+        TabView(selection: $selectedTab) {
             HomeView()
                 .environmentObject(trainingPlan)
                 .environmentObject(trainingStatus)
                 .tabItem {
                     Label("Home", systemImage: "house.fill")
                 }
+                .tag(0)
 
             AnalyticsView()
                 .environmentObject(trainingPlan)
@@ -28,6 +30,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Analytics", systemImage: "chart.bar.fill")
                 }
+                .tag(1)
 
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
@@ -35,6 +38,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Chat", systemImage: "message.fill")
                 }
+                .tag(2)
 
             SettingsView()
                 .environmentObject(trainingPlan)
@@ -42,6 +46,7 @@ struct ContentView: View {
                 .tabItem {
                     Label("Settings", systemImage: "gear")
                 }
+                .tag(3)
         }
         .onAppear {
             // Inject the plan into NotificationManager and chatViewModel in a
@@ -55,6 +60,9 @@ struct ContentView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
             showCheckIn = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
+            selectedTab = 2
         }
         .sheet(isPresented: $showCheckIn) {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
