@@ -408,9 +408,6 @@ struct HomeHeroView: View {
                     }
 
                     Spacer()
-
-                    StreakChipView(count: streakCount, isBroken: streakBroken)
-                        .padding(.bottom, 8)
                 }
                 .padding(.top, 14)
 
