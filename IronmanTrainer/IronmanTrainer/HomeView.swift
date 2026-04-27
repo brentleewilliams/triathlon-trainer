@@ -351,6 +351,7 @@ struct HomeHeroView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 // Top row: race name + venue (left), week/phase pill (right)
+                // Starts at 60pt to clear the 52pt transparent nav bar overlay.
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 3) {
                         Text(raceName)
@@ -379,14 +380,14 @@ struct HomeHeroView: View {
                     .background(Color.white.opacity(0.16))
                     .clipShape(Capsule())
                 }
-                .padding(.top, 18)
+                .padding(.top, 60)
 
                 // Countdown row
                 HStack(alignment: .bottom, spacing: 14) {
                     // Number + label
                     HStack(alignment: .bottom, spacing: 8) {
                         Text("\(animatedDays)")
-                            .font(.system(size: 96, weight: .black))
+                            .font(.system(size: 72, weight: .black))
                             .foregroundColor(.white)
                             .monospacedDigit()
                             .lineLimit(1)
@@ -453,7 +454,7 @@ struct HomeHeroView: View {
             }
             .padding(.horizontal, 22)
         }
-        .frame(minHeight: 240)
+        .frame(minHeight: 270)
         .onAppear {
             let target = days
             let start = target + min(40, Int(Double(target) * 0.5))
@@ -1194,25 +1195,60 @@ struct SelectedDayWorkoutCard: View {
         }
     }
 
-    // MARK: Rest day
+    // MARK: Rest day (also shows any HK workouts recorded on this day)
 
     private var restDayFallback: some View {
-        HStack(spacing: 12) {
-            Text("😴")
-                .font(.system(size: 32))
-            VStack(alignment: .leading, spacing: 2) {
-                Text(dayLabel)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.secondary)
-                    .kerning(0.4)
-                Text("Rest Day")
-                    .font(.headline)
-                    .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                Text("😴")
+                    .font(.system(size: 32))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(dayLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundColor(.secondary)
+                        .kerning(0.4)
+                    Text("Rest Day")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                }
+                Spacer()
             }
-            Spacer()
+            .padding(20)
+
+            if !hkWorkouts.isEmpty {
+                Divider()
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("RECORDED")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(Color(.systemGray))
+                        .kerning(0.6)
+                        .padding(.bottom, 2)
+                    ForEach(hkWorkouts, id: \.uuid) { hkWorkout in
+                        HStack(spacing: 10) {
+                            Circle()
+                                .fill(hkWorkoutColor(hkWorkout.workoutActivityType))
+                                .frame(width: 8, height: 8)
+                            Text(hkWorkoutTypeName(hkWorkout.workoutActivityType))
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundColor(.primary)
+                            Spacer()
+                            Text(hkDurationString(hkWorkout.duration))
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(Color(.systemGray))
+                                .monospacedDigit()
+                            if let dist = hkDistanceString(hkWorkout) {
+                                Text("· \(dist)")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(Color(.systemGray2))
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
         }
-        .frame(maxWidth: .infinity)
-        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(
             RoundedRectangle(cornerRadius: AppTheme.cardCornerRadius)
                 .stroke(Color(.systemGray4), lineWidth: 1)
@@ -1764,12 +1800,10 @@ struct HomeView: View {
         return dayWorkouts.first { !$0.type.contains("Rest") && !$0.type.contains("pre_onboarding") }
     }
 
-    /// HK workouts for the selected day.
+    /// HK workouts for the selected day (works for pre-plan weeks).
     var selectedDayHKWorkouts: [HKWorkout] {
-        guard selectedDayIndex < workoutsByDay.count else { return [] }
-        let dayEntry = workoutsByDay[selectedDayIndex]
-        let dayDate = getDateForDay(dayEntry.workouts.first ?? DayWorkout(day: dayEntry.day, type: "Rest", duration: "-", zone: "-", status: nil, nutritionTarget: nil, notes: nil))
         let cal = Calendar.current
+        let dayDate = cal.date(byAdding: .day, value: selectedDayIndex, to: currentWeekStartDate) ?? currentWeekStartDate
         let targetDay = cal.startOfDay(for: dayDate)
         return healthKit.workouts.filter { cal.startOfDay(for: $0.startDate) == targetDay }
     }
@@ -1798,9 +1832,34 @@ struct HomeView: View {
     var isRaceWeek: Bool { daysUntilRace >= 0 && daysUntilRace <= 7 }
 
     // MARK: Current week
+
     var currentWeek: TrainingWeek? { trainingPlan.getWeek(selectedWeek) }
 
     var currentPhase: String { currentWeek?.phase ?? "" }
+
+    /// Monday of the displayed week, works for pre-plan weeks (selectedWeek < 1) too.
+    var currentWeekStartDate: Date {
+        if let week = currentWeek { return mondayOfWeek(week.startDate) }
+        guard let week1 = trainingPlan.getWeek(1) else { return mondayOfWeek(Date()) }
+        let planMonday = mondayOfWeek(week1.startDate)
+        let offset = selectedWeek - 1
+        return Calendar.current.date(byAdding: .weekOfYear, value: offset, to: planMonday) ?? planMonday
+    }
+
+    /// Week label for the top nav — nil for pre-plan weeks so the nav shows "Today" instead.
+    var navWeekLabel: String? {
+        guard selectedWeek >= 1 else { return nil }
+        return "Week \(selectedWeek)/\(trainingPlan.weeks.count)"
+    }
+
+    /// True when the displayed week contains today (used to highlight today's day in the strip).
+    var isCurrentDisplayWeek: Bool {
+        let cal = Calendar.current
+        let monday = currentWeekStartDate
+        guard let sunday = cal.date(byAdding: .day, value: 6, to: monday) else { return false }
+        let today = Date()
+        return today >= monday && today <= sunday
+    }
 
     // MARK: Today / tomorrow workouts
     private var todayDayAbbrev: String {
@@ -1950,15 +2009,24 @@ struct HomeView: View {
     }
 
     func getDateForDay(_ workout: DayWorkout) -> Date {
-        dateForWorkoutDay(workout.day, weekStartDate: mondayOfWeek(currentWeek?.startDate ?? Date()))
+        dateForWorkoutDay(workout.day, weekStartDate: currentWeekStartDate)
     }
 
     var workoutsByDay: [(day: String, workouts: [DayWorkout])] {
-        guard let week = currentWeek else { return [] }
         let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        let weekMonday = currentWeekStartDate
+
+        guard let week = currentWeek else {
+            // Pre-plan or post-plan week: no scheduled workouts, show rest days.
+            return dayOrder.map { day in
+                let rest = DayWorkout(day: day, type: "Rest", duration: "-", zone: "-",
+                                     status: nil, nutritionTarget: nil, notes: nil)
+                return (day: day, workouts: [rest])
+            }
+        }
+
         let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
         let calendar = Calendar.current
-        let weekMonday = mondayOfWeek(week.startDate)
         return dayOrder.enumerated().compactMap { (index, day) in
             let dayDate = calendar.date(byAdding: .day, value: index, to: weekMonday) ?? weekMonday
             if OnboardingStore.isPrePlan(dayDate) {
@@ -2006,8 +2074,8 @@ struct HomeView: View {
                                 PersistentTopNavView(
                                     title: "Today",
                                     isTransparent: true,
-                                    weekLabel: "Week \(selectedWeek)/\(trainingPlan.weeks.count)",
-                                    onWeekSelector: { showWeekPicker = true },
+                                    weekLabel: navWeekLabel,
+                                    onWeekSelector: navWeekLabel != nil ? { showWeekPicker = true } : nil,
                                     onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
                                     onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
                                     onCalendar: { showCalendar = true }
@@ -2022,11 +2090,18 @@ struct HomeView: View {
                         DayStripView(
                             selectedDayIndex: $selectedDayIndex,
                             weekWorkouts: workoutsByDay,
-                            weekStartDate: mondayOfWeek(currentWeek?.startDate ?? Date()),
-                            todayDayIndex: HomeView.todayDayIndex(),
+                            weekStartDate: currentWeekStartDate,
+                            todayDayIndex: isCurrentDisplayWeek ? HomeView.todayDayIndex() : -1,
                             onTapDay: { index in
-                                withAnimation(.easeInOut(duration: 0.15)) {
-                                    selectedDayIndex = index
+                                withAnimation(.easeInOut(duration: 0.15)) { selectedDayIndex = index }
+                            },
+                            onPrevWeek: {
+                                withAnimation { selectedWeek -= 1; selectedDayIndex = 6 }
+                            },
+                            onNextWeek: {
+                                withAnimation {
+                                    if selectedWeek < trainingPlan.weeks.count { selectedWeek += 1 }
+                                    selectedDayIndex = 0
                                 }
                             }
                         )
@@ -2047,12 +2122,14 @@ struct HomeView: View {
                                 onLogWorkout: { showLogWorkout = true }
                             )
 
-                            // Week overview card
-                            WeekOverviewCard(
-                                workoutsByDay: workoutsByDay,
-                                selectedDayIndex: $selectedDayIndex,
-                                isWorkoutCompleted: isWorkoutCompleted
-                            )
+                            // Week overview card (only shown for plan weeks)
+                            if selectedWeek >= 1 {
+                                WeekOverviewCard(
+                                    workoutsByDay: workoutsByDay,
+                                    selectedDayIndex: $selectedDayIndex,
+                                    isWorkoutCompleted: isWorkoutCompleted
+                                )
+                            }
 
                             if isRaceWeek {
                                 RaceForecastCardView(raceDate: raceDate)

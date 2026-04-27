@@ -4,8 +4,10 @@ struct DayStripView: View {
     @Binding var selectedDayIndex: Int
     let weekWorkouts: [(day: String, workouts: [DayWorkout])]
     let weekStartDate: Date
-    var todayDayIndex: Int
+    var todayDayIndex: Int   // -1 means today is not in this week
     var onTapDay: (Int) -> Void
+    var onPrevWeek: (() -> Void)? = nil
+    var onNextWeek: (() -> Void)? = nil
 
     private let dayAbbrevs = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"]
 
@@ -37,7 +39,7 @@ struct DayStripView: View {
                 let date = dayDate(for: index)
                 let workouts = workouts(for: index)
                 let isSelected = selectedDayIndex == index
-                let isToday = todayDayIndex == index
+                let isToday = todayDayIndex >= 0 && todayDayIndex == index
 
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
@@ -82,13 +84,21 @@ struct DayStripView: View {
         .gesture(
             DragGesture(minimumDistance: 20, coordinateSpace: .local)
                 .onEnded { value in
-                    if value.translation.width < -20 && selectedDayIndex < 6 {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            onTapDay(selectedDayIndex + 1)
-                        }
-                    } else if value.translation.width > 20 && selectedDayIndex > 0 {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            onTapDay(selectedDayIndex - 1)
+                    let leftSwipe  = value.translation.width < -20
+                    let rightSwipe = value.translation.width > 20
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        if leftSwipe {
+                            if selectedDayIndex < 6 {
+                                onTapDay(selectedDayIndex + 1)
+                            } else {
+                                onNextWeek?()    // at Sunday → advance to next week
+                            }
+                        } else if rightSwipe {
+                            if selectedDayIndex > 0 {
+                                onTapDay(selectedDayIndex - 1)
+                            } else {
+                                onPrevWeek?()    // at Monday → go back to previous week
+                            }
                         }
                     }
                 }
