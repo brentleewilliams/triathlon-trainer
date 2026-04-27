@@ -841,6 +841,8 @@ struct AddPrepRaceSheet: View {
     /// the full plan is about to be generated, so per-race adjustment is moot.
     var isOnboarding: Bool = false
 
+    var raceSearchService: RaceSearchServiceProtocol = LLMProxyService.shared
+
     private let distanceOptions = ["5K", "10K", "Half Marathon", "Marathon", "Sprint Tri", "Olympic Tri", "Century Ride", "Other"]
 
     var body: some View {
@@ -939,11 +941,10 @@ struct AddPrepRaceSheet: View {
         isSearching = true
         searchError = nil
         do {
-            let result = try await LLMProxyService.shared.searchPrepRace(query: searchQuery)
+            let result = try await raceSearchService.searchPrepRace(query: searchQuery)
             guard !Task.isCancelled else { return }
             name = result.name
             date = result.date
-            // Map race type to distance option
             if let matchedDist = distanceOptions.first(where: { result.distance.localizedCaseInsensitiveContains($0) }) {
                 distance = matchedDist
             } else {
@@ -954,7 +955,10 @@ struct AddPrepRaceSheet: View {
             return
         } catch {
             guard !Task.isCancelled else { return }
-            searchError = "Could not find race. Try entering details manually."
+            let isTransient = (error as? ClaudeServiceError) == .serverError || (error as? ClaudeServiceError) == .networkError
+            searchError = isTransient
+                ? "Couldn't reach the search service. Check your connection and try again."
+                : "Could not find that race. Try a more specific name or enter details manually."
         }
         isSearching = false
     }

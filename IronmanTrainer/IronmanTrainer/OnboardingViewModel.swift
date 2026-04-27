@@ -484,8 +484,10 @@ class OnboardingViewModel: ObservableObject {
         isSearchingRace = false
     }
 
+    var raceSearchService: RaceSearchServiceProtocol = LLMProxyService.shared
+
     private func searchRaceWithClaude(query: String) async throws -> RaceSearchResult {
-        return try await LLMProxyService.shared.searchRace(query: query)
+        return try await raceSearchService.searchRace(query: query)
     }
 
     // MARK: - Build Domain Objects

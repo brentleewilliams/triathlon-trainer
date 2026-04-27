@@ -79,7 +79,7 @@ class ChatViewModel: ObservableObject {
         return false
     }
 
-    private let coachingService = LLMProxyService.shared
+    var coachingService: CoachingServiceProtocol = LLMProxyService.shared
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
     var trainingStatus: TrainingStatusService?
