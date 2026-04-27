@@ -17,6 +17,8 @@ extension Notification.Name {
     static let navigateToChat = Notification.Name("navigateToChat")
     /// Posted when any view wants to open the Settings sheet.
     static let openSettings = Notification.Name("openSettings")
+    /// Posted when any view wants to open the Training Calendar sheet.
+    static let openCalendar = Notification.Name("openCalendar")
 }
 
 // MARK: - Onboarding Date Store

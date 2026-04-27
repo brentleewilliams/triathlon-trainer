@@ -263,7 +263,7 @@ struct AnalyticsView: View {
                     onWeekSelector: { showWeekPicker = true },
                     onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
                     onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                    onCalendar: { NotificationCenter.default.post(name: Notification.Name("openCalendar"), object: nil) }
+                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) }
                 )
 
             ScrollView {

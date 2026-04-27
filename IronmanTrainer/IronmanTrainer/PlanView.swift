@@ -61,7 +61,7 @@ struct PlanView: View {
                         NotificationCenter.default.post(name: .navigateToChat, object: nil)
                     },
                     onCalendar: {
-                        // Calendar sheet could be added here in the future
+                        NotificationCenter.default.post(name: .openCalendar, object: nil)
                     }
                 )
 

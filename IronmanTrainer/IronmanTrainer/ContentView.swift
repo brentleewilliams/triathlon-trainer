@@ -9,6 +9,7 @@ struct ContentView: View {
     @State private var showCheckIn = false
     @State private var showChat = false
     @State private var showSettings = false
+    @State private var showCalendar = false
     @State private var selectedTab = 0
 
     init() {
@@ -78,6 +79,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
             showSettings = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openCalendar)) { _ in
+            showCalendar = true
+        }
         .sheet(isPresented: $showCheckIn) {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
                 .environmentObject(trainingPlan)
@@ -93,6 +97,17 @@ struct ContentView: View {
             SettingsView()
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+        }
+        .sheet(isPresented: $showCalendar) {
+            NavigationStack {
+                TrainingCalendarView()
+                    .environmentObject(trainingPlan)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button("Done") { showCalendar = false }
+                        }
+                    }
+            }
         }
     }
 }

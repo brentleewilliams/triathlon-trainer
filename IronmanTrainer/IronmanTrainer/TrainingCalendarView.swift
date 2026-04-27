@@ -1,4 +1,20 @@
 import SwiftUI
+import UniformTypeIdentifiers
+
+// MARK: - Drag payload
+// Identifies a workout being dragged so the drop site knows where it came
+// from (week + day) and can issue a move that preserves the original cell's
+// content. Using a Codable Transferable keeps the payload self-contained —
+// no shared state needed across the drag session.
+struct DraggedWorkoutRef: Codable, Transferable {
+    let weekNumber: Int
+    let sourceDay: String
+    let workout: DayWorkout
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .data)
+    }
+}
 
 // MARK: - Training Calendar View
 
@@ -37,6 +53,9 @@ struct TrainingCalendarView: View {
                             onResetWeek: {
                                 resetTargetWeekNumber = week.weekNumber
                                 showResetAlert = true
+                            },
+                            onMoveWorkout: { ref, destDay in
+                                moveWorkout(ref, toWeek: week.weekNumber, toDay: destDay)
                             }
                         )
                         .id(week.weekNumber)
@@ -117,6 +136,88 @@ struct TrainingCalendarView: View {
         trainingPlan.savePlanVersion(source: "calendar", description: "Added \(workout.type) on \(workout.day) (Week \(weekNumber))")
     }
 
+    /// Moves a workout from its source (week + day, encoded in `ref`) to a new
+    /// week + day. Same-day no-ops fall through silently. Both source and
+    /// destination weeks may be the same — we update them in a single pass so
+    /// in-place moves don't briefly drop the workout.
+    private func moveWorkout(_ ref: DraggedWorkoutRef, toWeek destWeek: Int, toDay destDay: String) {
+        guard ref.sourceDay != destDay || ref.weekNumber != destWeek else { return }
+
+        // Find source week
+        guard let srcIdx = trainingPlan.weeks.firstIndex(where: { $0.weekNumber == ref.weekNumber }) else {
+            showToast("Source week not found")
+            return
+        }
+
+        // Remove from source
+        var srcWorkouts = trainingPlan.weeks[srcIdx].workouts
+        guard let removeAt = srcWorkouts.firstIndex(where: { $0 == ref.workout }) else {
+            showToast("Workout not found")
+            return
+        }
+        var moved = srcWorkouts.remove(at: removeAt)
+        // Reflect new day in the moved workout (DayWorkout.day drives sort order
+        // and downstream display).
+        moved = DayWorkout(
+            day: destDay,
+            type: moved.type,
+            duration: moved.duration,
+            zone: moved.zone,
+            status: moved.status,
+            nutritionTarget: moved.nutritionTarget,
+            notes: moved.notes
+        )
+
+        let srcWeek = trainingPlan.weeks[srcIdx]
+
+        if ref.weekNumber == destWeek {
+            // Same-week move: insert in same array, sort, write back once.
+            srcWorkouts.append(moved)
+            srcWorkouts.sort {
+                (dayAbbrevs.firstIndex(of: $0.day) ?? 0) < (dayAbbrevs.firstIndex(of: $1.day) ?? 0)
+            }
+            trainingPlan.weeks[srcIdx] = TrainingWeek(
+                weekNumber: srcWeek.weekNumber,
+                phase: srcWeek.phase,
+                startDate: srcWeek.startDate,
+                endDate: srcWeek.endDate,
+                workouts: srcWorkouts
+            )
+        } else {
+            // Cross-week move: write source without the workout, then add to dest.
+            trainingPlan.weeks[srcIdx] = TrainingWeek(
+                weekNumber: srcWeek.weekNumber,
+                phase: srcWeek.phase,
+                startDate: srcWeek.startDate,
+                endDate: srcWeek.endDate,
+                workouts: srcWorkouts
+            )
+            guard let destIdx = trainingPlan.weeks.firstIndex(where: { $0.weekNumber == destWeek }) else {
+                showToast("Destination week not found")
+                return
+            }
+            let destWeekObj = trainingPlan.weeks[destIdx]
+            var destWorkouts = destWeekObj.workouts
+            destWorkouts.append(moved)
+            destWorkouts.sort {
+                (dayAbbrevs.firstIndex(of: $0.day) ?? 0) < (dayAbbrevs.firstIndex(of: $1.day) ?? 0)
+            }
+            trainingPlan.weeks[destIdx] = TrainingWeek(
+                weekNumber: destWeekObj.weekNumber,
+                phase: destWeekObj.phase,
+                startDate: destWeekObj.startDate,
+                endDate: destWeekObj.endDate,
+                workouts: destWorkouts
+            )
+        }
+
+        trainingPlan.savePlanVersion(
+            source: "calendar",
+            description: "Moved \(moved.type) from \(ref.sourceDay) to \(destDay) (Week \(ref.weekNumber)→\(destWeek))"
+        )
+        showToast("Moved to \(destDay)")
+    }
+
     private func handleResetWeek(_ weekNumber: Int) {
         showToast("Reset coming soon")
     }
@@ -141,6 +242,7 @@ private struct WeekSection: View {
     let dayAbbrevs: [String]
     let onAddWorkout: (String) -> Void
     let onResetWeek: () -> Void
+    let onMoveWorkout: (DraggedWorkoutRef, String) -> Void
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -161,9 +263,11 @@ private struct WeekSection: View {
 
                     DayRow(
                         dayAbbrev: dayAbbrev,
+                        weekNumber: week.weekNumber,
                         date: dayDate,
                         workouts: workoutsForDay,
-                        onAdd: { onAddWorkout(dayAbbrev) }
+                        onAdd: { onAddWorkout(dayAbbrev) },
+                        onMoveWorkout: onMoveWorkout
                     )
                 }
             }
@@ -240,9 +344,13 @@ private struct WeekSection: View {
 
 private struct DayRow: View {
     let dayAbbrev: String
+    let weekNumber: Int
     let date: Date
     let workouts: [DayWorkout]
     let onAdd: () -> Void
+    let onMoveWorkout: (DraggedWorkoutRef, String) -> Void
+
+    @State private var isTargeted = false
 
     private let dayNumberFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -279,6 +387,11 @@ private struct DayRow: View {
                 VStack(spacing: 4) {
                     ForEach(workouts) { workout in
                         WorkoutCalendarCard(workout: workout)
+                            .draggable(DraggedWorkoutRef(
+                                weekNumber: weekNumber,
+                                sourceDay: dayAbbrev,
+                                workout: workout
+                            ))
                     }
                 }
             }
@@ -300,6 +413,19 @@ private struct DayRow: View {
             }
         }
         .padding(.vertical, 4)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isTargeted ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .contentShape(Rectangle())
+        .dropDestination(for: DraggedWorkoutRef.self) { items, _ in
+            guard let ref = items.first else { return false }
+            onMoveWorkout(ref, dayAbbrev)
+            return true
+        } isTargeted: { targeted in
+            isTargeted = targeted
+        }
     }
 
     private var restPlaceholder: some View {

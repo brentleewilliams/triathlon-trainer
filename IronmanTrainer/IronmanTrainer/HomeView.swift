@@ -1835,7 +1835,6 @@ struct HomeView: View {
     @State private var hasAppearedOnce = false
     @State private var selectedDayIndex: Int = HomeView.todayDayIndex()
     @State private var showWeekPicker = false
-    @State private var showCalendar = false
 
     // MARK: Static helpers
 
@@ -2185,7 +2184,7 @@ struct HomeView: View {
                                     onWeekSelector: navWeekLabel != nil ? { showWeekPicker = true } : nil,
                                     onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
                                     onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                                    onCalendar: { showCalendar = true }
+                                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) }
                                 )
                                 .padding(.top, safeTop)
                                 Spacer()
@@ -2287,19 +2286,6 @@ struct HomeView: View {
             }
             .sheet(isPresented: $showWeekPicker) {
                 WeekPickerSheet(selectedWeek: $selectedWeek, trainingPlan: trainingPlan)
-            }
-            .sheet(isPresented: $showCalendar) {
-                NavigationStack {
-                    TrainingCalendarView()
-                        .environmentObject(trainingPlan)
-                        .navigationTitle("Training Calendar")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .topBarTrailing) {
-                                Button("Done") { showCalendar = false }
-                            }
-                        }
-                }
             }
             .sheet(isPresented: $showCourseDetail) {
                 CourseDetailView()
