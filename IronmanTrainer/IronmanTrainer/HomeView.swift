@@ -2174,6 +2174,13 @@ struct HomeView: View {
                                 isRaceWeek: isRaceWeek
                             )
                             .padding(.top, safeTop)
+                            // Extend the hero's deep-navy backdrop up through the
+                            // status-bar area so the top of the screen is full-bleed
+                            // brand color rather than the system background.
+                            .background(
+                                Color(hex: "1B2540")
+                                    .ignoresSafeArea(edges: .top)
+                            )
 
                             // Transparent top nav overlaid on hero
                             VStack {
@@ -2243,10 +2250,14 @@ struct HomeView: View {
                             }
 
                             CoachNudgeCardView(nudge: coachNudge) {
+                                // Prefix tells the LLM (and surfaces to the user
+                                // in the input bar) that this prompt originated
+                                // from a tap on a home-screen insight rather
+                                // than a free user message.
                                 NotificationCenter.default.post(
                                     name: .navigateToChat,
                                     object: nil,
-                                    userInfo: ["seed": coachNudge]
+                                    userInfo: ["seed": "(from app insight) \(coachNudge)"]
                                 )
                             }
 
