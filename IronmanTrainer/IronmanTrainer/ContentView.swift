@@ -39,7 +39,7 @@ struct ContentView: View {
                 .environmentObject(healthKit)
                 .environmentObject(trainingPlan)
                 .tabItem {
-                    Label("Activities", systemImage: "list.bullet")
+                    Label("Workouts", systemImage: "list.bullet")
                 }
                 .tag(2)
 

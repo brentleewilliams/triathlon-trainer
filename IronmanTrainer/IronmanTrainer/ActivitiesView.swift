@@ -134,7 +134,7 @@ struct ActivitiesView: View {
             VStack(spacing: 0) {
                 // Top nav
                 PersistentTopNavView(
-                    title: "Activities",
+                    title: "Workouts",
                     onProfile:  { NotificationCenter.default.post(name: .openSettings, object: nil) },
                     onChat:     { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
                     onCalendar: { }
