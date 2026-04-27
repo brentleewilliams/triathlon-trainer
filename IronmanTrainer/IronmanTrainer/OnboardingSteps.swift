@@ -559,22 +559,22 @@ struct GoalSettingStep: View {
                 VStack(alignment: .leading, spacing: 12) {
                     Divider().padding(.vertical, 4)
 
-                    Text("Skill Level by Sport")
+                    Text("Current Weekly Training")
                         .font(.headline)
 
-                    Text("This helps tailor workout difficulty and progression for each discipline.")
+                    Text("How much are you currently doing each week per sport? This sets your starting volume and powers the readiness metric on the Analytics tab.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     let sports = viewModel.relevantSports
                     if sports.contains("swim") {
-                        SkillLevelPicker(icon: "figure.pool.swim", sport: "Swim", level: $viewModel.swimLevel)
+                        WeeklyVolumePicker(icon: "figure.pool.swim", sport: "Swim", volume: $viewModel.swimVolume)
                     }
                     if sports.contains("bike") {
-                        SkillLevelPicker(icon: "figure.outdoor.cycle", sport: "Bike", level: $viewModel.bikeLevel)
+                        WeeklyVolumePicker(icon: "figure.outdoor.cycle", sport: "Bike", volume: $viewModel.bikeVolume)
                     }
                     if sports.contains("run") {
-                        SkillLevelPicker(icon: "figure.run", sport: "Run", level: $viewModel.runLevel)
+                        WeeklyVolumePicker(icon: "figure.run", sport: "Run", volume: $viewModel.runVolume)
                     }
                 }
                 .padding(.horizontal, 16)

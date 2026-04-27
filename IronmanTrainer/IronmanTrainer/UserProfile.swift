@@ -176,6 +176,81 @@ enum PerformanceThresholdsStore {
     }
 }
 
+// MARK: - Weekly Training Volume
+//
+// The athlete's current per-discipline training volume, captured during onboarding.
+// Drives the discipline-volume readiness metric in TrainingStatusService: for any
+// week of the rolling 6-week lookback that falls before the plan starts (or while
+// the plan is too young to have ≥3 weeks of history), this baseline becomes the
+// "expected" denominator.
+
+enum WeeklyVolume: String, CaseIterable, Codable {
+    case low, mid, high
+
+    var label: String {
+        switch self {
+        case .low:  return "1–30 min"
+        case .mid:  return "~60 min"
+        case .high: return "120+ min"
+        }
+    }
+
+    /// Baseline weekly minutes for the readiness denominator.
+    var baselineMinutes: Int {
+        switch self {
+        case .low:  return 30
+        case .mid:  return 60
+        case .high: return 120
+        }
+    }
+
+    init?(minutes: Int) {
+        switch minutes {
+        case 30:  self = .low
+        case 60:  self = .mid
+        case 120: self = .high
+        default:  return nil
+        }
+    }
+}
+
+enum WeeklyVolumeStore {
+    private static let swimKey = "userProfile.swimMinutesPerWeek"
+    private static let bikeKey = "userProfile.bikeMinutesPerWeek"
+    private static let runKey  = "userProfile.runMinutesPerWeek"
+
+    /// Default for users who completed onboarding before this question existed.
+    static let defaultMinutes = 60
+
+    static func loadMinutes() -> (swim: Int, bike: Int, run: Int) {
+        let s = UserDefaults.standard.object(forKey: swimKey) as? Int ?? defaultMinutes
+        let b = UserDefaults.standard.object(forKey: bikeKey) as? Int ?? defaultMinutes
+        let r = UserDefaults.standard.object(forKey: runKey)  as? Int ?? defaultMinutes
+        return (s, b, r)
+    }
+
+    static func loadVolumes() -> (swim: WeeklyVolume?, bike: WeeklyVolume?, run: WeeklyVolume?) {
+        let s = UserDefaults.standard.object(forKey: swimKey) as? Int
+        let b = UserDefaults.standard.object(forKey: bikeKey) as? Int
+        let r = UserDefaults.standard.object(forKey: runKey)  as? Int
+        return (s.flatMap(WeeklyVolume.init(minutes:)),
+                b.flatMap(WeeklyVolume.init(minutes:)),
+                r.flatMap(WeeklyVolume.init(minutes:)))
+    }
+
+    static func save(swim: WeeklyVolume?, bike: WeeklyVolume?, run: WeeklyVolume?) {
+        UserDefaults.standard.set(swim?.baselineMinutes, forKey: swimKey)
+        UserDefaults.standard.set(bike?.baselineMinutes, forKey: bikeKey)
+        UserDefaults.standard.set(run?.baselineMinutes,  forKey: runKey)
+    }
+
+    static func clear() {
+        UserDefaults.standard.removeObject(forKey: swimKey)
+        UserDefaults.standard.removeObject(forKey: bikeKey)
+        UserDefaults.standard.removeObject(forKey: runKey)
+    }
+}
+
 // MARK: - Preparatory Race
 
 struct PrepRace: Codable, Identifiable, Equatable {

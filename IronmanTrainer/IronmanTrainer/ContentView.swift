@@ -7,6 +7,8 @@ struct ContentView: View {
     @StateObject private var checkInManager = CheckInManager.shared
     @StateObject private var trainingStatus = TrainingStatusService(healthKit: HealthKitManager.shared)
     @State private var showCheckIn = false
+    @State private var showChat = false
+    @State private var showSettings = false
     @State private var selectedTab = 0
 
     init() {
@@ -18,33 +20,35 @@ struct ContentView: View {
         TabView(selection: $selectedTab) {
             HomeView()
                 .environmentObject(trainingPlan)
+                .environmentObject(healthKit)
                 .environmentObject(trainingStatus)
                 .tabItem {
-                    Label("Home", systemImage: "house.fill")
+                    Label("Today", systemImage: "sun.max")
                 }
                 .tag(0)
 
-            AnalyticsView()
+            PlanView()
                 .environmentObject(trainingPlan)
-                .environmentObject(trainingStatus)
+                .environmentObject(healthKit)
                 .tabItem {
-                    Label("Analytics", systemImage: "chart.bar.fill")
+                    Label("Plan", systemImage: "calendar.badge.clock")
                 }
                 .tag(1)
 
-            ChatView(viewModel: chatViewModel)
-                .environmentObject(trainingPlan)
+            ActivitiesView()
                 .environmentObject(healthKit)
+                .environmentObject(trainingPlan)
                 .tabItem {
-                    Label("Chat", systemImage: "message.fill")
+                    Label("Workouts", systemImage: "list.bullet")
                 }
                 .tag(2)
 
-            SettingsView()
+            AnalyticsView()
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+                .environmentObject(trainingStatus)
                 .tabItem {
-                    Label("Settings", systemImage: "gear")
+                    Label("Analytics", systemImage: "chart.bar.fill")
                 }
                 .tag(3)
         }
@@ -61,14 +65,34 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
             showCheckIn = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
-            selectedTab = 2
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { note in
+            // Optional seed: callers can pre-fill the input (e.g. tapping a
+            // coach insight on the home screen passes the nudge text via
+            // userInfo["seed"]). The input bar drains pendingInputText on
+            // appear / on change.
+            if let seed = note.userInfo?["seed"] as? String, !seed.isEmpty {
+                chatViewModel.pendingInputText = seed
+            }
+            showChat = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
+            showSettings = true
         }
         .sheet(isPresented: $showCheckIn) {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
                 .environmentObject(trainingStatus)
+        }
+        .sheet(isPresented: $showChat) {
+            ChatView(viewModel: chatViewModel)
+                .environmentObject(trainingPlan)
+                .environmentObject(healthKit)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+                .environmentObject(trainingPlan)
+                .environmentObject(healthKit)
         }
     }
 }

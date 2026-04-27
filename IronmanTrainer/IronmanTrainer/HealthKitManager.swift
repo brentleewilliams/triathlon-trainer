@@ -93,6 +93,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     // MARK: - Save Workout
 
     func saveWorkout(activityType: HKWorkoutActivityType, start: Date, end: Date) async throws {
+        // Ensure write authorization has been requested (read may be authorized but write may not)
+        try await healthStore.requestAuthorization(toShare: Self.typesToShare, read: [])
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
@@ -300,10 +302,27 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     func fetchZonesForRecentWorkouts() {
         let twoWeeksAgo = Calendar.current.date(byAdding: .day, value: -14, to: Date()) ?? Date()
         let recent = workouts.filter { $0.startDate >= twoWeeksAgo }
+        guard !recent.isEmpty else { return }
+
+        // Collect all zone breakdowns before publishing to avoid N separate @Published
+        // mutations (each of which triggers a full re-render of every observing view).
+        let lock = NSLock()
+        var collected: [UUID: [String: Double]] = [:]
+        var remaining = recent.count
+
         for workout in recent {
             getWorkoutZoneBreakdown(workout: workout) { zones in
-                DispatchQueue.main.async {
-                    self.workoutZones[workout.uuid] = zones
+                lock.lock()
+                collected[workout.uuid] = zones
+                remaining -= 1
+                let done = remaining == 0
+                lock.unlock()
+
+                if done {
+                    DispatchQueue.main.async {
+                        // Single mutation → single re-render
+                        self.workoutZones.merge(collected) { _, new in new }
+                    }
                 }
             }
         }

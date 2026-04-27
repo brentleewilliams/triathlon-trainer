@@ -9,6 +9,14 @@ const Anthropic = require("@anthropic-ai/sdk");
 admin.initializeApp();
 const db = admin.firestore();
 
+// Fail fast if required env vars are missing — surfaces immediately in
+// Firebase logs rather than producing a cryptic [ERROR] in the chat UI.
+const REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LANGSMITH_API_KEY"];
+const missingVars = REQUIRED_ENV_VARS.filter((k) => !process.env[k]);
+if (missingVars.length > 0) {
+  console.error(`[startup] MISSING required env vars: ${missingVars.join(", ")}. Add them to functions/.env and redeploy.`);
+}
+
 // Configure SMTP — set via .env file in functions/
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -745,13 +753,16 @@ async function handleCoaching(req, res, userId) {
   ]);
   const { messages: promptMessages, model, temperature, maxTokens } = promptResult;
 
-  // Merge iOS and server scopes: if either says wide, treat as wide
+  // iOS clientPlanScope ("local"|"wide") controls context width (whether to include
+  // the full plan summary), but NOT whether to force tool use — iOS never sends "none"
+  // so using it for toolChoice would force plan proposals on every message.
+  // Tool forcing is decided solely by the server classifier.
   const effectiveScope = (clientPlanScope === "wide" || serverScope === "wide")
     ? "wide"
     : (clientPlanScope === "local" || serverScope === "local")
     ? "local"
     : "none";
-  const needsPlanChange = effectiveScope !== "none";
+  const needsPlanChange = serverScope !== "none";
   const toolChoice = needsPlanChange ? "required" : "auto";
 
   console.log(`[coaching] model=${model}, scope=${effectiveScope} (client=${clientPlanScope}, server=${serverScope}), toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
@@ -1440,9 +1451,17 @@ async function handlePlanFromTemplate(req, res) {
 
   console.log(`[planFromTemplate] totalWeeks=${totalWeeks}, planStartDate=${planStartDate}`);
 
-  // Handle custom goal tier — classify via quick LLM call
+  // Handle custom goal tier — classify via quick LLM call.
+  // The Swift client encodes the goal text as `customGoalText` on both the
+  // race.userGoal payload (UserProfile.GoalType.custom) and on templateParams.
+  // Read from templateParams first (most direct), fall back to race.userGoal.
   if (goalTier === "custom") {
-    const customGoalText = race.userGoal?.customText || race.userGoal?.text || "";
+    const customGoalText =
+      templateParams.customGoalText ||
+      race.userGoal?.customGoalText ||
+      race.userGoal?.customText ||
+      race.userGoal?.text ||
+      "";
     console.log(`[planFromTemplate] classifying custom goal: "${customGoalText.substring(0, 100)}"`);
 
     try {
@@ -1491,11 +1510,26 @@ async function handlePlanFromTemplate(req, res) {
     }
   }
 
-  // Determine skill level: highest of swim/bike/run, default intermediate
+  // Determine skill level for the skeleton builder.
+  // Onboarding now collects current weekly volume (low/mid/high → 1-30/~60/120+
+  // min per week per discipline) instead of self-assessed skill tier. Map the
+  // new buckets back to the skill names the skeleton builder still expects.
   const levelRank = { beginner: 0, intermediate: 1, advanced: 2 };
-  const levels = [input.swimLevel, input.bikeLevel, input.runLevel]
-    .filter(Boolean)
-    .map((l) => l.toLowerCase());
+  const volumeToSkill = (v) => {
+    if (!v) return null;
+    const k = String(v).toLowerCase();
+    if (k === "low" || k === "30") return "beginner";
+    if (k === "mid" || k === "60") return "intermediate";
+    if (k === "high" || k === "120") return "advanced";
+    // Backwards compat: pre-volume builds still send raw skill names.
+    if (["beginner", "intermediate", "advanced"].includes(k)) return k;
+    return null;
+  };
+  const levels = [
+    volumeToSkill(input.swimVolume) ?? volumeToSkill(input.swimLevel),
+    volumeToSkill(input.bikeVolume) ?? volumeToSkill(input.bikeLevel),
+    volumeToSkill(input.runVolume)  ?? volumeToSkill(input.runLevel),
+  ].filter(Boolean);
   const skillLevel = levels.length > 0
     ? levels.reduce((best, l) => (levelRank[l] || 0) > (levelRank[best] || 0) ? l : best, levels[0])
     : "intermediate";

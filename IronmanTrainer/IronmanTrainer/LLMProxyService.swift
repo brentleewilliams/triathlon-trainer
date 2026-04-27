@@ -112,7 +112,20 @@ class LLMProxyService {
 
         // Use streaming via URLSession.bytes
         let (bytes, response) = try await URLSession.shared.bytes(for: request)
-        try validateHTTPResponse(response)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw ClaudeServiceError.networkError
+        }
+        if httpResponse.statusCode != 200 {
+            // Collect the error body from the stream before throwing
+            var errorBody = ""
+            for try await line in bytes.lines { errorBody += line + "\n" }
+            print("[LLM PROXY] Streaming error HTTP \(httpResponse.statusCode): \(errorBody.prefix(500))")
+            switch httpResponse.statusCode {
+            case 401: throw ClaudeServiceError.invalidAPIKey
+            case 429: throw ClaudeServiceError.rateLimitExceeded
+            default:  throw ClaudeServiceError.serverError
+            }
+        }
 
         var accumulated = ""
         var proposedChanges: PlanChangeProposal? = nil
@@ -295,7 +308,10 @@ class LLMProxyService {
             "templateParams": paramsDict
         ]
 
-        let data = try await performRequest(body: body, timeout: 120)
+        // 240s client timeout — covers the cloud function's slow path where a
+        // custom-goal classification falls through to full batch generation.
+        // The function itself is configured for 300s; client should be patient.
+        let data = try await performRequest(body: body, timeout: 240)
 
         // Parse outer response for result, method, and warnings
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -361,12 +377,16 @@ class LLMProxyService {
         case 200...299:
             return
         case 401:
+            print("[LLM PROXY] 401 — Firebase ID token rejected or user not authenticated")
             throw ClaudeServiceError.invalidAPIKey
         case 429:
+            print("[LLM PROXY] 429 — rate limit exceeded")
             throw ClaudeServiceError.rateLimitExceeded
         default:
             if let data = data, let errorBody = String(data: data, encoding: .utf8) {
                 print("[LLM PROXY] Error HTTP \(httpResponse.statusCode): \(errorBody)")
+            } else {
+                print("[LLM PROXY] Error HTTP \(httpResponse.statusCode) (no body — streaming path)")
             }
             throw ClaudeServiceError.serverError
         }

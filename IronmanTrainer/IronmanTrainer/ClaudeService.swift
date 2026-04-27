@@ -149,6 +149,10 @@ enum ClaudeServiceError: LocalizedError {
         case .rateLimitExceeded:
             return "Rate limit exceeded"
         case .serverError:
+            // Generic copy — each LLM-using feature (chat, race search, prep
+            // race) wraps with its own context-specific error message at the
+            // call site. Keeping this generic prevents misleading copy when
+            // the same service powers multiple flows.
             return "Service temporarily unavailable. Please try again in a moment."
         }
     }

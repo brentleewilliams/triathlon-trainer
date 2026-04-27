@@ -137,10 +137,12 @@ class OnboardingViewModel: ObservableObject {
         return 0...17
     }
 
-    // Per-sport skill levels (step 4, part of goal setting)
-    @Published var swimLevel: SkillLevel?
-    @Published var bikeLevel: SkillLevel?
-    @Published var runLevel: SkillLevel?
+    // Per-sport current weekly volume (step 4, part of goal setting).
+    // Replaces beginner/intermediate/advanced — direct measurement is less
+    // biased and feeds the discipline-volume readiness denominator.
+    @Published var swimVolume: WeeklyVolume?
+    @Published var bikeVolume: WeeklyVolume?
+    @Published var runVolume:  WeeklyVolume?
 
     // Fitness details (collected in goal setting step)
     @Published var fitnessInjuries: String = "No current injuries or limitations"
@@ -184,12 +186,12 @@ class OnboardingViewModel: ObservableObject {
         return ["swim", "bike", "run"]
     }
 
-    /// Whether all required skill levels are selected
-    var allSkillsSelected: Bool {
+    /// Whether all required weekly-volume buckets are selected
+    var allVolumesSelected: Bool {
         let sports = relevantSports
-        if sports.contains("swim") && swimLevel == nil { return false }
-        if sports.contains("bike") && bikeLevel == nil { return false }
-        if sports.contains("run") && runLevel == nil { return false }
+        if sports.contains("swim") && swimVolume == nil { return false }
+        if sports.contains("bike") && bikeVolume == nil { return false }
+        if sports.contains("run")  && runVolume  == nil { return false }
         return true
     }
 
@@ -493,6 +495,10 @@ class OnboardingViewModel: ObservableObject {
     // MARK: - Build Domain Objects
 
     func buildUserProfile(uid: String) -> UserProfile {
+        // Persist weekly volumes to local store so TrainingStatusService can
+        // read them as the readiness denominator for pre-plan weeks.
+        WeeklyVolumeStore.save(swim: swimVolume, bike: bikeVolume, run: runVolume)
+
         return UserProfile(
             uid: uid,
             name: userName,
@@ -608,9 +614,9 @@ class OnboardingViewModel: ObservableObject {
         return PlanGenerationInput(
             race: race,
             profile: profile,
-            swimLevel: swimLevel,
-            bikeLevel: bikeLevel,
-            runLevel: runLevel,
+            swimVolume: swimVolume,
+            bikeVolume: bikeVolume,
+            runVolume: runVolume,
             fitnessHours: schedulePattern.label,
             fitnessSchedule: schedulePattern.label,
             fitnessInjuries: fitnessInjuries,
@@ -649,20 +655,6 @@ class OnboardingViewModel: ObservableObject {
 }
 
 // MARK: - Supporting Types
-
-enum SkillLevel: String, CaseIterable, Codable {
-    case beginner = "Beginner"
-    case intermediate = "Intermediate"
-    case advanced = "Advanced"
-
-    var description: String {
-        switch self {
-        case .beginner: return "New or limited experience"
-        case .intermediate: return "Regular training, comfortable"
-        case .advanced: return "Competitive, years of experience"
-        }
-    }
-}
 
 enum GoalSelection {
     case timeTarget

@@ -45,15 +45,8 @@ struct WorkoutDayRows: View {
         }
         if !emojis.isEmpty { return emojis }
 
-        // Fallback for type strings without embedded emojis
-        let t = type.lowercased()
-        if t.contains("swim") { return "🏊" }
-        if t.contains("brick") { return "🚴🏃" }
-        if t.contains("bike") || t.contains("cycl") { return "🚴" }
-        if t.contains("run") { return "🏃" }
-        if t.contains("strength") || t.contains("gym") { return "💪" }
-        if t.contains("rest") || t.contains("recover") { return "😴" }
-        return "🏋️"
+        // Delegate to the centralized theme for type strings without embedded emojis
+        return AppTheme.sportEmoji(for: type)
     }
 
     /// Strip any leading emoji/symbol characters so the hardcoded plan's

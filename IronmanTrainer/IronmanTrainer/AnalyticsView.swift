@@ -35,8 +35,11 @@ class AnalyticsViewModel: ObservableObject {
     /// don't chart (strength, hike, yoga, etc). Used by the Volume Summary footer
     /// to surface bonus activity the user completed outside their plan.
     @Published var cachedUnplannedVolume: (swim: Double, bike: Double, run: Double, other: Double) = (0, 0, 0, 0)
+    /// Compliance trend for the last 6 weeks — cached so body never recomputes it.
+    @Published var cachedComplianceTrend: [(week: Int, percent: Double)] = []
 
-    func recalculate(week: TrainingWeek?, hkWorkouts: [HKWorkout]) {
+    func recalculate(week: TrainingWeek?, hkWorkouts: [HKWorkout],
+                     allWeeks: [TrainingWeek] = [], currentWeekNum: Int = 0) {
         guard let week else {
             cachedVolume = (0, 0, 0)
             cachedPlannedVolume = (0, 0, 0)
@@ -120,6 +123,21 @@ class AnalyticsViewModel: ObservableObject {
         } else {
             cachedZonePercentages = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
         }
+
+        // Compliance trend (last 6 weeks) — computed here so body never triggers this scan
+        if currentWeekNum > 0 && !allWeeks.isEmpty {
+            let startWeek = max(1, currentWeekNum - 5)
+            let endWeek = min(currentWeekNum, allWeeks.count)
+            var trend: [(week: Int, percent: Double)] = []
+            for weekNum in startWeek...endWeek {
+                guard weekNum >= 1, weekNum <= allWeeks.count else { continue }
+                let w = allWeeks[weekNum - 1]
+                if let pct = calculateWeekCompliance(week: w, hkWorkouts: hkWorkouts) {
+                    trend.append((week: weekNum, percent: pct))
+                }
+            }
+            cachedComplianceTrend = trend
+        }
     }
 
     /// Parse a duration string to hours (Double). Used for planned volume calculations.
@@ -180,6 +198,7 @@ struct AnalyticsView: View {
     @EnvironmentObject var trainingStatusService: TrainingStatusService
     @StateObject private var analyticsVM = AnalyticsViewModel()
     @State private var selectedWeek: Int = 1
+    @State private var showWeekPicker = false
     @State private var hasAppearedOnce = false
     @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
     @State private var actualZonePercentages: [String: Double] = [:]
@@ -189,23 +208,21 @@ struct AnalyticsView: View {
         trainingPlan.getWeek(selectedWeek)
     }
 
-    func recalculateAnalytics() {
-        analyticsVM.recalculate(week: currentWeek, hkWorkouts: healthKit.workouts)
+    var raceReadiness: [SportReadiness] {
+        deriveRaceReadiness(from: trainingStatusService.status, today: "")
+    }
+    var raceReadinessOverall: Int {
+        guard !raceReadiness.isEmpty else { return 0 }
+        return raceReadiness.map(\.score).reduce(0, +) / raceReadiness.count
     }
 
-    func complianceTrendData() -> [(week: Int, percent: Double)] {
-        var results: [(week: Int, percent: Double)] = []
-        let currentWeekNum = trainingPlan.currentWeekNumber
-        let startWeek = max(1, currentWeekNum - 5)
-        let endWeek = min(currentWeekNum, trainingPlan.weeks.count)
-
-        for weekNum in startWeek...endWeek {
-            guard let week = trainingPlan.getWeek(weekNum) else { continue }
-            if let pct = calculateWeekCompliance(week: week, hkWorkouts: healthKit.workouts) {
-                results.append((week: weekNum, percent: pct))
-            }
-        }
-        return results
+    func recalculateAnalytics() {
+        analyticsVM.recalculate(
+            week: currentWeek,
+            hkWorkouts: healthKit.workouts,
+            allWeeks: trainingPlan.weeks,
+            currentWeekNum: trainingPlan.currentWeekNumber
+        )
     }
 
     func complianceBarColor(_ percent: Double) -> Color {
@@ -238,10 +255,19 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 20) {
-                // Week Navigation Header (Shared)
-                WeekNavigationHeader(selectedWeek: $selectedWeek)
+            VStack(spacing: 0) {
+                PersistentTopNavView(
+                    title: "Analytics",
+                    isTransparent: false,
+                    weekLabel: "Week \(selectedWeek)/\(trainingPlan.weeks.count)",
+                    onWeekSelector: { showWeekPicker = true },
+                    onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
+                    onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
+                    onCalendar: { NotificationCenter.default.post(name: Notification.Name("openCalendar"), object: nil) }
+                )
 
+            ScrollView {
+            VStack(spacing: 20) {
                 // Volume Summary
                 VStack(spacing: 12) {
                     Text("Volume Summary")
@@ -352,8 +378,7 @@ struct AnalyticsView: View {
                     Text("Weekly Compliance Trend")
                         .font(.headline)
 
-                    let trendData = complianceTrendData()
-                    if trendData.isEmpty {
+                    if analyticsVM.cachedComplianceTrend.isEmpty {
                         Text("No compliance data yet")
                             .font(.caption)
                             .foregroundColor(.gray)
@@ -361,7 +386,7 @@ struct AnalyticsView: View {
                             .padding()
                     } else {
                         HStack(alignment: .bottom, spacing: 6) {
-                            ForEach(trendData, id: \.week) { entry in
+                            ForEach(analyticsVM.cachedComplianceTrend, id: \.week) { entry in
                                 VStack(spacing: 4) {
                                     Text("\(Int(entry.percent))%")
                                         .font(.system(size: 9))
@@ -390,31 +415,51 @@ struct AnalyticsView: View {
                     TrainingLoadCard(status: ts)
                 }
 
-                Spacer()
+                // Race Readiness per discipline
+                RaceReadinessCardView(
+                    readiness: raceReadiness,
+                    overall: raceReadinessOverall,
+                    onSwap: {
+                        NotificationCenter.default.post(name: .navigateToChat, object: nil)
+                    }
+                )
+
+                Spacer(minLength: 32)
             }
             .padding()
-            .navigationBarTitleDisplayMode(.inline)
+            } // ScrollView
             .gesture(
-                DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
                     .onEnded { value in
-                        if value.translation.width < -50 && selectedWeek < trainingPlan.weeks.count {
+                        if value.translation.width < -30 && selectedWeek < trainingPlan.weeks.count {
                             withAnimation { selectedWeek += 1 }
-                        } else if value.translation.width > 50 && selectedWeek > 1 {
+                        } else if value.translation.width > 30 && selectedWeek > 1 {
                             withAnimation { selectedWeek -= 1 }
                         }
                     }
             )
+
+            } // VStack
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showWeekPicker) {
+                WeekPickerSheet(selectedWeek: $selectedWeek, trainingPlan: trainingPlan)
+            }
             .onAppear {
                 if !hasAppearedOnce {
                     selectedWeek = trainingPlan.currentWeekNumber
                     hasAppearedOnce = true
                 }
-                recalculateAnalytics()
-                fetchActualZoneData()
+                // Defer heavy scan so the view renders first, then updates
+                Task { @MainActor in
+                    recalculateAnalytics()
+                    fetchActualZoneData()
+                }
             }
             .onChange(of: selectedWeek) { _, _ in
-                recalculateAnalytics()
-                fetchActualZoneData()
+                Task { @MainActor in
+                    recalculateAnalytics()
+                    fetchActualZoneData()
+                }
             }
         }
     }

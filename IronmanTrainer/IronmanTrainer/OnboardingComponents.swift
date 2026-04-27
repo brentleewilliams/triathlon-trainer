@@ -294,10 +294,10 @@ struct RaceDetailRow: View {
 
 // MARK: - Goal Components
 
-struct SkillLevelPicker: View {
+struct WeeklyVolumePicker: View {
     let icon: String
     let sport: String
-    @Binding var level: SkillLevel?
+    @Binding var volume: WeeklyVolume?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -309,16 +309,16 @@ struct SkillLevelPicker: View {
                     .font(.subheadline.weight(.medium))
             }
             HStack(spacing: 0) {
-                ForEach(SkillLevel.allCases, id: \.self) { lvl in
+                ForEach(WeeklyVolume.allCases, id: \.self) { v in
                     Button {
-                        level = lvl
+                        volume = v
                     } label: {
-                        Text(lvl.rawValue)
+                        Text(v.label)
                             .font(.subheadline)
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 8)
-                            .background(level == lvl ? Color.blue : Color(.systemGray5))
-                            .foregroundStyle(level == lvl ? .white : .primary)
+                            .background(volume == v ? Color.blue : Color(.systemGray5))
+                            .foregroundStyle(volume == v ? .white : .primary)
                     }
                 }
             }

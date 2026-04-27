@@ -96,7 +96,7 @@ struct LogWorkoutSheet: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.fraction(0.72)])
         .onAppear { applyPrefilledType() }
     }
 

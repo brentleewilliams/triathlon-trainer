@@ -66,6 +66,11 @@ class ChatViewModel: ObservableObject {
     @Published var error: String?
     @Published var negotiationState: NegotiationPhase = .idle
 
+    /// Pre-filled chat input, set by callers that open the chat sheet with
+    /// context (e.g. tapping a coach insight on the home screen). The input
+    /// bar consumes and clears this on the next render.
+    @Published var pendingInputText: String?
+
     /// Backward-compatible accessor for the pending proposal.
     var pendingProposal: PlanChangeProposal? {
         switch negotiationState {

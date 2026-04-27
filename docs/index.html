@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Race1 Trainer — Adaptive AI race coaching</title>
+    <meta
+      name="description"
+      content="An AI coaching companion for endurance athletes. Race1 Trainer rewrites your training plan when life gets in the way — travel, illness, bad sleep, a brutal week. Marathons, triathlons, ultras, cycling."
+    />
+    <meta name="theme-color" content="#1B2540" />
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Race1 Trainer — Adaptive AI race coaching" />
+    <meta
+      property="og:description"
+      content="Train for any race. Adapt when life happens. An AI coach that rewrites your plan when reality intervenes."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://raceonetrainer.com/" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Race1 Trainer" />
+    <meta
+      name="twitter:description"
+      content="Train for any race. Adapt when life happens."
+    />
+
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231B2540'/%3E%3Ctext x='50%25' y='58%25' font-family='-apple-system,system-ui,sans-serif' font-size='32' font-weight='800' fill='white' text-anchor='middle'%3ER1%3C/text%3E%3C/svg%3E" />
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                deep: "#1B2540",
+                mid: "#28456A",
+                glow: "#2E6480",
+                blue: "#007AFF",
+                orange: "#E67E22",
+                green: "#34C759",
+                red: "#C0392B",
+                purple: "#8E44AD",
+              },
+            },
+            fontFamily: {
+              sans: [
+                "-apple-system",
+                "BlinkMacSystemFont",
+                "Inter",
+                "Segoe UI",
+                "Roboto",
+                "Helvetica Neue",
+                "Arial",
+                "sans-serif",
+              ],
+            },
+          },
+        },
+      };
+    </script>
+
+    <style>
+      html { scroll-behavior: smooth; }
+      .hero-bg {
+        background:
+          radial-gradient(ellipse at top right, rgba(255,255,255,0.10), transparent 55%),
+          linear-gradient(180deg, #1B2540 0%, #28456A 55%, #2E6480 100%);
+      }
+      .ridge {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 30%;
+        background:
+          linear-gradient(180deg, transparent 0%, rgba(12,27,44,0.55) 60%, rgba(12,27,44,0.85) 100%);
+        pointer-events: none;
+      }
+    </style>
+  </head>
+
+  <body class="font-sans bg-white text-gray-900 antialiased">
+    <!-- ───────────────── HERO ───────────────── -->
+    <section class="hero-bg text-white relative overflow-hidden">
+      <nav class="max-w-6xl mx-auto px-6 py-5 flex items-center justify-between text-white/90">
+        <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+          <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-white/15 backdrop-blur text-sm font-bold">R1</span>
+          <span>Race1 Trainer</span>
+        </a>
+        <div class="hidden sm:flex items-center gap-6 text-sm">
+          <a href="#how" class="hover:text-white">How it works</a>
+          <a href="#features" class="hover:text-white">Features</a>
+          <a href="/privacy.html" class="hover:text-white">Privacy</a>
+          <a href="/support/" class="hover:text-white">Support</a>
+        </div>
+      </nav>
+
+      <div class="max-w-6xl mx-auto px-6 pt-12 pb-32 sm:pt-20 sm:pb-44 relative">
+        <p class="uppercase tracking-widest text-xs font-semibold text-white/70 mb-5">
+          Adaptive AI Race Coaching
+        </p>
+        <h1 class="text-4xl sm:text-6xl md:text-7xl font-black leading-[1.05] tracking-tight max-w-4xl">
+          Train for any race.<br />
+          <span class="text-white/80">Adapt when life happens.</span>
+        </h1>
+        <p class="mt-6 text-lg sm:text-xl text-white/80 max-w-2xl leading-relaxed">
+          Race1 Trainer is an AI coaching companion for endurance athletes — marathoners, triathletes, ultrarunners, cyclists. Instead of a static PDF that goes stale the first time you miss a workout, you get a coach that rewrites the plan when life gets in the way.
+        </p>
+
+        <div class="mt-10 flex flex-wrap items-center gap-4">
+          <a
+            href="#"
+            aria-disabled="true"
+            class="inline-flex items-center gap-3 px-6 py-3 rounded-xl bg-white text-brand-deep font-semibold shadow-lg shadow-black/20 opacity-60 cursor-not-allowed"
+          >
+            Coming soon to the App Store
+          </a>
+          <a
+            href="#how"
+            class="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/25 text-white hover:bg-white/10 transition"
+          >
+            See how it works
+            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5 8a1 1 0 011.7-.71L10 10.59l3.3-3.3a1 1 0 111.4 1.42l-4 4a1 1 0 01-1.4 0l-4-4A1 1 0 015 8z" clip-rule="evenodd"/></svg>
+          </a>
+        </div>
+
+        <div class="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl">
+          <div class="rounded-2xl bg-white/10 backdrop-blur px-5 py-4">
+            <div class="text-xs uppercase tracking-wider text-white/60 font-semibold">Coach</div>
+            <div class="font-semibold mt-1">Claude AI, on call</div>
+          </div>
+          <div class="rounded-2xl bg-white/10 backdrop-blur px-5 py-4">
+            <div class="text-xs uppercase tracking-wider text-white/60 font-semibold">Health data</div>
+            <div class="font-semibold mt-1">Apple Health auto-sync</div>
+          </div>
+          <div class="rounded-2xl bg-white/10 backdrop-blur px-5 py-4">
+            <div class="text-xs uppercase tracking-wider text-white/60 font-semibold">Privacy</div>
+            <div class="font-semibold mt-1">Plan stays on device</div>
+          </div>
+        </div>
+      </div>
+      <div class="ridge"></div>
+    </section>
+
+    <!-- ───────────────── BUILT FOR REAL LIFE ───────────────── -->
+    <section class="max-w-6xl mx-auto px-6 py-20 sm:py-28">
+      <div class="max-w-3xl">
+        <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">Built for real life</p>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">
+          Most plans break the first time reality intervenes.
+        </h2>
+        <p class="mt-3 text-2xl sm:text-3xl text-gray-500 font-light">This one bends.</p>
+      </div>
+
+      <div class="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">✈️</div>
+          <h3 class="mt-3 font-semibold">A week of work travel</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Sessions shift, volume drops, key workouts move so you don't lose the block.</p>
+        </article>
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">🤒</div>
+          <h3 class="mt-3 font-semibold">Illness or injury</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Plan pauses, eases back in. No lost-fitness panic.</p>
+        </article>
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">😴</div>
+          <h3 class="mt-3 font-semibold">A bad night of sleep</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Today's hard session quietly becomes tomorrow's.</p>
+        </article>
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">🌧</div>
+          <h3 class="mt-3 font-semibold">Weather you can't train in</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Indoor alternatives proposed in chat, dialed to the same intent.</p>
+        </article>
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">🏁</div>
+          <h3 class="mt-3 font-semibold">A spontaneous race</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Prep races slot into the build with the right taper around them.</p>
+        </article>
+        <article class="rounded-2xl border border-gray-200 p-6">
+          <div class="text-2xl">💼</div>
+          <h3 class="mt-3 font-semibold">A brutal week at work</h3>
+          <p class="mt-1 text-gray-600 text-sm leading-relaxed">Recovery days where you actually need them, not where the template said.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- ───────────────── HOW IT WORKS ───────────────── -->
+    <section id="how" class="bg-gray-50 py-20 sm:py-28">
+      <div class="max-w-6xl mx-auto px-6">
+        <div class="max-w-3xl">
+          <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">How it works</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">Five things, no settings safari.</h2>
+        </div>
+
+        <div class="mt-14 space-y-12">
+          <div class="grid sm:grid-cols-[160px_1fr] gap-4 sm:gap-10 items-start">
+            <div class="text-sm font-bold text-brand-blue uppercase tracking-wider">01 · Onboarding</div>
+            <div>
+              <h3 class="text-xl font-semibold">Five minutes to a plan that starts where you are.</h3>
+              <p class="mt-2 text-gray-600 leading-relaxed">Tell the coach what race you're training for, when it is, your experience level, and your weekly availability. Connect Apple Health. The plan starts from your actual fitness — not a textbook athlete's.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-[160px_1fr] gap-4 sm:gap-10 items-start">
+            <div class="text-sm font-bold text-brand-orange uppercase tracking-wider">02 · Daily view</div>
+            <div>
+              <h3 class="text-xl font-semibold">Today's session, ready to go.</h3>
+              <p class="mt-2 text-gray-600 leading-relaxed">Type, duration, target zone, coaching notes. Completed workouts pull in from your watch automatically and match against the plan. No logging. No spreadsheets.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-[160px_1fr] gap-4 sm:gap-10 items-start">
+            <div class="text-sm font-bold text-brand-green uppercase tracking-wider">03 · Morning Check-In</div>
+            <div>
+              <h3 class="text-xl font-semibold">A short conversation before you lace up.</h3>
+              <p class="mt-2 text-gray-600 leading-relaxed">Informed by last night's sleep and today's plan. Reply if you're exhausted, sore, crushing it, or anywhere between. The coach adjusts before you head out the door.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-[160px_1fr] gap-4 sm:gap-10 items-start">
+            <div class="text-sm font-bold text-brand-purple uppercase tracking-wider">04 · Plan Negotiation</div>
+            <div>
+              <h3 class="text-xl font-semibold">The core idea: nothing changes without your sign-off.</h3>
+              <p class="mt-2 text-gray-600 leading-relaxed">Tell the coach what's going on. It proposes a revised plan — shifted long runs, reduced volume, rearranged key workouts. You see a visual diff card and tap Accept, Modify, or Reject. No surprise rewrites.</p>
+            </div>
+          </div>
+
+          <div class="grid sm:grid-cols-[160px_1fr] gap-4 sm:gap-10 items-start">
+            <div class="text-sm font-bold text-brand-red uppercase tracking-wider">05 · Race week</div>
+            <div>
+              <h3 class="text-xl font-semibold">Course-specific intelligence as the race approaches.</h3>
+              <p class="mt-2 text-gray-600 leading-relaxed">Altitude delta vs. your training elevation, expected weather, pacing tuned to the terrain, phase-appropriate prep — heat acclimation, travel timing, taper intensity.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-14 rounded-2xl bg-white border border-gray-200 p-6 sm:p-8 max-w-3xl">
+          <p class="text-sm uppercase tracking-widest text-gray-500 font-semibold">Optional · Performance Thresholds</p>
+          <p class="mt-2 text-gray-700 leading-relaxed">Know your FTP, threshold run pace, or swim CSS? Mention them in chat once. Pacing targets become specific numbers (<span class="font-mono">8:15/mi</span> on the long run) instead of effort descriptors. No settings screen — the coach just remembers.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────── HANDLES + INCLUDED ───────────────── -->
+    <section id="features" class="max-w-6xl mx-auto px-6 py-20 sm:py-28">
+      <div class="grid lg:grid-cols-2 gap-16">
+        <div>
+          <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">What it handles</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">Any race with a start date.</h2>
+          <ul class="mt-8 space-y-3">
+            <li class="flex gap-3"><span class="text-brand-blue">●</span><span>Marathons and half-marathons</span></li>
+            <li class="flex gap-3"><span class="text-brand-orange">●</span><span>Triathlons at every distance — sprint, Olympic, half, full</span></li>
+            <li class="flex gap-3"><span class="text-brand-green">●</span><span>Ultras and trail races</span></li>
+            <li class="flex gap-3"><span class="text-brand-purple">●</span><span>Cycling events, gran fondos, centuries</span></li>
+            <li class="flex gap-3"><span class="text-gray-400">●</span><span class="text-gray-600">Anything with a finish line, basically</span></li>
+          </ul>
+        </div>
+
+        <div>
+          <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">What's included</p>
+          <h2 class="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">Everything below, no add-ons.</h2>
+          <ul class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Adaptive plan generation</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Daily HR-zone targets</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Apple Health auto-match</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Zone analytics</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Morning Check-In</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Visual plan diffs</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Altitude + weather adjustments</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Secondary race support</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Home Screen widget</span></li>
+            <li class="flex gap-2"><span class="text-brand-green font-bold">✓</span><span>Swim drill library</span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────── WHO IT'S FOR ───────────────── -->
+    <section class="bg-brand-deep text-white py-20 sm:py-28">
+      <div class="max-w-4xl mx-auto px-6">
+        <p class="text-sm uppercase tracking-widest text-white/60 font-semibold">Who it's for</p>
+        <h2 class="mt-3 text-3xl sm:text-4xl font-bold tracking-tight">First-timers, repeat racers, and anyone whose plan keeps getting blown up.</h2>
+        <div class="mt-10 grid sm:grid-cols-3 gap-6 text-white/85">
+          <div>
+            <div class="text-base font-semibold text-white">First-time racers</div>
+            <p class="mt-2 text-sm leading-relaxed">A real coach's attention without the monthly retainer.</p>
+          </div>
+          <div>
+            <div class="text-base font-semibold text-white">Experienced athletes</div>
+            <p class="mt-2 text-sm leading-relaxed">Frustrated by rigid plans that won't flex.</p>
+          </div>
+          <div>
+            <div class="text-base font-semibold text-white">Anyone, really</div>
+            <p class="mt-2 text-sm leading-relaxed">Who's ever scrapped a perfectly-planned block because life didn't cooperate.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ───────────────── WHAT IT ISN'T ───────────────── -->
+    <section class="max-w-4xl mx-auto px-6 py-20 sm:py-24">
+      <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">What it isn't</p>
+      <p class="mt-3 text-2xl sm:text-3xl font-bold tracking-tight leading-snug">
+        Not a workout recorder — your watch handles that. Not a social feed.
+        <span class="text-gray-500 font-light">It's one focused conversation about getting you to the start line fit, healthy, and ready.</span>
+      </p>
+    </section>
+
+    <!-- ───────────────── PRIVACY ───────────────── -->
+    <section class="bg-gray-50 py-16">
+      <div class="max-w-4xl mx-auto px-6">
+        <p class="text-sm uppercase tracking-widest text-brand-blue font-semibold">Privacy</p>
+        <p class="mt-3 text-lg text-gray-700 leading-relaxed">
+          Your training plan and health data live on your device. Chats with your coach are sent to our AI provider to generate responses. You can clear history any time from Settings. Full details in our
+          <a href="/privacy.html" class="text-brand-blue underline underline-offset-4">privacy policy</a>.
+        </p>
+      </div>
+    </section>
+
+    <!-- ───────────────── FOOTER ───────────────── -->
+    <footer class="border-t border-gray-200 py-10">
+      <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-sm text-gray-500">
+        <div class="flex items-center gap-2">
+          <span class="inline-flex items-center justify-center w-7 h-7 rounded-md bg-brand-deep text-white text-xs font-bold">R1</span>
+          <span class="font-semibold text-gray-700">Race1 Trainer</span>
+        </div>
+        <div class="flex items-center gap-6">
+          <a href="/privacy.html" class="hover:text-gray-900">Privacy</a>
+          <a href="/support/" class="hover:text-gray-900">Support</a>
+        </div>
+        <div>© 2026 Race1 Trainer</div>
+      </div>
+    </footer>
+  </body>
+</html>

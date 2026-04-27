@@ -226,6 +226,8 @@ struct ChatInputBar: View {
                     .focused($isFocused)
                     .disabled(viewModel.isLoading)
                     .onSubmit { if canSend { send() } }
+                    .onAppear { consumePendingSeed() }
+                    .onChange(of: viewModel.pendingInputText) { _, _ in consumePendingSeed() }
             }
             .background(Color(.secondarySystemBackground))
             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -257,6 +259,18 @@ struct ChatInputBar: View {
         isFocused = false
         Task {
             await viewModel.sendMessage(message, imageData: image)
+        }
+    }
+
+    /// Drains `pendingInputText` from the ViewModel into the local TextField.
+    /// Called on appear (handles the case where the seed was set before the
+    /// input bar mounted, e.g. tapping a coach insight on the home screen)
+    /// and on every change to pendingInputText.
+    private func consumePendingSeed() {
+        if let seed = viewModel.pendingInputText, !seed.isEmpty {
+            text = seed
+            viewModel.pendingInputText = nil
+            isFocused = true
         }
     }
 }

@@ -28,6 +28,7 @@
 		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */; };
+		844AF6CC2F7E1B4F004C5062 /* ErrorMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */; };
 		844DF0892F8831C80092F2DD /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */; };
 		844DF08D2F8847470092F2DD /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 844DF08C2F8847470092F2DD /* FirebaseCrashlytics */; };
 		844DF08F2F8848610092F2DD /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF08E2F8848610092F2DD /* AnalyticsService.swift */; };
@@ -51,6 +52,7 @@
 		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
 		84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */; };
 		84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */; };
+		TH0001011F1F0001 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH0001001F1F0001 /* Theme.swift */; };
 		84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */; };
 		84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */; };
 		84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */; };
@@ -77,6 +79,11 @@
 		RC0001071F1D0001 /* CourseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001061F1D0001 /* CourseDetailView.swift */; };
 		RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001081F1D0001 /* RaceCourseServiceTests.swift */; };
 		RC00010B1F1D0001 /* ThresholdCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC00010A1F1D0001 /* ThresholdCaptureTests.swift */; };
+		AV0001011F1F0001 /* ActivitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AV0001001F1F0001 /* ActivitiesView.swift */; };
+		CW0001011F1F0001 /* CompletedWorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */; };
+		PT0001011F1F0001 /* PersistentTopNavView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PT0001001F1F0001 /* PersistentTopNavView.swift */; };
+		DS0001011F1F0001 /* DayStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS0001001F1F0001 /* DayStripView.swift */; };
+		TC0001011F1F0001 /* TrainingCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TC0001001F1F0001 /* TrainingCalendarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -138,6 +145,7 @@
 		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
 		844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIScriptTests.swift; sourceTree = "<group>"; };
+		844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorMessageTests.swift; sourceTree = "<group>"; };
 		844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VerifiedRaceDatabase.swift; path = IronmanTrainer/VerifiedRaceDatabase.swift; sourceTree = "<group>"; };
 		844DF08E2F8848610092F2DD /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalyticsService.swift; path = IronmanTrainer/AnalyticsService.swift; sourceTree = "<group>"; };
 		84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutComplianceService.swift; sourceTree = "<group>"; };
@@ -160,6 +168,7 @@
 		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRowComponents.swift; sourceTree = "<group>"; };
+		TH0001001F1F0001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDayRows.swift; sourceTree = "<group>"; };
 		84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSteps.swift; sourceTree = "<group>"; };
@@ -182,6 +191,11 @@
 		RC0001061F1D0001 /* CourseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDetailView.swift; sourceTree = "<group>"; };
 		RC0001081F1D0001 /* RaceCourseServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseServiceTests.swift; sourceTree = "<group>"; };
 		RC00010A1F1D0001 /* ThresholdCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdCaptureTests.swift; sourceTree = "<group>"; };
+		AV0001001F1F0001 /* ActivitiesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitiesView.swift; sourceTree = "<group>"; };
+		CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedWorkoutDetailView.swift; sourceTree = "<group>"; };
+		PT0001001F1F0001 /* PersistentTopNavView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentTopNavView.swift; sourceTree = "<group>"; };
+		DS0001001F1F0001 /* DayStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStripView.swift; sourceTree = "<group>"; };
+		TC0001001F1F0001 /* TrainingCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingCalendarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -272,9 +286,15 @@
 				84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */,
 				84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */,
 				84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */,
+				TH0001001F1F0001 /* Theme.swift */,
 				84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */,
 				84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */,
 				84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */,
+				AV0001001F1F0001 /* ActivitiesView.swift */,
+				CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */,
+				PT0001001F1F0001 /* PersistentTopNavView.swift */,
+				DS0001001F1F0001 /* DayStripView.swift */,
+				TC0001001F1F0001 /* TrainingCalendarView.swift */,
 				84D0F0D72F7C3672007D9BC7 /* ChatView.swift */,
 				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
 				84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */,
@@ -312,6 +332,7 @@
 				FB000007000000001 /* OnboardingTests.swift */,
 				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 				844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */,
+				844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */,
 				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
 				CI0001041F1C0001 /* CheckInManagerTests.swift */,
 				CI0001061F1C0001 /* SleepFetchTests.swift */,
@@ -547,6 +568,7 @@
 				84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */,
 				84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */,
 				84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */,
+				TH0001011F1F0001 /* Theme.swift in Sources */,
 				84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */,
 				84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */,
 				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
@@ -557,6 +579,11 @@
 				84D0F0CF0A0B0002007D9BC7 /* PlanGenerationService.swift in Sources */,
 				84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */,
 				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,
+				AV0001011F1F0001 /* ActivitiesView.swift in Sources */,
+				CW0001011F1F0001 /* CompletedWorkoutDetailView.swift in Sources */,
+				PT0001011F1F0001 /* PersistentTopNavView.swift in Sources */,
+				DS0001011F1F0001 /* DayStripView.swift in Sources */,
+				TC0001011F1F0001 /* TrainingCalendarView.swift in Sources */,
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
 				C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */,
@@ -589,6 +616,7 @@
 			files = (
 				84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */,
 				844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */,
+				844AF6CC2F7E1B4F004C5062 /* ErrorMessageTests.swift in Sources */,
 				1A0001501F1A0001 /* TrainingPlanManagerTests.swift in Sources */,
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
