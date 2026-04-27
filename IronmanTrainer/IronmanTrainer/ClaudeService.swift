@@ -149,7 +149,7 @@ enum ClaudeServiceError: LocalizedError {
         case .rateLimitExceeded:
             return "Rate limit exceeded"
         case .serverError:
-            return "The search service is temporarily unavailable. Try again in a moment, or enter your race details manually."
+            return "The coaching service is temporarily unavailable. Please try again in a moment."
         }
     }
 }
