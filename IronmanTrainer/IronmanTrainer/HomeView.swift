@@ -14,10 +14,10 @@ func mondayOfWeek(_ date: Date) -> Date {
 // MARK: - Sport color helpers
 
 private let swimColor     = Color(hex: "007AFF")
-private let bikeColor     = Color(hex: "00A89E")
+private let bikeColor     = Color(hex: "14B8A6")  // teal — sync with AppTheme.bike
 private let runColor      = Color(hex: "FF9500")
 private let strengthColor = Color(hex: "AF52DE")
-private let brickColor    = Color(hex: "FF3B30")
+private let brickColor    = Color(hex: "DB2777")  // rose — distinct from race-ready red
 private let restColor     = Color(hex: "8E8E93")
 
 private func sportColor(for type: String) -> Color {

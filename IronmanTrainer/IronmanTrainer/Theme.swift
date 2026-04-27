@@ -8,7 +8,7 @@ enum AppTheme {
     static let swim     = Color(hex: "0077B6")   // blue
     static let bike     = Color(hex: "14B8A6")   // teal
     static let run      = Color(hex: "E67E22")   // orange
-    static let brick    = Color(hex: "C0392B")   // red
+    static let brick    = Color(hex: "DB2777")   // rose (distinct from race-ready red)
     static let strength = Color(hex: "8E44AD")   // purple
     static let rest     = Color(hex: "BDC3C7")   // light grey
 

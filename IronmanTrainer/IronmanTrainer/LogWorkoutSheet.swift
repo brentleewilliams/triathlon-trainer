@@ -10,9 +10,9 @@ private struct WorkoutTypeOption: Identifiable {
 
     static let all: [WorkoutTypeOption] = [
         WorkoutTypeOption(id: .swimming,                    label: "Swim",     color: Color(hex: "007AFF")),
-        WorkoutTypeOption(id: .cycling,                     label: "Bike",     color: Color(hex: "00A89E")),
+        WorkoutTypeOption(id: .cycling,                     label: "Bike",     color: Color(hex: "14B8A6")),
         WorkoutTypeOption(id: .running,                     label: "Run",      color: Color(hex: "FF9500")),
-        WorkoutTypeOption(id: .cycling,                     label: "Brick",    color: Color(hex: "00A89E")),
+        WorkoutTypeOption(id: .cycling,                     label: "Brick",    color: Color(hex: "DB2777")),
         WorkoutTypeOption(id: .traditionalStrengthTraining, label: "Strength", color: Color(hex: "AF52DE")),
         WorkoutTypeOption(id: .other,                       label: "Other",    color: Color(hex: "AF52DE")),
     ]
