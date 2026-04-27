@@ -186,9 +186,18 @@ struct DayStripView: View {
         HStack(spacing: 3) {
             ForEach(real.prefix(3)) { workout in
                 if workout.type.lowercased().contains("brick") {
+                    // Two-tone square communicates "bike + run combined" —
+                    // visually distinct from two separate circles (a double).
                     RoundedRectangle(cornerRadius: 1.5)
-                        .fill(AppTheme.sportColor(for: workout.type))
-                        .frame(width: 6, height: 6)
+                        .fill(AppTheme.bike)
+                        .frame(width: 10, height: 6)
+                        .overlay(
+                            HStack(spacing: 0) {
+                                Color.clear
+                                AppTheme.run
+                            }
+                            .clipShape(RoundedRectangle(cornerRadius: 1.5))
+                        )
                 } else {
                     Circle()
                         .fill(AppTheme.sportColor(for: workout.type))

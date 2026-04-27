@@ -66,7 +66,7 @@ struct SportReadiness {
     var statusColor: Color {
         switch status {
         case .green: return Color(hex: "34C759")
-        case .amber: return Color(hex: "FF9500")
+        case .amber: return Color(hex: "FFCC00")
         case .red:   return Color(hex: "FF3B30")
         }
     }
@@ -1420,7 +1420,7 @@ struct RaceReadinessCardView: View {
     let onSwap: () -> Void
 
     private var overallColor: Color {
-        overall >= 75 ? Color(hex: "34C759") : overall >= 50 ? Color(hex: "FF9500") : Color(hex: "FF3B30")
+        overall >= 75 ? Color(hex: "34C759") : overall >= 50 ? Color(hex: "FFCC00") : Color(hex: "FF3B30")
     }
 
     var body: some View {

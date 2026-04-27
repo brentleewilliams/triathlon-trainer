@@ -6,7 +6,7 @@ enum AppTheme {
 
     // MARK: - Sport Colors
     static let swim     = Color(hex: "0077B6")   // blue
-    static let bike     = Color(hex: "2D9F2D")   // green
+    static let bike     = Color(hex: "14B8A6")   // teal
     static let run      = Color(hex: "E67E22")   // orange
     static let brick    = Color(hex: "C0392B")   // red
     static let strength = Color(hex: "8E44AD")   // purple
@@ -20,7 +20,7 @@ enum AppTheme {
 
     // MARK: - Status Colors
     static let statusGreen = Color(hex: "34C759")
-    static let statusAmber = Color(hex: "FF9500")
+    static let statusAmber = Color(hex: "FFCC00")
     static let statusRed   = Color(hex: "FF3B30")
 
     // MARK: - Card Style Constants
