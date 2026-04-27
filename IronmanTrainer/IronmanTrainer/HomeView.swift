@@ -1859,6 +1859,20 @@ struct HomeView: View {
         return cal.date(byAdding: .day, value: selectedDayIndex, to: currentWeekStartDate) ?? currentWeekStartDate
     }
 
+    /// Builds the prefilled chat seed used when the user taps "Swap" on the
+    /// home selected-day card. Format:
+    ///   "(from app insight) Swap <Day Mon D>'s <Type> (<duration>) for "
+    /// Trailing space invites the user to complete with what they want.
+    func swapSeed(for workout: DayWorkout?, on date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "EEE MMM d"
+        let dateStr = f.string(from: date)
+        if let w = workout {
+            return "(from app insight) Swap \(dateStr)'s \(w.type) (\(w.duration)) for "
+        }
+        return "(from app insight) Swap \(dateStr)'s workout for "
+    }
+
     /// Header label that reads "Today", "Tomorrow", or the weekday name.
     var selectedDayHeaderLabel: String {
         let cal = Calendar.current
@@ -2231,7 +2245,17 @@ struct HomeView: View {
                                     ? workoutsByDay[selectedDayIndex].day : "Today",
                                 hkWorkouts: selectedDayHKWorkouts,
                                 isCompleted: selectedDayAfterWorkout,
-                                onSwap: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
+                                onSwap: {
+                                    // Seed the chat with a partial swap prompt — user fills
+                                    // in what they want to swap for. Tag with the app-insight
+                                    // marker so the coach knows it came from a UI tap.
+                                    let seed = swapSeed(for: selectedDayWorkout, on: selectedDayDate)
+                                    NotificationCenter.default.post(
+                                        name: .navigateToChat,
+                                        object: nil,
+                                        userInfo: ["seed": seed]
+                                    )
+                                },
                                 onLogWorkout: { showLogWorkout = true }
                             )
 
