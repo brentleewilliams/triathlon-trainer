@@ -80,45 +80,40 @@ struct SportReadiness {
     }
 }
 
+/// Derive per-sport readiness from the volume-based status (actual vs planned
+/// minutes over a rolling 6-week window, taper weeks excluded). Falls back to
+/// the onboarding weekly-volume baseline for weeks with no plan data.
 func deriveRaceReadiness(from status: TrainingStatus?, today sport: String) -> [SportReadiness] {
     let disciplines: [(String, TrainingDiscipline)] = [
         ("Swim", .swim), ("Bike", .bike), ("Run", .run)
     ]
     return disciplines.map { (name, disc) in
-        let gap = status?.disciplineGaps.first { $0.discipline == disc }
-        let fitness = status?.fitnessPerDiscipline.first { $0.discipline == disc }
-        let combinedCTL = status?.combinedFitness?.ctl ?? 1.0
+        let v = status?.disciplineVolumeStatuses.first { $0.discipline == disc }
+        let score = max(0, min(100, v?.percent ?? 0))
 
-        // Build a rough score from gap severity + fitness contribution
-        var baseScore = 75
-        if let g = gap {
-            switch g.severity {
-            case .critical:  baseScore = 30
-            case .warning:   baseScore = 52
-            case .caution:   baseScore = 62
-            case .none:      baseScore = 80
-            }
-        }
-        // Adjust by fitness vs combined baseline
-        if let f = fitness, combinedCTL > 0 {
-            let ratio = f.ctl / combinedCTL
-            let adj = Int((ratio - 0.33) * 30)
-            baseScore = max(10, min(95, baseScore + adj))
+        let sportStatus: SportReadiness.Status
+        switch v?.severity {
+        case .onTrack:        sportStatus = .green
+        case .slipping:       sportStatus = .amber
+        case .behind, .none:  sportStatus = .red
         }
 
-        let sportStatus: SportReadiness.Status = baseScore >= 75 ? .green : baseScore >= 50 ? .amber : .red
-        let gapText: String = {
-            if let g = gap {
-                if g.isMissing { return "No sessions in \(g.daysSinceLastSession) days" }
-                if g.isUndertrained { return "Undertrained vs. other disciplines" }
-                if g.daysSinceLastSession > 7 { return "No session in \(g.daysSinceLastSession) days" }
+        let gapText: String
+        if let v = v {
+            if v.plannedMinutes == 0 {
+                gapText = "No sessions planned"
+            } else {
+                let suffix = v.usedBaselineFallback ? " · 6w (vs baseline)" : " · 6w"
+                gapText = "\(v.actualMinutes) / \(v.plannedMinutes) min\(suffix)"
             }
-            return "On plan"
-        }()
+        } else {
+            gapText = "Loading…"
+        }
+
         let action: String? = sportStatus != .green && name.lowercased() != sport.lowercased()
-            ? "Swap today for a \(name.lowercased()) session" : nil
+            ? "Add a \(name.lowercased()) session this week" : nil
 
-        return SportReadiness(sport: name, score: baseScore, status: sportStatus,
+        return SportReadiness(sport: name, score: score, status: sportStatus,
                               gapText: gapText, actionText: action)
     }
 }

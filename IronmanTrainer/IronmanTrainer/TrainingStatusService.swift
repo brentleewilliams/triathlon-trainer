@@ -35,6 +35,37 @@ struct DisciplineGap: Codable, Equatable {
     }
 }
 
+// MARK: - Volume status (the new race-readiness metric)
+//
+// For each discipline, compares actual minutes done over the rolling
+// 6-week window against expected minutes (plan when present, onboarding
+// baseline otherwise). Weeks marked as taper in the plan are excluded
+// from both numerator and denominator.
+
+struct DisciplineVolumeStatus: Codable, Equatable {
+    let discipline: TrainingDiscipline
+    let actualMinutes: Int
+    let plannedMinutes: Int
+    let weeksConsidered: Int           // how many of the 6 weeks counted (taper + missing data excluded)
+    let usedBaselineFallback: Bool     // true when ≥1 week used WeeklyVolumeStore baseline instead of plan
+
+    /// Percent of planned volume completed. 100 = exactly on plan.
+    /// When `plannedMinutes == 0` we can't compute a ratio, so report 100
+    /// (you can't fall behind a plan that didn't ask for anything).
+    var percent: Int {
+        guard plannedMinutes > 0 else { return 100 }
+        return Int((Double(actualMinutes) / Double(plannedMinutes)) * 100.0)
+    }
+
+    enum Severity: String, Codable { case onTrack, slipping, behind }
+    var severity: Severity {
+        let p = percent
+        if p >= 90 { return .onTrack }
+        if p >= 70 { return .slipping }
+        return .behind
+    }
+}
+
 struct HRVTrend: Codable, Equatable {
     let todaySDNN: Double?
     let sevenDayAvg: Double?
@@ -103,11 +134,54 @@ struct TrainingStatus: Codable, Equatable {
     let computedAt: Date
     let fitnessPerDiscipline: [FitnessMetrics]
     let disciplineGaps: [DisciplineGap]
+    // Optional in storage: caches written before this field existed will decode
+    // without it; compute() always populates a non-nil value.
+    let disciplineVolumeStatuses: [DisciplineVolumeStatus]
     let hrvTrend: HRVTrend
     let recentDecoupling: [DecouplingResult]
     let intensityPattern: IntensityPattern
     let loadSpike: LoadSpike
     let readiness: CompositeReadiness
+
+    enum CodingKeys: String, CodingKey {
+        case computedAt, fitnessPerDiscipline, disciplineGaps, disciplineVolumeStatuses
+        case hrvTrend, recentDecoupling, intensityPattern, loadSpike, readiness
+    }
+
+    init(
+        computedAt: Date,
+        fitnessPerDiscipline: [FitnessMetrics],
+        disciplineGaps: [DisciplineGap],
+        disciplineVolumeStatuses: [DisciplineVolumeStatus],
+        hrvTrend: HRVTrend,
+        recentDecoupling: [DecouplingResult],
+        intensityPattern: IntensityPattern,
+        loadSpike: LoadSpike,
+        readiness: CompositeReadiness
+    ) {
+        self.computedAt = computedAt
+        self.fitnessPerDiscipline = fitnessPerDiscipline
+        self.disciplineGaps = disciplineGaps
+        self.disciplineVolumeStatuses = disciplineVolumeStatuses
+        self.hrvTrend = hrvTrend
+        self.recentDecoupling = recentDecoupling
+        self.intensityPattern = intensityPattern
+        self.loadSpike = loadSpike
+        self.readiness = readiness
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        computedAt              = try c.decode(Date.self,                          forKey: .computedAt)
+        fitnessPerDiscipline    = try c.decode([FitnessMetrics].self,              forKey: .fitnessPerDiscipline)
+        disciplineGaps          = try c.decode([DisciplineGap].self,               forKey: .disciplineGaps)
+        disciplineVolumeStatuses = (try? c.decode([DisciplineVolumeStatus].self,   forKey: .disciplineVolumeStatuses)) ?? []
+        hrvTrend                = try c.decode(HRVTrend.self,                      forKey: .hrvTrend)
+        recentDecoupling        = try c.decode([DecouplingResult].self,            forKey: .recentDecoupling)
+        intensityPattern        = try c.decode(IntensityPattern.self,              forKey: .intensityPattern)
+        loadSpike               = try c.decode(LoadSpike.self,                     forKey: .loadSpike)
+        readiness               = try c.decode(CompositeReadiness.self,            forKey: .readiness)
+    }
 
     var combinedFitness: FitnessMetrics? { fitnessPerDiscipline.first { $0.discipline == .combined } }
     var combinedTSB: Double? { combinedFitness?.tsb }
@@ -378,10 +452,24 @@ final class TrainingStatusService: ObservableObject {
         let tsb = combinedMetrics?.tsb ?? 0
         let readiness = Self.computeReadiness(tsb: tsb, hrvTrend: hrvTrend, loadSpike: loadSpike)
 
+        // Volume status — compares actual minutes vs planned (or onboarding
+        // baseline) over the last 6 weeks, skipping taper weeks.
+        let planWeeks = AuthService.shared.savedPlan ?? []
+        let baselines = WeeklyVolumeStore.loadMinutes()
+        let volumeStatuses = Self.computeVolumeStatuses(
+            workouts: recentWorkouts,
+            planWeeks: planWeeks,
+            baselineMinutes: (swim: baselines.swim, bike: baselines.bike, run: baselines.run),
+            now: now,
+            calendar: calendar,
+            disciplineFor: discipline
+        )
+
         let newStatus = TrainingStatus(
             computedAt: now,
             fitnessPerDiscipline: fitnessMetrics,
             disciplineGaps: disciplineGaps,
+            disciplineVolumeStatuses: volumeStatuses,
             hrvTrend: hrvTrend,
             recentDecoupling: decouplingResults,
             intensityPattern: intensityPattern,
@@ -398,6 +486,122 @@ final class TrainingStatusService: ObservableObject {
     }
 
     // MARK: - Static helpers (internal for tests)
+
+    /// Compute per-discipline volume status over the last 6 weeks (42 days).
+    ///
+    /// Algorithm:
+    /// - Anchor the window on the Monday of the week that's 5 weeks ago
+    ///   (so the window is exactly 6 ISO weeks ending with the current one).
+    /// - For each of the 6 weeks: if the matching plan week's phase is "Taper",
+    ///   skip the week entirely (both planned and actual are excluded).
+    /// - Otherwise: planned minutes per discipline = sum of `parseWorkoutDuration`
+    ///   over plan workouts whose `day` matches that week. If no plan exists
+    ///   for that week (pre-plan), fall back to the user's onboarding baseline
+    ///   (`baselineMinutes`).
+    /// - Actual minutes = sum of HK workout durations of that discipline within
+    ///   the week's Mon..Sun range.
+    static func computeVolumeStatuses(
+        workouts: [HKWorkout],
+        planWeeks: [TrainingWeek],
+        baselineMinutes: (swim: Int, bike: Int, run: Int),
+        now: Date,
+        calendar: Calendar = Calendar.current,
+        disciplineFor: (HKWorkout) -> TrainingDiscipline?
+    ) -> [DisciplineVolumeStatus] {
+        var cal = calendar
+        cal.firstWeekday = 2  // Monday
+
+        // Find the Monday of the current ISO week.
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        guard let thisMonday = cal.date(from: comps) else { return [] }
+
+        // Build six week windows ending with the current week.
+        var weekRanges: [(monday: Date, sunday: Date, planWeek: TrainingWeek?)] = []
+        for offset in (-5...0) {
+            guard let monday = cal.date(byAdding: .weekOfYear, value: offset, to: thisMonday),
+                  let sunday = cal.date(byAdding: .day, value: 7, to: monday) else { continue }
+            // Plan week match: any plan week whose Monday equals this Monday.
+            let planWeek = planWeeks.first { pw in
+                cal.isDate(mondayOfISOWeek(for: pw.startDate, calendar: cal),
+                           inSameDayAs: monday)
+            }
+            weekRanges.append((monday, sunday, planWeek))
+        }
+
+        let disciplines: [(TrainingDiscipline, Int)] = [
+            (.swim, baselineMinutes.swim),
+            (.bike, baselineMinutes.bike),
+            (.run,  baselineMinutes.run)
+        ]
+
+        var results: [DisciplineVolumeStatus] = []
+        for (disc, baseline) in disciplines {
+            var totalPlanned = 0
+            var totalActual  = 0
+            var weeksCounted = 0
+            var usedFallback = false
+
+            for range in weekRanges {
+                // Skip taper weeks: don't count for or against.
+                if let pw = range.planWeek, pw.phase.lowercased().contains("taper") {
+                    continue
+                }
+
+                // Planned minutes for this week.
+                let plannedThisWeek: Int
+                if let pw = range.planWeek {
+                    plannedThisWeek = plannedMinutes(for: disc, in: pw)
+                } else {
+                    plannedThisWeek = baseline
+                    usedFallback = true
+                }
+
+                // Actual minutes from HK in this Mon..Sun range.
+                let actualThisWeek = workouts
+                    .filter { $0.startDate >= range.monday && $0.startDate < range.sunday }
+                    .filter { disciplineFor($0) == disc }
+                    .reduce(0) { $0 + Int($1.duration / 60.0) }
+
+                totalPlanned += plannedThisWeek
+                totalActual  += actualThisWeek
+                weeksCounted += 1
+            }
+
+            results.append(DisciplineVolumeStatus(
+                discipline: disc,
+                actualMinutes: totalActual,
+                plannedMinutes: totalPlanned,
+                weeksConsidered: weeksCounted,
+                usedBaselineFallback: usedFallback
+            ))
+        }
+
+        return results
+    }
+
+    /// Sum planned minutes of a given discipline in a TrainingWeek by parsing
+    /// each workout's `duration` field (e.g. "1:30", "45 min", "2:00").
+    static func plannedMinutes(for discipline: TrainingDiscipline, in week: TrainingWeek) -> Int {
+        week.workouts.reduce(0) { acc, workout in
+            // Map planned workout `type` string to discipline.
+            let t = workout.type.lowercased()
+            let matches: Bool
+            switch discipline {
+            case .swim:     matches = t.contains("swim")
+            case .bike:     matches = t.contains("bike") || t.contains("cycl") || t.contains("brick")
+            case .run:      matches = t.contains("run")  || t.contains("brick")
+            case .combined: matches = true
+            }
+            guard matches else { return acc }
+            return acc + (parseWorkoutDuration(workout.duration) ?? 0)
+        }
+    }
+
+    /// Monday of the ISO week containing `date`.
+    static func mondayOfISOWeek(for date: Date, calendar: Calendar) -> Date {
+        let comps = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+        return calendar.date(from: comps) ?? date
+    }
 
     static func computeHRSS(durationHours: Double, avgHR: Double, maxHR: Double) -> Double {
         guard durationHours > 0, maxHR > 0 else { return 0 }

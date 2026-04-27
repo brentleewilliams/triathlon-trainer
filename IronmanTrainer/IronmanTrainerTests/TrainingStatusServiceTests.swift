@@ -233,6 +233,7 @@ final class TrainingStatusServiceTests: XCTestCase {
             computedAt: Date(),
             fitnessPerDiscipline: [combined, swimM, bikeM, runM],
             disciplineGaps: [swimGap],
+            disciplineVolumeStatuses: [],
             hrvTrend: hrv,
             recentDecoupling: [],
             intensityPattern: .pyramidal,
@@ -254,5 +255,72 @@ final class TrainingStatusServiceTests: XCTestCase {
         XCTAssertTrue(full.contains("CTL"), "Full context string should contain 'CTL'")
         XCTAssertTrue(full.contains("ATL"), "Full context string should contain 'ATL'")
         XCTAssertTrue(full.contains("Form"), "Full context string should contain 'Form'")
+    }
+
+    // MARK: - Volume status
+
+    /// When no plan exists, fall back to baseline minutes for all 6 weeks
+    /// and produce 100% if the user actually trained the baseline amount.
+    func testVolume_noPlan_usesBaseline() {
+        let now = Date()
+        let cal = Calendar.current
+
+        // No HK workouts at all → 0 actual.
+        let result = TrainingStatusService.computeVolumeStatuses(
+            workouts: [],
+            planWeeks: [],
+            baselineMinutes: (swim: 60, bike: 120, run: 90),
+            now: now,
+            calendar: cal,
+            disciplineFor: { _ in nil }
+        )
+        let swim = result.first { $0.discipline == .swim }!
+        XCTAssertEqual(swim.plannedMinutes, 60 * 6, "6 weeks × 60 min baseline")
+        XCTAssertEqual(swim.actualMinutes,  0)
+        XCTAssertTrue(swim.usedBaselineFallback)
+        XCTAssertEqual(swim.severity, .behind)
+    }
+
+    /// Taper weeks must drop out of both numerator and denominator.
+    func testVolume_taperWeekExcluded() {
+        let now = Date()
+        var cal = Calendar.current
+        cal.firstWeekday = 2
+
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        let thisMonday = cal.date(from: comps)!
+
+        // Build 6 plan weeks; mark the week 2 weeks ago as Taper.
+        var planWeeks: [TrainingWeek] = []
+        for offset in (-5...0) {
+            let monday = cal.date(byAdding: .weekOfYear, value: offset, to: thisMonday)!
+            let sunday = cal.date(byAdding: .day, value: 6, to: monday)!
+            let phase = (offset == -2) ? "Taper" : "Build"
+            // 60 min planned swim per non-taper week
+            let workouts = [
+                DayWorkout(day: "Tue", type: "Swim", duration: "60 min", zone: "Z2",
+                           status: nil, nutritionTarget: nil)
+            ]
+            planWeeks.append(TrainingWeek(
+                weekNumber: offset + 6,
+                phase: phase,
+                startDate: monday,
+                endDate: sunday,
+                workouts: workouts
+            ))
+        }
+
+        let result = TrainingStatusService.computeVolumeStatuses(
+            workouts: [],
+            planWeeks: planWeeks,
+            baselineMinutes: (swim: 0, bike: 0, run: 0),
+            now: now,
+            calendar: cal,
+            disciplineFor: { _ in nil }
+        )
+        let swim = result.first { $0.discipline == .swim }!
+        XCTAssertEqual(swim.weeksConsidered, 5, "Taper week should drop out of the count")
+        XCTAssertEqual(swim.plannedMinutes, 60 * 5, "Taper week's 60 min should be excluded")
+        XCTAssertFalse(swim.usedBaselineFallback)
     }
 }

@@ -15,7 +15,7 @@ struct OnboardingChatHelper {
         userName: String,
         race: Race?,
         goal: GoalType?,
-        skillLevels: (swim: SkillLevel, bike: SkillLevel, run: SkillLevel)? = nil
+        weeklyVolumes: (swim: WeeklyVolume, bike: WeeklyVolume, run: WeeklyVolume)? = nil
     ) -> String {
         var sections: [String] = []
 
@@ -73,14 +73,14 @@ struct OnboardingChatHelper {
             }
         }
 
-        // Per-sport skill levels
-        if let skills = skillLevels {
+        // Per-sport current weekly training volume
+        if let volumes = weeklyVolumes {
             sections.append("""
-            SELF-ASSESSED SKILL LEVELS:
-            - Swim: \(skills.swim.rawValue) (\(skills.swim.description))
-            - Bike: \(skills.bike.rawValue) (\(skills.bike.description))
-            - Run: \(skills.run.rawValue) (\(skills.run.description))
-            Use these to calibrate workout difficulty: beginners need more technique work and lower volume, advanced athletes can handle higher intensity and specificity.
+            CURRENT WEEKLY TRAINING VOLUME (self-reported):
+            - Swim: \(volumes.swim.label) per week (~\(volumes.swim.baselineMinutes) min)
+            - Bike: \(volumes.bike.label) per week (~\(volumes.bike.baselineMinutes) min)
+            - Run:  \(volumes.run.label) per week (~\(volumes.run.baselineMinutes) min)
+            Use these to calibrate ramp rate and starting volume: athletes at 1–30 min/wk in a discipline are essentially newcomers (technique focus, low volume); 60 min/wk is a recreational base; 120+ min/wk indicates a trained athlete who can absorb higher intensity and specificity.
             """)
         }
 
@@ -188,7 +188,7 @@ struct OnboardingChatHelper {
         chatHistory: [ChatMessage],
         race: Race,
         profile: UserProfile,
-        skillLevels: (swim: SkillLevel, bike: SkillLevel, run: SkillLevel)? = nil
+        weeklyVolumes: (swim: WeeklyVolume, bike: WeeklyVolume, run: WeeklyVolume)? = nil
     ) -> String {
         // Summarize chat history
         let chatSummary = chatHistory.map { msg in
@@ -219,7 +219,7 @@ struct OnboardingChatHelper {
         \(profile.weightKg.map { "- Weight: \(String(format: "%.1f", $0)) kg" } ?? "")
         \(profile.restingHR.map { "- Resting HR: \($0) bpm" } ?? "")
         \(profile.vo2Max.map { "- VO2 Max: \(String(format: "%.1f", $0))" } ?? "")
-        \(skillLevels.map { "- Swim Skill: \($0.swim.rawValue)\n- Bike Skill: \($0.bike.rawValue)\n- Run Skill: \($0.run.rawValue)" } ?? "")
+        \(weeklyVolumes.map { "- Swim weekly volume: \($0.swim.label)\n- Bike weekly volume: \($0.bike.label)\n- Run weekly volume: \($0.run.label)" } ?? "")
 
         GOAL: \({
             switch race.userGoal {

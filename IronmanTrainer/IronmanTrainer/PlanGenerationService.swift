@@ -5,9 +5,9 @@ import Foundation
 struct PlanGenerationInput: Codable {
     var race: Race
     var profile: UserProfile
-    var swimLevel: SkillLevel?
-    var bikeLevel: SkillLevel?
-    var runLevel: SkillLevel?
+    var swimVolume: WeeklyVolume?
+    var bikeVolume: WeeklyVolume?
+    var runVolume: WeeklyVolume?
     var fitnessHours: String
     var fitnessSchedule: String
     var fitnessInjuries: String
@@ -156,11 +156,11 @@ class PlanGenerationService {
 
         let distancesStr = input.race.distances.map { "\($0.key): \($0.value) mi" }.joined(separator: ", ")
 
-        let skillsStr: String = {
+        let volumeStr: String = {
             var parts: [String] = []
-            if let s = input.swimLevel { parts.append("Swim: \(s.rawValue)") }
-            if let b = input.bikeLevel { parts.append("Bike: \(b.rawValue)") }
-            if let r = input.runLevel { parts.append("Run: \(r.rawValue)") }
+            if let s = input.swimVolume { parts.append("Swim \(s.label)/wk") }
+            if let b = input.bikeVolume { parts.append("Bike \(b.label)/wk") }
+            if let r = input.runVolume  { parts.append("Run \(r.label)/wk") }
             return parts.isEmpty ? "Not specified" : parts.joined(separator: ", ")
         }()
 
@@ -183,7 +183,7 @@ class PlanGenerationService {
         \(input.profile.weightKg.map { "Weight: \(String(format: "%.1f", $0)) kg" } ?? "")
         \(input.profile.restingHR.map { "Resting HR: \($0) bpm" } ?? "")
         \(input.profile.vo2Max.map { "VO2 Max: \(String(format: "%.1f", $0))" } ?? "")
-        SKILL LEVELS: \(skillsStr)
+        WEEKLY VOLUME: \(volumeStr)
 
         GOAL: \(goalString)
         WEEKS AVAILABLE: \(weeksUntilRace)
@@ -236,9 +236,9 @@ class PlanGenerationService {
         4. For rest days, notes and nutritionTarget should be null
 
         ATHLETE CONTEXT:
-        - Swim skill: \(input.swimLevel?.rawValue ?? "Not specified")
-        - Bike skill: \(input.bikeLevel?.rawValue ?? "Not specified")
-        - Run skill: \(input.runLevel?.rawValue ?? "Not specified")
+        - Swim weekly volume: \(input.swimVolume?.label ?? "Not specified")
+        - Bike weekly volume: \(input.bikeVolume?.label ?? "Not specified")
+        - Run weekly volume: \(input.runVolume?.label ?? "Not specified")
         - Equipment: \(input.fitnessEquipment.isEmpty ? "Standard" : input.fitnessEquipment)
 
         Return ONLY the updated JSON array with the added fields. Keep all existing fields unchanged.
