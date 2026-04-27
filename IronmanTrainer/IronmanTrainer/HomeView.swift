@@ -369,7 +369,7 @@ struct HomeHeroView: View {
                             .fill(phaseColor(for: phase))
                             .frame(width: 7, height: 7)
                             .shadow(color: phaseColor(for: phase).opacity(0.6), radius: 3)
-                        Text("Wk \(weekNum) · \(phase)")
+                        Text("Wk \(weekNum)")
                             .font(.system(size: 11, weight: .semibold))
                             .foregroundColor(.white)
                     }
@@ -399,7 +399,7 @@ struct HomeHeroView: View {
                                 .foregroundColor(.white)
                                 .kerning(0.8)
                                 .lineLimit(1)
-                            Text("Jul 19, 2026 · \(phase.prefix(4))")
+                            Text("Jul 19, 2026")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.white.opacity(0.85))
                                 .lineLimit(1)
@@ -449,7 +449,7 @@ struct HomeHeroView: View {
                     .padding(.top, 12)
                 }
 
-                Spacer(minLength: 28)
+                Spacer(minLength: 20)
             }
             .padding(.horizontal, 22)
         }
@@ -1414,7 +1414,10 @@ struct HomeView: View {
 
     // MARK: Race name / venue
     var raceName: String {
-        RaceCourseService.shared.currentProfile?.raceName ?? "Race1 — Pacific NW 70.3"
+        let raw = RaceCourseService.shared.currentProfile?.raceName ?? "Pacific NW 70.3"
+        // Strip "Race1 — " prefix if present
+        return raw.replacingOccurrences(of: "Race1 — ", with: "")
+                  .replacingOccurrences(of: "Race1 - ", with: "")
     }
     var raceVenue: String {
         RaceCourseService.shared.currentProfile?.venue ?? "Cascade Lake — Bend, OR"
@@ -1565,7 +1568,7 @@ struct HomeView: View {
                             }
                         }
                         .padding(.horizontal, 16)
-                        .padding(.top, -18)
+                        .padding(.top, -28)
                         .padding(.bottom, 24)
                     }
                 }
