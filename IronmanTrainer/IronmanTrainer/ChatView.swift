@@ -36,18 +36,6 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Fixed filter header — outside the ScrollView so the
-                // `.defaultScrollAnchor(.bottom)` can't scroll it off-screen.
-                Picker("Filter", selection: $filter) {
-                    ForEach(ChatFilter.allCases) { f in
-                        Text(f.rawValue).tag(f)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.top, 8)
-                .padding(.bottom, 4)
-
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
