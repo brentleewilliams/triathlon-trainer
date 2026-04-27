@@ -146,7 +146,10 @@ final class OnboardingRaceSearchLLMTests: XCTestCase {
         mockService = MockRaceSearchService()
         viewModel = OnboardingViewModel()
         viewModel.raceSearchService = mockService
-        viewModel.raceSearchQuery = "Ironman 70.3 Oregon"
+        // Use a query that won't fuzzy-match any entry in VerifiedRaceDatabase
+        // so localRaceOverride returns nil and the search path actually reaches
+        // the (mocked) LLM where the failure cases under test are configured.
+        viewModel.raceSearchQuery = "Zzz Fictional Race Xyz 9999"
     }
 
     func testHappyPath_setsRaceSearchResult() async {

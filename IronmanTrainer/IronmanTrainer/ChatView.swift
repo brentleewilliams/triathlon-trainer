@@ -110,22 +110,26 @@ struct ChatView: View {
                 }
             }
             } // else
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            viewModel.clearChatHistory()
-                        } label: {
-                            Label("Clear History", systemImage: "trash")
-                        }
+        }
+        // Navigation modifiers go on NavigationStack, not on the if/else inside
+        // its VStack (ViewBuilder can't chain navigation modifiers to a
+        // _ConditionalContent value, which is what the `if/else` produces).
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        viewModel.clearChatHistory()
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("Clear History", systemImage: "trash")
                     }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
     }
+}
 }
 
 // MARK: - Check-ins off empty state
