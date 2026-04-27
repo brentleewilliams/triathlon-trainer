@@ -389,6 +389,8 @@ struct HomeHeroView: View {
                             .font(.system(size: 96, weight: .black))
                             .foregroundColor(.white)
                             .monospacedDigit()
+                            .lineLimit(1)
+                            .fixedSize()
                             .shadow(color: .black.opacity(0.25), radius: 12, y: 2)
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -1599,6 +1601,8 @@ struct HomeView: View {
                                 let now = Date()
                                 let start = now.addingTimeInterval(-Double(minutes * 60))
                                 try? await healthKit.saveWorkout(activityType: activityType, start: start, end: now)
+                                // Brief delay so HealthKit finishes indexing before we re-query
+                                try? await Task.sleep(nanoseconds: 750_000_000)
                                 await healthKit.syncWorkouts()
                             }
                         }

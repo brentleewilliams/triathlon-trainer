@@ -93,6 +93,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     // MARK: - Save Workout
 
     func saveWorkout(activityType: HKWorkoutActivityType, start: Date, end: Date) async throws {
+        // Ensure write authorization has been requested (read may be authorized but write may not)
+        try await healthStore.requestAuthorization(toShare: Self.typesToShare, read: [])
         let config = HKWorkoutConfiguration()
         config.activityType = activityType
         let builder = HKWorkoutBuilder(healthStore: healthStore, configuration: config, device: .local())
