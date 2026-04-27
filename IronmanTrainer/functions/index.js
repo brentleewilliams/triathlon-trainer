@@ -9,6 +9,14 @@ const Anthropic = require("@anthropic-ai/sdk");
 admin.initializeApp();
 const db = admin.firestore();
 
+// Fail fast if required env vars are missing — surfaces immediately in
+// Firebase logs rather than producing a cryptic [ERROR] in the chat UI.
+const REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LANGSMITH_API_KEY"];
+const missingVars = REQUIRED_ENV_VARS.filter((k) => !process.env[k]);
+if (missingVars.length > 0) {
+  console.error(`[startup] MISSING required env vars: ${missingVars.join(", ")}. Add them to functions/.env and redeploy.`);
+}
+
 // Configure SMTP — set via .env file in functions/
 const transporter = nodemailer.createTransport({
   service: "gmail",
