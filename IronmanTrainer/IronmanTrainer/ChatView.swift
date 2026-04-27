@@ -36,8 +36,6 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                // Fixed filter header — outside the ScrollView so the
-                // `.defaultScrollAnchor(.bottom)` can't scroll it off-screen.
                 Picker("Filter", selection: $filter) {
                     ForEach(ChatFilter.allCases) { f in
                         Text(f.rawValue).tag(f)
@@ -48,6 +46,9 @@ struct ChatView: View {
                 .padding(.top, 8)
                 .padding(.bottom, 4)
 
+                if filter == .checkIns && !CheckInManager.shared.enabled {
+                    CheckInsOffEmptyState()
+                } else {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
@@ -108,21 +109,61 @@ struct ChatView: View {
                     ChatInputBar(viewModel: viewModel)
                 }
             }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            viewModel.clearChatHistory()
-                        } label: {
-                            Label("Clear History", systemImage: "trash")
-                        }
+            } // else
+        }
+        // Navigation modifiers go on NavigationStack, not on the if/else inside
+        // its VStack (ViewBuilder can't chain navigation modifiers to a
+        // _ConditionalContent value, which is what the `if/else` produces).
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        viewModel.clearChatHistory()
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Label("Clear History", systemImage: "trash")
                     }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
                 }
             }
+        }
+    }
+}
+}
+
+// MARK: - Check-ins off empty state
+
+struct CheckInsOffEmptyState: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "bell.badge")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                Text("Morning Check-Ins are off")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text("Turn on daily check-ins to get a personalised morning briefing based on your sleep, HRV, and today's workout.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            NavigationLink {
+                SettingsView()
+            } label: {
+                Text("Turn on in Settings")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.accentColor)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            Spacer()
         }
     }
 }

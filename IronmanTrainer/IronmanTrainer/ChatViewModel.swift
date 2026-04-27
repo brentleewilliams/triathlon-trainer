@@ -84,7 +84,7 @@ class ChatViewModel: ObservableObject {
         return false
     }
 
-    private let coachingService = LLMProxyService.shared
+    var coachingService: CoachingServiceProtocol = LLMProxyService.shared
     var trainingPlan: TrainingPlanManager?
     var healthKit: HealthKitManager?
     var trainingStatus: TrainingStatusService?
@@ -360,10 +360,64 @@ class ChatViewModel: ObservableObject {
                 isLoading = false
             }
         } catch {
-            LangSmithTracer.shared.endCoachingTrace(traceContext, response: nil, error: error.localizedDescription)
-            await MainActor.run {
-                self.error = error.localizedDescription
-                isLoading = false
+            func isRetryable(_ e: Error) -> Bool {
+                if let svcError = e as? ClaudeServiceError {
+                    return svcError == .serverError || svcError == .networkError
+                }
+                return (e as NSError).domain == NSURLErrorDomain
+            }
+
+            guard isRetryable(error) else {
+                LangSmithTracer.shared.endCoachingTrace(traceContext, response: nil, error: error.localizedDescription)
+                await MainActor.run { self.error = error.localizedDescription; isLoading = false }
+                return
+            }
+
+            // Retry once after 1s — rebuilds context and repeats the API call without re-adding the user message.
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            do {
+                let context = await getContextForClaude()
+                let history = getWorkoutHistoryForClaude()
+                let isWide = isWidePlanRequest(text)
+                var updatedContext = context + "\n\n" + buildRescheduleContext()
+                if isWide {
+                    let summary = buildFullPlanSummary()
+                    if !summary.isEmpty { updatedContext += "\n\n" + summary }
+                }
+                let courseContext = await MainActor.run { buildCourseContext() }
+                if !courseContext.isEmpty {
+                    updatedContext += "\n\n" + courseContext
+                    updatedContext += "\n\n" + Self.thresholdToolInstructions
+                }
+                let priorMessages = messages.dropLast()
+                let conversationHistory: [[String: Any]] = priorMessages.map { msg in
+                    ["role": msg.isUser ? "user" : "assistant", "content": msg.text]
+                }
+                let baseMessage = hasText ? text : "What do you see in this image?"
+                let retryResponse = try await coachingService.sendCoachingMessage(
+                    userMessage: baseMessage,
+                    trainingContext: updatedContext,
+                    workoutHistory: history,
+                    zoneBoundaries: healthKit?.zoneBoundaries,
+                    conversationHistory: conversationHistory,
+                    imageData: imageData,
+                    planScope: isWide ? "wide" : "local",
+                    traceContext: traceContext
+                )
+                LangSmithTracer.shared.endCoachingTrace(traceContext, response: retryResponse.text, error: nil, toolCallMade: retryResponse.proposedChanges != nil)
+                await MainActor.run {
+                    applyThresholdCaptureIfPresent(in: retryResponse.text)
+                    let trimmed = retryResponse.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        messages.append(ChatMessage(isUser: false, text: retryResponse.text))
+                        saveChatHistory()
+                    }
+                    if let proposal = retryResponse.proposedChanges { negotiationState = .reviewing(proposal) }
+                    isLoading = false
+                }
+            } catch {
+                LangSmithTracer.shared.endCoachingTrace(traceContext, response: nil, error: error.localizedDescription)
+                await MainActor.run { self.error = error.localizedDescription; isLoading = false }
             }
         }
     }
