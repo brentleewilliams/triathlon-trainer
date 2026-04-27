@@ -207,6 +207,14 @@ struct AnalyticsView: View {
         trainingPlan.getWeek(selectedWeek)
     }
 
+    var raceReadiness: [SportReadiness] {
+        deriveRaceReadiness(from: trainingStatusService.status, today: "")
+    }
+    var raceReadinessOverall: Int {
+        guard !raceReadiness.isEmpty else { return 0 }
+        return raceReadiness.map(\.score).reduce(0, +) / raceReadiness.count
+    }
+
     func recalculateAnalytics() {
         analyticsVM.recalculate(
             week: currentWeek,
@@ -246,6 +254,7 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
+            ScrollView {
             VStack(spacing: 20) {
                 // Week Navigation Header (Shared)
                 WeekNavigationHeader(selectedWeek: $selectedWeek)
@@ -397,9 +406,19 @@ struct AnalyticsView: View {
                     TrainingLoadCard(status: ts)
                 }
 
-                Spacer()
+                // Race Readiness per discipline
+                RaceReadinessCardView(
+                    readiness: raceReadiness,
+                    overall: raceReadinessOverall,
+                    onSwap: {
+                        NotificationCenter.default.post(name: .navigateToChat, object: nil)
+                    }
+                )
+
+                Spacer(minLength: 32)
             }
             .padding()
+            } // ScrollView
             .navigationBarTitleDisplayMode(.inline)
             .gesture(
                 DragGesture(minimumDistance: 50, coordinateSpace: .local)

@@ -753,13 +753,16 @@ async function handleCoaching(req, res, userId) {
   ]);
   const { messages: promptMessages, model, temperature, maxTokens } = promptResult;
 
-  // Merge iOS and server scopes: if either says wide, treat as wide
+  // iOS clientPlanScope ("local"|"wide") controls context width (whether to include
+  // the full plan summary), but NOT whether to force tool use — iOS never sends "none"
+  // so using it for toolChoice would force plan proposals on every message.
+  // Tool forcing is decided solely by the server classifier.
   const effectiveScope = (clientPlanScope === "wide" || serverScope === "wide")
     ? "wide"
     : (clientPlanScope === "local" || serverScope === "local")
     ? "local"
     : "none";
-  const needsPlanChange = effectiveScope !== "none";
+  const needsPlanChange = serverScope !== "none";
   const toolChoice = needsPlanChange ? "required" : "auto";
 
   console.log(`[coaching] model=${model}, scope=${effectiveScope} (client=${clientPlanScope}, server=${serverScope}), toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);

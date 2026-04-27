@@ -80,7 +80,7 @@ struct SportReadiness {
     }
 }
 
-private func deriveRaceReadiness(from status: TrainingStatus?, today sport: String) -> [SportReadiness] {
+func deriveRaceReadiness(from status: TrainingStatus?, today sport: String) -> [SportReadiness] {
     let disciplines: [(String, TrainingDiscipline)] = [
         ("Swim", .swim), ("Bike", .bike), ("Run", .run)
     ]
@@ -627,6 +627,7 @@ struct WorkoutTabCardView: View {
     let todayWorkout: DayWorkout?
     let tomorrowWorkout: DayWorkout?
     let afterWorkout: Bool
+    let todayHKWorkouts: [HKWorkout]
     let onSwap: () -> Void
     let onViewPlan: () -> Void
     let onLogWorkout: () -> Void
@@ -833,7 +834,80 @@ struct WorkoutTabCardView: View {
                 }
             }
             .background(Color(hex: "FAFAFC"))
+
+            // Actual workouts recorded today (all HK workouts, matched or not)
+            if isToday && !todayHKWorkouts.isEmpty {
+                VStack(alignment: .leading, spacing: 0) {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("RECORDED TODAY")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(Color(.systemGray))
+                            .kerning(0.6)
+                            .padding(.bottom, 2)
+                        ForEach(todayHKWorkouts, id: \.uuid) { hkWorkout in
+                            HStack(spacing: 10) {
+                                Circle()
+                                    .fill(hkWorkoutColor(hkWorkout.workoutActivityType))
+                                    .frame(width: 8, height: 8)
+                                Text(hkWorkoutTypeName(hkWorkout.workoutActivityType))
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                Text(hkDurationString(hkWorkout.duration))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundColor(Color(.systemGray))
+                                    .monospacedDigit()
+                                if let dist = hkDistanceString(hkWorkout) {
+                                    Text("· \(dist)")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(Color(.systemGray2))
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+            }
         }
+    }
+
+    private func hkWorkoutTypeName(_ type: HKWorkoutActivityType) -> String {
+        switch type {
+        case .cycling: return "Cycling"
+        case .swimming: return "Swimming"
+        case .running: return "Running"
+        case .walking: return "Walking"
+        case .traditionalStrengthTraining, .functionalStrengthTraining: return "Strength"
+        case .hiking: return "Hiking"
+        default: return "Workout"
+        }
+    }
+
+    private func hkWorkoutColor(_ type: HKWorkoutActivityType) -> Color {
+        switch type {
+        case .cycling: return Color(hex: "007AFF")
+        case .swimming: return Color(hex: "32ADE6")
+        case .running: return Color(hex: "34C759")
+        default: return Color(.systemGray3)
+        }
+    }
+
+    private func hkDurationString(_ seconds: TimeInterval) -> String {
+        let mins = Int(seconds / 60)
+        if mins >= 60 { return "\(mins / 60)h \(mins % 60)m" }
+        return "\(mins) min"
+    }
+
+    private func hkDistanceString(_ workout: HKWorkout) -> String? {
+        guard let dist = workout.totalDistance else { return nil }
+        let meters = dist.doubleValue(for: .meter())
+        if workout.workoutActivityType == .swimming {
+            return String(format: "%.0f yd", meters * 1.09361)
+        }
+        let miles = meters / 1609.34
+        return String(format: "%.1f mi", miles)
     }
 
     @ViewBuilder
@@ -1358,6 +1432,12 @@ struct HomeView: View {
         return isWorkoutCompleted(w)
     }
 
+    var todayHKWorkouts: [HKWorkout] {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        return healthKit.workouts.filter { cal.startOfDay(for: $0.startDate) == today }
+    }
+
     // MARK: Readiness
     var readinessScore: Int  { trainingStatusService.status?.readiness.score ?? 0 }
     var readinessLabel: String {
@@ -1528,6 +1608,7 @@ struct HomeView: View {
                                 todayWorkout: todayWorkout,
                                 tomorrowWorkout: tomorrowWorkout,
                                 afterWorkout: afterWorkout,
+                                todayHKWorkouts: todayHKWorkouts,
                                 onSwap: {
                                     NotificationCenter.default.post(name: .navigateToChat, object: nil)
                                 },
@@ -1542,15 +1623,6 @@ struct HomeView: View {
                                 // Race week: forecast + packing list
                                 RaceForecastCardView(raceDate: raceDate)
                                 PackingListCardView()
-                            } else {
-                                // Normal: race readiness
-                                RaceReadinessCardView(
-                                    readiness: raceReadiness,
-                                    overall: raceReadinessOverall,
-                                    onSwap: {
-                                        NotificationCenter.default.post(name: .navigateToChat, object: nil)
-                                    }
-                                )
                             }
 
                             CoachNudgeCardView(nudge: coachNudge)
