@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import Combine
 
 // MARK: - Models
 
@@ -182,10 +183,25 @@ final class TrainingStatusService: ObservableObject {
     private let healthKit: HealthKitManager?
     private static let cacheKey = "trainingStatus_v1"
     private static let cacheTTL: TimeInterval = 6 * 60 * 60
+    private var cancellables = Set<AnyCancellable>()
 
     init(healthKit: HealthKitManager? = nil) {
         self.healthKit = healthKit
         self.status = Self.loadCached()
+
+        // Recompute when HK workouts arrive after init.
+        // The initial compute() in ContentView.onAppear races against syncWorkouts()
+        // and can read an empty array, pinning a bad result in cache. Subscribing
+        // here makes sure we recompute as soon as workouts actually populate.
+        healthKit?.$workouts
+            .dropFirst()
+            .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    await self?.compute()
+                }
+            }
+            .store(in: &cancellables)
     }
 
     // MARK: - Public entry point
@@ -374,7 +390,11 @@ final class TrainingStatusService: ObservableObject {
         )
 
         self.status = newStatus
-        Self.saveCache(newStatus)
+        // Don't pin an empty-workouts result — that's the cold-start race condition,
+        // not the user's actual state. The HK observer will trigger a recompute.
+        if !recentWorkouts.isEmpty {
+            Self.saveCache(newStatus)
+        }
     }
 
     // MARK: - Static helpers (internal for tests)
