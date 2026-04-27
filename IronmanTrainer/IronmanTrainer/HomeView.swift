@@ -315,8 +315,6 @@ struct HomeHeroView: View {
     let days: Int
     let raceName: String
     let raceVenue: String
-    let weekNum: Int
-    let phase: String
     let readinessScore: Int
     let readinessLabel: String
     let sleepLabel: String
@@ -364,21 +362,6 @@ struct HomeHeroView: View {
                     }
 
                     Spacer()
-
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(phaseColor(for: phase))
-                            .frame(width: 7, height: 7)
-                            .shadow(color: phaseColor(for: phase).opacity(0.6), radius: 3)
-                        Text("Wk \(weekNum)")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white)
-                    }
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
-                    .background(.ultraThinMaterial.opacity(0.9))
-                    .background(Color.white.opacity(0.16))
-                    .clipShape(Capsule())
                 }
                 .padding(.top, 60)
 
@@ -2055,8 +2038,6 @@ struct HomeView: View {
                                 days: daysUntilRace,
                                 raceName: raceName,
                                 raceVenue: raceVenue,
-                                weekNum: selectedWeek,
-                                phase: currentPhase,
                                 readinessScore: readinessScore,
                                 readinessLabel: readinessLabel,
                                 sleepLabel: sleepLabel,
