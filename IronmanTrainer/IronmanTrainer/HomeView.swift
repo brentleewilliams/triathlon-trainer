@@ -1073,6 +1073,21 @@ struct SelectedDayWorkoutCard: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
 
+                // Brick leg breakdown — two-row card showing bike + run components
+                if (workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim")),
+                   let notes = workout.notes,
+                   let split = WorkoutDetailParser.parseBrickDetail(from: notes) {
+                    VStack(spacing: 0) {
+                        BrickLegRow(emoji: "🚴", label: "Bike", duration: split.bikeDuration, accent: AppTheme.bike)
+                        Divider().padding(.leading, 12)
+                        BrickLegRow(emoji: "🏃", label: "Run",  duration: split.runDuration,  accent: AppTheme.run, paceSuffix: split.runPace)
+                    }
+                    .background(Color(.systemGray6).opacity(0.6))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 10)
+                }
+
                 // Why box
                 if let notes = workout.notes, !notes.isEmpty {
                     HStack(alignment: .top, spacing: 0) {
@@ -2345,5 +2360,32 @@ struct HomeView: View {
         if t.contains("run") { return .running }
         if t.contains("strength") || t.contains("gym") { return .traditionalStrengthTraining }
         return .cycling // bike / brick
+    }
+}
+
+// MARK: - Brick leg row
+// Single discipline of a brick (bike or run) shown as a row inside the
+// "Up next" hero card so the athlete sees both components at a glance.
+private struct BrickLegRow: View {
+    let emoji: String
+    let label: String
+    let duration: String
+    let accent: Color
+    var paceSuffix: String? = nil
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().fill(accent).frame(width: 8, height: 8)
+            Text("\(emoji) \(label)")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.primary)
+            Spacer()
+            Text(duration + (paceSuffix.map { " · \($0)" } ?? ""))
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(Color(.systemGray))
+                .monospacedDigit()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
     }
 }
