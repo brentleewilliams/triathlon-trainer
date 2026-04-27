@@ -472,7 +472,10 @@ class OnboardingViewModel: ObservableObject {
             raceSearchResult = result
             updateStrengthDefault()
         } catch {
-            self.error = "Could not find race details: \(error.localizedDescription)"
+            let isTransient = (error as? ClaudeServiceError) == .serverError || (error as? ClaudeServiceError) == .networkError
+            self.error = isTransient
+                ? "Couldn't reach the search service. Check your connection and try again."
+                : "Could not find that race. Try a more specific name or enter details manually."
             // Offer any verified-DB matches for the same query so the user has a
             // way forward even if the LLM couldn't help.
             raceSuggestions = VerifiedRaceDatabase.suggest(query: raceSearchQuery)
