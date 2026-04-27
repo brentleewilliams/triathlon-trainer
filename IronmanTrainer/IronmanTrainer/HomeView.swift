@@ -2100,6 +2100,41 @@ struct HomeView: View {
         }
     }
 
+    // MARK: - Day strip data lookup
+
+    /// Range of week numbers the day strip can scroll through. We allow 8
+    /// weeks of pre-plan history so users can swipe back to see HK workouts
+    /// recorded before their plan started.
+    var dayStripWeekRange: ClosedRange<Int> {
+        -8...max(1, trainingPlan.weeks.count)
+    }
+
+    /// Builds a WeekStripData for any week in `dayStripWeekRange`, including
+    /// pre-plan weeks (where workouts are empty but the date is still computed
+    /// from plan-week-1's Monday).
+    func weekStripData(forWeek weekNum: Int) -> WeekStripData {
+        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+        let monday: Date = {
+            if let week = trainingPlan.getWeek(weekNum) {
+                return mondayOfWeek(week.startDate)
+            }
+            guard let week1 = trainingPlan.getWeek(1) else { return mondayOfWeek(Date()) }
+            let planMonday = mondayOfWeek(week1.startDate)
+            let offset = weekNum - 1
+            return Calendar.current.date(byAdding: .weekOfYear, value: offset, to: planMonday) ?? planMonday
+        }()
+
+        if let week = trainingPlan.getWeek(weekNum) {
+            let grouped = Dictionary(grouping: week.workouts, by: { $0.day })
+            let entries = dayOrder.map { d in DayStripWorkouts(day: d, workouts: grouped[d] ?? []) }
+            return WeekStripData(mondayDate: monday, workoutsByDay: entries)
+        } else {
+            let entries = dayOrder.map { d in DayStripWorkouts(day: d, workouts: []) }
+            return WeekStripData(mondayDate: monday, workoutsByDay: entries)
+        }
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -2144,26 +2179,20 @@ struct HomeView: View {
                         .frame(minHeight: 240)
 
                         // ── Day strip ──
+                        // Paged horizontal scroll: drag to reveal adjacent
+                        // weeks' dates underneath the fixed MON–SUN labels,
+                        // release to snap to the nearest week.
                         DayStripView(
                             selectedDayIndex: $selectedDayIndex,
-                            weekWorkouts: workoutsByDay,
-                            weekStartDate: currentWeekStartDate,
-                            todayDayIndex: isCurrentDisplayWeek ? HomeView.todayDayIndex() : -1,
+                            selectedWeek: $selectedWeek,
+                            weekRange: dayStripWeekRange,
+                            weekData: weekStripData(forWeek:),
+                            today: Date(),
                             onTapDay: { index in
                                 withAnimation(.easeInOut(duration: 0.15)) { selectedDayIndex = index }
-                            },
-                            onPrevWeek: {
-                                withAnimation { selectedWeek -= 1; selectedDayIndex = 6 }
-                            },
-                            onNextWeek: {
-                                withAnimation {
-                                    if selectedWeek < trainingPlan.weeks.count { selectedWeek += 1 }
-                                    selectedDayIndex = 0
-                                }
                             }
                         )
                         .padding(.horizontal, 8)
-                        .padding(.vertical, 12)
                         .background(Color(.systemBackground))
 
                         // ── Cards below ──
