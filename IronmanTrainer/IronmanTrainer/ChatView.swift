@@ -36,6 +36,19 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                Picker("Filter", selection: $filter) {
+                    ForEach(ChatFilter.allCases) { f in
+                        Text(f.rawValue).tag(f)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 4)
+
+                if filter == .checkIns && !CheckInManager.shared.enabled {
+                    CheckInsOffEmptyState()
+                } else {
                 ScrollViewReader { proxy in
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 12) {
@@ -96,7 +109,7 @@ struct ChatView: View {
                     ChatInputBar(viewModel: viewModel)
                 }
             }
-            }
+            } // else
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -111,6 +124,42 @@ struct ChatView: View {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Check-ins off empty state
+
+struct CheckInsOffEmptyState: View {
+    var body: some View {
+        VStack(spacing: 20) {
+            Spacer()
+            Image(systemName: "bell.badge")
+                .font(.system(size: 48))
+                .foregroundStyle(.secondary)
+            VStack(spacing: 8) {
+                Text("Morning Check-Ins are off")
+                    .font(.title3)
+                    .fontWeight(.semibold)
+                Text("Turn on daily check-ins to get a personalised morning briefing based on your sleep, HRV, and today's workout.")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 32)
+            }
+            NavigationLink {
+                SettingsView()
+            } label: {
+                Text("Turn on in Settings")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(Color.accentColor)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            Spacer()
         }
     }
 }
