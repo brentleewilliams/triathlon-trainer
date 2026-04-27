@@ -28,6 +28,7 @@
 		625049B48489E93AE90639D7 /* UserProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 108346CB94A363F99B289838 /* UserProfile.swift */; };
 		7C574DFDBE916CD93B0D2DFC /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 64F2428F89A590D906E6358F /* GoogleService-Info.plist */; };
 		844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */; };
+		844AF6CC2F7E1B4F004C5062 /* ErrorMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */; };
 		844DF0892F8831C80092F2DD /* VerifiedRaceDatabase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */; };
 		844DF08D2F8847470092F2DD /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = 844DF08C2F8847470092F2DD /* FirebaseCrashlytics */; };
 		844DF08F2F8848610092F2DD /* AnalyticsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 844DF08E2F8848610092F2DD /* AnalyticsService.swift */; };
@@ -138,6 +139,7 @@
 		6EEB4860AEA33842F967FEB4 /* AuthService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AuthService.swift; path = IronmanTrainer/AuthService.swift; sourceTree = SOURCE_ROOT; };
 		77DE4293A649295071303BA8 /* OnboardingChatHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = OnboardingChatHelper.swift; path = IronmanTrainer/OnboardingChatHelper.swift; sourceTree = SOURCE_ROOT; };
 		844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CIScriptTests.swift; sourceTree = "<group>"; };
+		844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ErrorMessageTests.swift; sourceTree = "<group>"; };
 		844DF0882F8831C80092F2DD /* VerifiedRaceDatabase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = VerifiedRaceDatabase.swift; path = IronmanTrainer/VerifiedRaceDatabase.swift; sourceTree = "<group>"; };
 		844DF08E2F8848610092F2DD /* AnalyticsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AnalyticsService.swift; path = IronmanTrainer/AnalyticsService.swift; sourceTree = "<group>"; };
 		84A561E32F7D612500BA3761 /* WorkoutComplianceService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutComplianceService.swift; sourceTree = "<group>"; };
@@ -312,6 +314,7 @@
 				FB000007000000001 /* OnboardingTests.swift */,
 				84A561E52F7D614300BA3761 /* ComplianceTests.swift */,
 				844AF6C92F7E1B4F004C5060 /* CIScriptTests.swift */,
+				844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */,
 				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
 				CI0001041F1C0001 /* CheckInManagerTests.swift */,
 				CI0001061F1C0001 /* SleepFetchTests.swift */,
@@ -589,6 +592,7 @@
 			files = (
 				84A561E62F7D614300BA3761 /* ComplianceTests.swift in Sources */,
 				844AF6CA2F7E1B4F004C5060 /* CIScriptTests.swift in Sources */,
+				844AF6CC2F7E1B4F004C5062 /* ErrorMessageTests.swift in Sources */,
 				1A0001501F1A0001 /* TrainingPlanManagerTests.swift in Sources */,
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
