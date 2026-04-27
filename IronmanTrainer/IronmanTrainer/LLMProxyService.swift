@@ -308,7 +308,10 @@ class LLMProxyService {
             "templateParams": paramsDict
         ]
 
-        let data = try await performRequest(body: body, timeout: 120)
+        // 240s client timeout — covers the cloud function's slow path where a
+        // custom-goal classification falls through to full batch generation.
+        // The function itself is configured for 300s; client should be patient.
+        let data = try await performRequest(body: body, timeout: 240)
 
         // Parse outer response for result, method, and warnings
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {

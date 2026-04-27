@@ -972,6 +972,33 @@ struct WorkoutTabCardView: View {
     }
 }
 
+// MARK: - Section header (selected-day title + weather)
+
+struct SectionHeaderWithWeather: View {
+    let dayLabel: String        // e.g. "Today", "Mon", "Tue"
+    let date: Date              // used to fetch the right day's forecast
+
+    private var forecast: WeatherForecast { WeatherForecast.forecast(for: date) }
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("\(dayLabel)'s workout")
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.primary)
+            Spacer()
+            HStack(spacing: 4) {
+                Text(forecast.icon)
+                    .font(.system(size: 16))
+                Text("\(forecast.highTemp)°")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.secondary)
+                    .monospacedDigit()
+            }
+        }
+        .padding(.horizontal, 4)
+    }
+}
+
 // MARK: - Selected Day Workout Card
 
 struct SelectedDayWorkoutCard: View {
@@ -1072,35 +1099,33 @@ struct SelectedDayWorkoutCard: View {
                 )
                 .padding(.top, 10)
 
-                // 2×2 meta grid
-                let weather = WeatherForecast.forecast(for: Date())
+                // 2×2 meta grid (weather moved up to the section header on home)
                 Divider().padding(.horizontal, 0)
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 0) {
-                    MetaCellView(label: "Weather",
-                                 value: "\(weather.highTemp)° · \(weather.icon)",
-                                 sub: "High today")
                     MetaCellView(label: "Zone",
                                  value: workout.zone.components(separatedBy: " · ").first ?? workout.zone,
-                                 sub: workout.zone.components(separatedBy: " · ").dropFirst().first,
+                                 sub: workout.zone.components(separatedBy: " · ").dropFirst().first)
+                    MetaCellView(label: "Duration",
+                                 value: workout.duration,
+                                 sub: nil,
                                  borderLeft: true)
                     if let nutrition = workout.nutritionTarget {
                         MetaCellView(label: "Fueling",
                                      value: nutrition.components(separatedBy: "·").first?.trimmingCharacters(in: .whitespaces) ?? nutrition,
                                      sub: nutrition.components(separatedBy: "·").dropFirst().first?.trimmingCharacters(in: .whitespaces),
                                      borderTop: true)
-                        MetaCellView(label: "Duration",
-                                     value: workout.duration,
-                                     sub: nil,
-                                     borderLeft: true, borderTop: true)
-                    } else {
-                        MetaCellView(label: "Duration",
-                                     value: workout.duration,
-                                     sub: nil,
-                                     borderTop: true)
                         MetaCellView(label: "Type",
                                      value: strippedType(workout.type),
                                      sub: nil,
                                      borderLeft: true, borderTop: true)
+                    } else {
+                        MetaCellView(label: "Type",
+                                     value: strippedType(workout.type),
+                                     sub: nil,
+                                     borderTop: true)
+                        Color.clear.frame(height: 1)
+                            .overlay(Rectangle().fill(Color(.systemGray5)).frame(width: 0.5), alignment: .leading)
+                            .overlay(Rectangle().fill(Color(.systemGray5)).frame(height: 0.5), alignment: .top)
                     }
                 }
                 .background(Color(hex: "FAFAFC"))
@@ -1225,6 +1250,23 @@ struct SelectedDayWorkoutCard: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
+
+            // Always offer a way to log a workout, even on rest days. Lets the
+            // user record a strength session or unscheduled cardio without
+            // needing today to be a planned-workout day.
+            Divider()
+            Button(action: onLogWorkout) {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 16))
+                    Text("Log Workout")
+                        .font(.system(size: 15, weight: .semibold))
+                }
+                .foregroundColor(Color(hex: "007AFF"))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+            }
+            .buttonStyle(.plain)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .overlay(
@@ -1479,34 +1521,53 @@ struct RaceReadinessCardView: View {
 
 struct CoachNudgeCardView: View {
     let nudge: String
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "AF52DE").opacity(0.18))
-                Image(systemName: "bolt.fill")
-                    .font(.system(size: 13))
-                    .foregroundColor(Color(hex: "AF52DE"))
-            }
-            .frame(width: 30, height: 30)
-            .flexibleFrame(minWidth: 30)
+        Button(action: { onTap?() }) {
+            HStack(alignment: .top, spacing: 10) {
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "AF52DE").opacity(0.18))
+                    Image(systemName: "bolt.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color(hex: "AF52DE"))
+                }
+                .frame(width: 30, height: 30)
+                .flexibleFrame(minWidth: 30)
 
-            VStack(alignment: .leading, spacing: 4) {
-                Text("COACH")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(Color(.systemGray))
-                    .kerning(0.6)
-                Text(nudge)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.primary)
-                    .fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text("COACH")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(.systemGray))
+                            .kerning(0.6)
+                        if onTap != nil {
+                            Text("· tap to discuss")
+                                .font(.system(size: 11))
+                                .foregroundColor(Color(.systemGray2))
+                        }
+                    }
+                    Text(nudge)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.primary)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                if onTap != nil {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(Color(.systemGray3))
+                }
             }
+            .padding(14)
+            .background(Color(.systemBackground))
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(.systemGray5), lineWidth: 0.5))
         }
-        .padding(14)
-        .background(Color(.systemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(.systemGray5), lineWidth: 0.5))
+        .buttonStyle(.plain)
+        .disabled(onTap == nil)
     }
 }
 
@@ -1776,6 +1837,26 @@ struct HomeView: View {
         guard selectedDayIndex < workoutsByDay.count else { return nil }
         let dayWorkouts = workoutsByDay[selectedDayIndex].workouts
         return dayWorkouts.first { !$0.type.contains("Rest") && !$0.type.contains("pre_onboarding") }
+    }
+
+    /// Calendar date corresponding to the currently selected day in the strip.
+    var selectedDayDate: Date {
+        let cal = Calendar.current
+        return cal.date(byAdding: .day, value: selectedDayIndex, to: currentWeekStartDate) ?? currentWeekStartDate
+    }
+
+    /// Header label that reads "Today", "Tomorrow", or the weekday name.
+    var selectedDayHeaderLabel: String {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: Date())
+        let target = cal.startOfDay(for: selectedDayDate)
+        let delta = cal.dateComponents([.day], from: today, to: target).day ?? 0
+        if delta == 0 { return "Today" }
+        if delta == 1 { return "Tomorrow" }
+        if delta == -1 { return "Yesterday" }
+        let df = DateFormatter()
+        df.dateFormat = "EEEE"
+        return df.string(from: target)
     }
 
     /// HK workouts for the selected day (works for pre-plan weeks).
@@ -2087,6 +2168,12 @@ struct HomeView: View {
 
                         // ── Cards below ──
                         VStack(spacing: AppTheme.cardSpacing) {
+                            // Section header — day name + weather pulled out of the workout card
+                            SectionHeaderWithWeather(
+                                dayLabel: selectedDayHeaderLabel,
+                                date: selectedDayDate
+                            )
+
                             // Selected day workout card
                             SelectedDayWorkoutCard(
                                 workout: selectedDayWorkout,
@@ -2112,7 +2199,13 @@ struct HomeView: View {
                                 PackingListCardView()
                             }
 
-                            CoachNudgeCardView(nudge: coachNudge)
+                            CoachNudgeCardView(nudge: coachNudge) {
+                                NotificationCenter.default.post(
+                                    name: .navigateToChat,
+                                    object: nil,
+                                    userInfo: ["seed": coachNudge]
+                                )
+                            }
 
                             if showWidgetTip {
                                 WidgetTipCard(isVisible: Binding(
@@ -2168,21 +2261,30 @@ struct HomeView: View {
                 CourseDetailView()
             }
             .sheet(isPresented: $showLogWorkout) {
-                if let workout = selectedDayWorkout {
-                    LogWorkoutSheet(
-                        prefilledType: hkType(for: workout.type),
-                        onSave: { activityType, minutes in
-                            showLogWorkout = false
-                            Task {
-                                let now = Date()
-                                let start = now.addingTimeInterval(-Double(minutes * 60))
-                                try? await healthKit.saveWorkout(activityType: activityType, start: start, end: now)
-                                try? await Task.sleep(nanoseconds: 750_000_000)
-                                await healthKit.syncWorkouts()
+                LogWorkoutSheet(
+                    prefilledType: hkType(for: selectedDayWorkout?.type ?? "Run"),
+                    onSave: { activityType, minutes in
+                        showLogWorkout = false
+                        Task {
+                            // Anchor the workout to the SELECTED day, not always today,
+                            // so a user can log a workout for any day in the strip.
+                            // For today: end = now. For past/future: end = noon of that day.
+                            let cal = Calendar.current
+                            let today = cal.startOfDay(for: Date())
+                            let target = cal.startOfDay(for: selectedDayDate)
+                            let end: Date
+                            if target == today {
+                                end = Date()
+                            } else {
+                                end = cal.date(byAdding: .hour, value: 12, to: target) ?? target
                             }
+                            let start = end.addingTimeInterval(-Double(minutes * 60))
+                            try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)
+                            try? await Task.sleep(nanoseconds: 750_000_000)
+                            await healthKit.syncWorkouts()
                         }
-                    )
-                }
+                    }
+                )
             }
         }
     }

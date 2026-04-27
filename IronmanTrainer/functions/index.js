@@ -1451,9 +1451,17 @@ async function handlePlanFromTemplate(req, res) {
 
   console.log(`[planFromTemplate] totalWeeks=${totalWeeks}, planStartDate=${planStartDate}`);
 
-  // Handle custom goal tier — classify via quick LLM call
+  // Handle custom goal tier — classify via quick LLM call.
+  // The Swift client encodes the goal text as `customGoalText` on both the
+  // race.userGoal payload (UserProfile.GoalType.custom) and on templateParams.
+  // Read from templateParams first (most direct), fall back to race.userGoal.
   if (goalTier === "custom") {
-    const customGoalText = race.userGoal?.customText || race.userGoal?.text || "";
+    const customGoalText =
+      templateParams.customGoalText ||
+      race.userGoal?.customGoalText ||
+      race.userGoal?.customText ||
+      race.userGoal?.text ||
+      "";
     console.log(`[planFromTemplate] classifying custom goal: "${customGoalText.substring(0, 100)}"`);
 
     try {
@@ -1502,11 +1510,26 @@ async function handlePlanFromTemplate(req, res) {
     }
   }
 
-  // Determine skill level: highest of swim/bike/run, default intermediate
+  // Determine skill level for the skeleton builder.
+  // Onboarding now collects current weekly volume (low/mid/high → 1-30/~60/120+
+  // min per week per discipline) instead of self-assessed skill tier. Map the
+  // new buckets back to the skill names the skeleton builder still expects.
   const levelRank = { beginner: 0, intermediate: 1, advanced: 2 };
-  const levels = [input.swimLevel, input.bikeLevel, input.runLevel]
-    .filter(Boolean)
-    .map((l) => l.toLowerCase());
+  const volumeToSkill = (v) => {
+    if (!v) return null;
+    const k = String(v).toLowerCase();
+    if (k === "low" || k === "30") return "beginner";
+    if (k === "mid" || k === "60") return "intermediate";
+    if (k === "high" || k === "120") return "advanced";
+    // Backwards compat: pre-volume builds still send raw skill names.
+    if (["beginner", "intermediate", "advanced"].includes(k)) return k;
+    return null;
+  };
+  const levels = [
+    volumeToSkill(input.swimVolume) ?? volumeToSkill(input.swimLevel),
+    volumeToSkill(input.bikeVolume) ?? volumeToSkill(input.bikeLevel),
+    volumeToSkill(input.runVolume)  ?? volumeToSkill(input.runLevel),
+  ].filter(Boolean);
   const skillLevel = levels.length > 0
     ? levels.reduce((best, l) => (levelRank[l] || 0) > (levelRank[best] || 0) ? l : best, levels[0])
     : "intermediate";

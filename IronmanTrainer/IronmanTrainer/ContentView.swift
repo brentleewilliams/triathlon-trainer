@@ -65,7 +65,14 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
             showCheckIn = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { note in
+            // Optional seed: callers can pre-fill the input (e.g. tapping a
+            // coach insight on the home screen passes the nudge text via
+            // userInfo["seed"]). The input bar drains pendingInputText on
+            // appear / on change.
+            if let seed = note.userInfo?["seed"] as? String, !seed.isEmpty {
+                chatViewModel.pendingInputText = seed
+            }
             showChat = true
         }
         .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
