@@ -52,6 +52,7 @@
 		84D0F0DC2F7C3697007D9BC7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */; };
 		84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */; };
 		84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */; };
+		TH0001011F1F0001 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = TH0001001F1F0001 /* Theme.swift */; };
 		84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */; };
 		84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */; };
 		84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */; };
@@ -78,6 +79,11 @@
 		RC0001071F1D0001 /* CourseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001061F1D0001 /* CourseDetailView.swift */; };
 		RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC0001081F1D0001 /* RaceCourseServiceTests.swift */; };
 		RC00010B1F1D0001 /* ThresholdCaptureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = RC00010A1F1D0001 /* ThresholdCaptureTests.swift */; };
+		AV0001011F1F0001 /* ActivitiesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AV0001001F1F0001 /* ActivitiesView.swift */; };
+		CW0001011F1F0001 /* CompletedWorkoutDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */; };
+		PT0001011F1F0001 /* PersistentTopNavView.swift in Sources */ = {isa = PBXBuildFile; fileRef = PT0001001F1F0001 /* PersistentTopNavView.swift */; };
+		DS0001011F1F0001 /* DayStripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DS0001001F1F0001 /* DayStripView.swift */; };
+		TC0001011F1F0001 /* TrainingCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = TC0001001F1F0001 /* TrainingCalendarView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -162,6 +168,7 @@
 		84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayDetailView.swift; sourceTree = "<group>"; };
 		84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayRowComponents.swift; sourceTree = "<group>"; };
+		TH0001001F1F0001 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutDayRows.swift; sourceTree = "<group>"; };
 		84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingComponents.swift; sourceTree = "<group>"; };
 		84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingSteps.swift; sourceTree = "<group>"; };
@@ -184,6 +191,11 @@
 		RC0001061F1D0001 /* CourseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CourseDetailView.swift; sourceTree = "<group>"; };
 		RC0001081F1D0001 /* RaceCourseServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RaceCourseServiceTests.swift; sourceTree = "<group>"; };
 		RC00010A1F1D0001 /* ThresholdCaptureTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdCaptureTests.swift; sourceTree = "<group>"; };
+		AV0001001F1F0001 /* ActivitiesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActivitiesView.swift; sourceTree = "<group>"; };
+		CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompletedWorkoutDetailView.swift; sourceTree = "<group>"; };
+		PT0001001F1F0001 /* PersistentTopNavView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistentTopNavView.swift; sourceTree = "<group>"; };
+		DS0001001F1F0001 /* DayStripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayStripView.swift; sourceTree = "<group>"; };
+		TC0001001F1F0001 /* TrainingCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingCalendarView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -274,9 +286,15 @@
 				84D0F0E02F7C4000007D9BC7 /* DayDetailView.swift */,
 				84D0F0E22F7C4000007D9BC7 /* DayRowComponents.swift */,
 				84D0F0E42F7C4000007D9BC7 /* WorkoutDayRows.swift */,
+				TH0001001F1F0001 /* Theme.swift */,
 				84D0F0E62F7C4001007D9BC7 /* OnboardingComponents.swift */,
 				84D0F0E82F7C4001007D9BC7 /* OnboardingSteps.swift */,
 				84D0F0D52F7C365F007D9BC7 /* AnalyticsView.swift */,
+				AV0001001F1F0001 /* ActivitiesView.swift */,
+				CW0001001F1F0001 /* CompletedWorkoutDetailView.swift */,
+				PT0001001F1F0001 /* PersistentTopNavView.swift */,
+				DS0001001F1F0001 /* DayStripView.swift */,
+				TC0001001F1F0001 /* TrainingCalendarView.swift */,
 				84D0F0D72F7C3672007D9BC7 /* ChatView.swift */,
 				84D0F0D92F7C367C007D9BC7 /* PlanView.swift */,
 				84D0F0DB2F7C3697007D9BC7 /* SettingsView.swift */,
@@ -550,6 +568,7 @@
 				84D0F0E12F7C4000007D9BC7 /* DayDetailView.swift in Sources */,
 				84D0F0E32F7C4000007D9BC7 /* DayRowComponents.swift in Sources */,
 				84D0F0E52F7C4000007D9BC7 /* WorkoutDayRows.swift in Sources */,
+				TH0001011F1F0001 /* Theme.swift in Sources */,
 				84D0F0E72F7C4001007D9BC7 /* OnboardingComponents.swift in Sources */,
 				84D0F0E92F7C4001007D9BC7 /* OnboardingSteps.swift in Sources */,
 				84D0F0D82F7C3672007D9BC7 /* ChatView.swift in Sources */,
@@ -560,6 +579,11 @@
 				84D0F0CF0A0B0002007D9BC7 /* PlanGenerationService.swift in Sources */,
 				84D0F0C82F7C3441007D9BC7 /* HealthKitManager.swift in Sources */,
 				84D0F0D62F7C365F007D9BC7 /* AnalyticsView.swift in Sources */,
+				AV0001011F1F0001 /* ActivitiesView.swift in Sources */,
+				CW0001011F1F0001 /* CompletedWorkoutDetailView.swift in Sources */,
+				PT0001011F1F0001 /* PersistentTopNavView.swift in Sources */,
+				DS0001011F1F0001 /* DayStripView.swift in Sources */,
+				TC0001011F1F0001 /* TrainingCalendarView.swift in Sources */,
 				84D0F0D02F7C3592007D9BC7 /* ChatViewModel.swift in Sources */,
 				1A0001001F1A0001 /* IronmanTrainerApp.swift in Sources */,
 				C57D40CDB802E02BE6CC84BB /* AuthService.swift in Sources */,

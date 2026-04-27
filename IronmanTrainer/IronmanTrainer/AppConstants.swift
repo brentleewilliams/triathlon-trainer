@@ -15,6 +15,8 @@ extension Notification.Name {
     static let openCheckIn = Notification.Name("openCheckIn")
     /// Posted when any view wants to navigate the root TabView to the Chat tab (index 2).
     static let navigateToChat = Notification.Name("navigateToChat")
+    /// Posted when any view wants to open the Settings sheet.
+    static let openSettings = Notification.Name("openSettings")
 }
 
 // MARK: - Onboarding Date Store

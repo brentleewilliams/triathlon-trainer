@@ -198,6 +198,7 @@ struct AnalyticsView: View {
     @EnvironmentObject var trainingStatusService: TrainingStatusService
     @StateObject private var analyticsVM = AnalyticsViewModel()
     @State private var selectedWeek: Int = 1
+    @State private var showWeekPicker = false
     @State private var hasAppearedOnce = false
     @State private var actualZoneData: [String: Double] = ["Z1": 0, "Z2": 0, "Z3": 0, "Z4": 0, "Z5": 0]
     @State private var actualZonePercentages: [String: Double] = [:]
@@ -254,11 +255,19 @@ struct AnalyticsView: View {
 
     var body: some View {
         NavigationStack {
+            VStack(spacing: 0) {
+                PersistentTopNavView(
+                    title: "Analytics",
+                    isTransparent: false,
+                    weekLabel: "Week \(selectedWeek)/\(trainingPlan.weeks.count)",
+                    onWeekSelector: { showWeekPicker = true },
+                    onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
+                    onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
+                    onCalendar: { NotificationCenter.default.post(name: Notification.Name("openCalendar"), object: nil) }
+                )
+
             ScrollView {
             VStack(spacing: 20) {
-                // Week Navigation Header (Shared)
-                WeekNavigationHeader(selectedWeek: $selectedWeek)
-
                 // Volume Summary
                 VStack(spacing: 12) {
                     Text("Volume Summary")
@@ -419,17 +428,22 @@ struct AnalyticsView: View {
             }
             .padding()
             } // ScrollView
-            .navigationBarTitleDisplayMode(.inline)
             .gesture(
-                DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                DragGesture(minimumDistance: 30, coordinateSpace: .local)
                     .onEnded { value in
-                        if value.translation.width < -50 && selectedWeek < trainingPlan.weeks.count {
+                        if value.translation.width < -30 && selectedWeek < trainingPlan.weeks.count {
                             withAnimation { selectedWeek += 1 }
-                        } else if value.translation.width > 50 && selectedWeek > 1 {
+                        } else if value.translation.width > 30 && selectedWeek > 1 {
                             withAnimation { selectedWeek -= 1 }
                         }
                     }
             )
+
+            } // VStack
+            .navigationBarHidden(true)
+            .sheet(isPresented: $showWeekPicker) {
+                WeekPickerSheet(selectedWeek: $selectedWeek, trainingPlan: trainingPlan)
+            }
             .onAppear {
                 if !hasAppearedOnce {
                     selectedWeek = trainingPlan.currentWeekNumber
