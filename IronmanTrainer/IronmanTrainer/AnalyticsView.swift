@@ -416,12 +416,17 @@ struct AnalyticsView: View {
                     selectedWeek = trainingPlan.currentWeekNumber
                     hasAppearedOnce = true
                 }
-                recalculateAnalytics()
-                fetchActualZoneData()
+                // Defer heavy scan so the view renders first, then updates
+                Task { @MainActor in
+                    recalculateAnalytics()
+                    fetchActualZoneData()
+                }
             }
             .onChange(of: selectedWeek) { _, _ in
-                recalculateAnalytics()
-                fetchActualZoneData()
+                Task { @MainActor in
+                    recalculateAnalytics()
+                    fetchActualZoneData()
+                }
             }
         }
     }
