@@ -390,7 +390,7 @@ struct HomeHeroView: View {
                             .foregroundColor(.white)
                             .monospacedDigit()
                             .lineLimit(1)
-                            .fixedSize()
+                            .layoutPriority(1)
                             .shadow(color: .black.opacity(0.25), radius: 12, y: 2)
 
                         VStack(alignment: .leading, spacing: 4) {
@@ -398,9 +398,11 @@ struct HomeHeroView: View {
                                 .font(.system(size: 13, weight: .bold))
                                 .foregroundColor(.white)
                                 .kerning(0.8)
+                                .lineLimit(1)
                             Text("Jul 19, 2026 · \(phase.prefix(4))")
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.white.opacity(0.85))
+                                .lineLimit(1)
                         }
                         .padding(.bottom, 10)
                     }
