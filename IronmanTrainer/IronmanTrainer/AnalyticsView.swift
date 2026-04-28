@@ -208,8 +208,11 @@ struct AnalyticsView: View {
         trainingPlan.getWeek(selectedWeek)
     }
 
+    var activeDisciplineSet: Set<TrainingDiscipline> {
+        activeDisciplines(in: trainingPlan.weeks)
+    }
     var raceReadiness: [SportReadiness] {
-        deriveRaceReadiness(from: trainingStatusService.status, today: "")
+        deriveRaceReadiness(from: trainingStatusService.status, today: "", only: activeDisciplineSet)
     }
     var raceReadinessOverall: Int {
         guard !raceReadiness.isEmpty else { return 0 }
@@ -413,7 +416,7 @@ struct AnalyticsView: View {
 
                 // Training Load & Readiness
                 if let ts = trainingStatusService.status {
-                    TrainingLoadCard(status: ts)
+                    TrainingLoadCard(status: ts, activeDisciplines: activeDisciplineSet)
                 }
 
                 // Race Readiness per discipline
@@ -683,6 +686,7 @@ struct WorkoutDropDelegate: DropDelegate {
 
 private struct TrainingLoadCard: View {
     let status: TrainingStatus
+    let activeDisciplines: Set<TrainingDiscipline>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -695,10 +699,15 @@ private struct TrainingLoadCard: View {
                 FitnessMetricsRow(metrics: combined)
             }
 
-            DisciplineBalanceRow(
-                fitnessPerDiscipline: status.fitnessPerDiscipline,
-                gaps: status.disciplineGaps
-            )
+            // Only show discipline balance when more than one discipline is
+            // in play. A road-race / single-sport plan has nothing to balance.
+            if activeDisciplines.count > 1 {
+                DisciplineBalanceRow(
+                    fitnessPerDiscipline: status.fitnessPerDiscipline,
+                    gaps: status.disciplineGaps,
+                    disciplines: Array(activeDisciplines).sorted { $0.rawValue < $1.rawValue }
+                )
+            }
 
             HRVTrendRow(hrv: status.hrvTrend)
 
@@ -809,6 +818,9 @@ private struct MetricCell: View {
 private struct DisciplineBalanceRow: View {
     let fitnessPerDiscipline: [FitnessMetrics]
     let gaps: [DisciplineGap]
+    /// Disciplines to render — typically derived from the user's plan so a
+    /// road-race plan doesn't show empty Swim/Bike bars.
+    var disciplines: [TrainingDiscipline] = [.swim, .bike, .run]
 
     private func metrics(for disc: TrainingDiscipline) -> FitnessMetrics? {
         fitnessPerDiscipline.first { $0.discipline == disc }
@@ -822,15 +834,12 @@ private struct DisciplineBalanceRow: View {
             Text("Discipline Balance (CTL)")
                 .font(.caption).foregroundStyle(.secondary)
 
-            let swim = metrics(for: .swim)?.ctl ?? 0
-            let bike = metrics(for: .bike)?.ctl ?? 0
-            let run = metrics(for: .run)?.ctl ?? 0
-            let total = swim + bike + run
+            let total = disciplines.map { metrics(for: $0)?.ctl ?? 0 }.reduce(0, +)
 
             if total > 0 {
                 GeometryReader { geo in
                     HStack(spacing: 2) {
-                        ForEach([TrainingDiscipline.swim, .bike, .run], id: \.rawValue) { disc in
+                        ForEach(disciplines, id: \.rawValue) { disc in
                             let ctl: Double = metrics(for: disc)?.ctl ?? 0
                             let width = geo.size.width * CGFloat(ctl / total)
                             let g = gap(for: disc)
@@ -854,7 +863,7 @@ private struct DisciplineBalanceRow: View {
                 .frame(height: 16)
 
                 HStack {
-                    ForEach([TrainingDiscipline.swim, .bike, .run], id: \.rawValue) { disc in
+                    ForEach(disciplines, id: \.rawValue) { disc in
                         let g = gap(for: disc)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(disc.rawValue.capitalized)

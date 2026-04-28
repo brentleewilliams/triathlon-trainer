@@ -83,10 +83,29 @@ struct SportReadiness {
 /// Derive per-sport readiness from the volume-based status (actual vs planned
 /// minutes over a rolling 6-week window, taper weeks excluded). Falls back to
 /// the onboarding weekly-volume baseline for weeks with no plan data.
-func deriveRaceReadiness(from status: TrainingStatus?, today sport: String) -> [SportReadiness] {
-    let disciplines: [(String, TrainingDiscipline)] = [
+/// Returns the disciplines that actually appear in the user's plan. Used to
+/// hide swim/bike entries on a road-race plan and similar single-sport setups.
+/// Falls back to all three when nothing parses (e.g. an empty plan during
+/// onboarding).
+func activeDisciplines(in weeks: [TrainingWeek]) -> Set<TrainingDiscipline> {
+    var found: Set<TrainingDiscipline> = []
+    for w in weeks {
+        for wo in w.workouts {
+            let t = wo.type.lowercased()
+            if t.contains("swim") { found.insert(.swim) }
+            if t.contains("bike") || t.contains("cycl") { found.insert(.bike) }
+            if t.contains("run") { found.insert(.run) }
+            if t.contains("brick") { found.insert(.bike); found.insert(.run) }
+        }
+    }
+    return found.isEmpty ? [.swim, .bike, .run] : found
+}
+
+func deriveRaceReadiness(from status: TrainingStatus?, today sport: String, only filter: Set<TrainingDiscipline>? = nil) -> [SportReadiness] {
+    let allDisciplines: [(String, TrainingDiscipline)] = [
         ("Swim", .swim), ("Bike", .bike), ("Run", .run)
     ]
+    let disciplines = filter.map { f in allDisciplines.filter { f.contains($0.1) } } ?? allDisciplines
     return disciplines.map { (name, disc) in
         let v = status?.disciplineVolumeStatuses.first { $0.discipline == disc }
         let score = max(0, min(100, v?.percent ?? 0))
