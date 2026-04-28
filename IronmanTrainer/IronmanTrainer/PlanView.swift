@@ -62,6 +62,9 @@ struct PlanView: View {
                     },
                     onCalendar: {
                         NotificationCenter.default.post(name: .openCalendar, object: nil)
+                    },
+                    onAddWorkout: {
+                        NotificationCenter.default.post(name: .openLogWorkout, object: nil)
                     }
                 )
 

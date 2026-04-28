@@ -10,6 +10,7 @@ struct ContentView: View {
     @State private var showChat = false
     @State private var showSettings = false
     @State private var showCalendar = false
+    @State private var showLogWorkout = false
     @State private var selectedTab = 0
 
     init() {
@@ -82,6 +83,9 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: .openCalendar)) { _ in
             showCalendar = true
         }
+        .onReceive(NotificationCenter.default.publisher(for: .openLogWorkout)) { _ in
+            showLogWorkout = true
+        }
         .sheet(isPresented: $showCheckIn) {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
                 .environmentObject(trainingPlan)
@@ -108,6 +112,24 @@ struct ContentView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $showLogWorkout) {
+            // Global manual-log sheet anchored to today. Per-day logging from
+            // the Home selected-day card has its own sheet that anchors to the
+            // selected day instead.
+            LogWorkoutSheet(
+                prefilledType: .running,
+                onSave: { activityType, minutes in
+                    showLogWorkout = false
+                    Task {
+                        let end = Date()
+                        let start = end.addingTimeInterval(-Double(minutes * 60))
+                        try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)
+                        try? await Task.sleep(nanoseconds: 750_000_000)
+                        await healthKit.syncWorkouts()
+                    }
+                }
+            )
         }
     }
 }

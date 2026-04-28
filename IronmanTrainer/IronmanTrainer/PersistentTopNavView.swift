@@ -8,6 +8,7 @@ struct PersistentTopNavView: View {
     var onProfile: () -> Void
     var onChat: () -> Void
     var onCalendar: () -> Void
+    var onAddWorkout: (() -> Void)? = nil
 
     private var iconColor: Color { isTransparent ? .white : .primary }
 
@@ -52,12 +53,22 @@ struct PersistentTopNavView: View {
 
                 Spacer()
 
-                // Right zone: calendar
-                Button(action: onCalendar) {
-                    Image(systemName: "calendar")
-                        .font(.system(size: 21))
-                        .foregroundColor(iconColor)
-                        .frame(width: 40, height: 40)
+                // Right zone: + (manual log) and calendar
+                HStack(spacing: 0) {
+                    if let onAddWorkout {
+                        Button(action: onAddWorkout) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 20, weight: .semibold))
+                                .foregroundColor(iconColor)
+                                .frame(width: 40, height: 40)
+                        }
+                    }
+                    Button(action: onCalendar) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 21))
+                            .foregroundColor(iconColor)
+                            .frame(width: 40, height: 40)
+                    }
                 }
             }
             .padding(.horizontal, 16)

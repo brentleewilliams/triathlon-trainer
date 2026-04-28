@@ -19,6 +19,8 @@ extension Notification.Name {
     static let openSettings = Notification.Name("openSettings")
     /// Posted when any view wants to open the Training Calendar sheet.
     static let openCalendar = Notification.Name("openCalendar")
+    /// Posted when any view wants to open the manual workout-log sheet.
+    static let openLogWorkout = Notification.Name("openLogWorkout")
 }
 
 // MARK: - Onboarding Date Store

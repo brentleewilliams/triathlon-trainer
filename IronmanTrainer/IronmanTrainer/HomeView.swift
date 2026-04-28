@@ -322,6 +322,11 @@ struct HomeHeroView: View {
 
     @State private var animatedDays: Int = 0
 
+    /// Process-scoped flag — the count-down "ramp" animation should only run on
+    /// a true cold boot. Tab switches and foreground returns will see this set
+    /// to true and skip the ramp; killing the app resets it.
+    private static var didRunIntroAnimation = false
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             // Backdrop
@@ -435,6 +440,14 @@ struct HomeHeroView: View {
         .frame(minHeight: 270)
         .onAppear {
             let target = days
+            // Skip the ramp on tab switches / foreground returns — only the
+            // first time the hero appears in this process should animate.
+            guard !Self.didRunIntroAnimation else {
+                animatedDays = target
+                return
+            }
+            Self.didRunIntroAnimation = true
+
             let start = target + min(40, Int(Double(target) * 0.5))
             animatedDays = start
             let steps = 30
@@ -2205,7 +2218,8 @@ struct HomeView: View {
                                     onWeekSelector: navWeekLabel != nil ? { showWeekPicker = true } : nil,
                                     onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
                                     onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) }
+                                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) },
+                                    onAddWorkout: { NotificationCenter.default.post(name: .openLogWorkout, object: nil) }
                                 )
                                 .padding(.top, safeTop)
                                 Spacer()
