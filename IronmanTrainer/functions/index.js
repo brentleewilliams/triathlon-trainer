@@ -11,7 +11,16 @@ const db = admin.firestore();
 
 // Fail fast if required env vars are missing — surfaces immediately in
 // Firebase logs rather than producing a cryptic [ERROR] in the chat UI.
-const REQUIRED_ENV_VARS = ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "LANGSMITH_API_KEY"];
+// SMTP_* are required for OTP email delivery; without them requestOTP
+// would silently log codes to Cloud Logging and return success while no
+// email ever lands in the user's inbox.
+const REQUIRED_ENV_VARS = [
+  "ANTHROPIC_API_KEY",
+  "OPENAI_API_KEY",
+  "LANGSMITH_API_KEY",
+  "SMTP_EMAIL",
+  "SMTP_PASSWORD",
+];
 const missingVars = REQUIRED_ENV_VARS.filter((k) => !process.env[k]);
 if (missingVars.length > 0) {
   console.error(`[startup] MISSING required env vars: ${missingVars.join(", ")}. Add them to functions/.env and redeploy.`);
@@ -1578,12 +1587,35 @@ async function handlePlanFromTemplate(req, res) {
 exports.requestOTP = onRequest(async (req, res) => {
   setCors(res);
   if (req.method === "OPTIONS") { res.status(204).send(""); return; }
+
+  // Health/smoke probe — returns SMTP wiring status without storing or
+  // sending anything. Used by scripts/check-otp-deploy.sh after a deploy
+  // so we catch missing creds before a real user does.
+  if (req.method === "GET" && req.query.dryRun === "true") {
+    res.status(200).json({
+      ok: true,
+      smtp_configured: Boolean(process.env.SMTP_EMAIL && process.env.SMTP_PASSWORD),
+    });
+    return;
+  }
+
   if (req.method !== "POST") { res.status(405).json({ error: "Method not allowed" }); return; }
 
   try {
     const email = req.body.email;
     if (!email || !email.includes("@")) {
       res.status(400).json({ error: "Valid email required." });
+      return;
+    }
+
+    // Refuse to mint a code we can't deliver. Without this we silently
+    // store an OTP in Firestore and return 200 — users see "Code sent"
+    // but no email ever arrives. Surfacing the error here lets the iOS
+    // client show a real failure message.
+    const smtpConfigured = process.env.SMTP_EMAIL && process.env.SMTP_PASSWORD;
+    if (!smtpConfigured) {
+      console.error("[requestOTP] SMTP_EMAIL/SMTP_PASSWORD not set on this instance — refusing to issue OTP.");
+      res.status(500).json({ error: "Email service not configured." });
       return;
     }
 
@@ -1599,34 +1631,36 @@ exports.requestOTP = onRequest(async (req, res) => {
       createdAt: Date.now(),
     });
 
-    // Send email
-    const smtpConfigured = process.env.SMTP_EMAIL && process.env.SMTP_PASSWORD;
-    if (smtpConfigured) {
-      try {
-        await transporter.sendMail({
-          from: `"Race1" <${process.env.SMTP_EMAIL}>`,
-          to: email,
-          subject: "Your Race1 sign-in code",
-          text: `Your Race1 verification code is: ${otp}\n\n${otp} is your Race1 code.\n\nThis code expires in 10 minutes.`,
-          html: `
-            <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; text-align: center;">
-              <img src="https://brents-trainer.web.app/race1-logo.png"
-                   style="width: 80px; height: 80px; border-radius: 18px; margin-bottom: 12px;" alt="Race1">
-              <h2 style="margin: 0 0 16px;">Race1</h2>
-              <p style="text-align: left;">Your verification code is:</p>
-              <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; background: #f0f0f0; border-radius: 8px; margin: 16px 0;">
-                ${otp}
-              </div>
-              <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
+    // Send email — failures are no longer swallowed. If SMTP rejects, the
+    // OTP we just stored becomes useless (user can't read it), so the
+    // honest response is an error.
+    try {
+      await transporter.sendMail({
+        from: `"Race1" <${process.env.SMTP_EMAIL}>`,
+        to: email,
+        subject: "Your Race1 sign-in code",
+        text: `Your Race1 verification code is: ${otp}\n\n${otp} is your Race1 code.\n\nThis code expires in 10 minutes.`,
+        html: `
+          <div style="font-family: -apple-system, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; text-align: center;">
+            <img src="https://brents-trainer.web.app/race1-logo.png"
+                 style="width: 80px; height: 80px; border-radius: 18px; margin-bottom: 12px;" alt="Race1">
+            <h2 style="margin: 0 0 16px;">Race1</h2>
+            <p style="text-align: left;">Your verification code is:</p>
+            <div style="font-size: 32px; font-weight: bold; letter-spacing: 8px; text-align: center; padding: 20px; background: #f0f0f0; border-radius: 8px; margin: 16px 0;">
+              ${otp}
             </div>
-          `,
-        });
-      } catch (err) {
-        console.error("Email send failed:", err);
-      }
+            <p style="color: #666; font-size: 14px;">This code expires in 10 minutes.</p>
+          </div>
+        `,
+      });
+    } catch (err) {
+      console.error("[requestOTP] Email send failed:", err);
+      res.status(502).json({ error: "Failed to send verification email." });
+      return;
     }
 
-    // Always log OTP for development/testing
+    // Log OTP for dev/testing — keeps the existing fallback for when
+    // someone needs to retrieve a code from logs.
     console.log(`OTP for ${email}: ${otp}`);
 
     res.status(200).json({ success: true, message: "Verification code sent." });

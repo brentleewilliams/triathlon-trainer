@@ -5,6 +5,9 @@
     "node": "22"
   },
   "main": "index.js",
+  "scripts": {
+    "check-otp-deploy": "bash scripts/check-otp-deploy.sh"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.84.0",
     "@langchain/core": "^0.3.80",
