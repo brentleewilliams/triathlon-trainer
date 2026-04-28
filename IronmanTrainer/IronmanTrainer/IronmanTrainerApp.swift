@@ -47,6 +47,13 @@ struct Race1App: App {
                                 await healthKitManager.syncWorkouts()
                                 print("[App] Workout sync complete, found \(healthKitManager.workouts.count) workouts")
                             }
+                            // Backfill primary-race name/venue for users who
+                            // onboarded before those fields were persisted
+                            // locally. Cheap (single Firestore read) and self-
+                            // skipping when the local store is already populated.
+                            if let uid = authService.currentUserID {
+                                Task { await RaceProfileStore.backfillFromFirestoreIfNeeded(uid: uid) }
+                            }
                         }
                         .onOpenURL { url in
                             if url.scheme == "race1",

@@ -84,6 +84,28 @@ enum RaceProfileStore {
             }
         }
     }
+
+    /// One-time migration for users who completed onboarding before name +
+    /// venue were persisted locally. Reads the user's primary Race from
+    /// Firestore and writes it into the local store. No-op when local values
+    /// already exist or when there is no race in Firestore (so it'll retry
+    /// on the next launch instead of pinning a stale negative result).
+    static func backfillFromFirestoreIfNeeded(uid: String) async {
+        if raceName != nil && raceVenue != nil { return }
+        do {
+            guard let race = try await FirestoreService.shared.getRace(for: uid) else { return }
+            if raceName  == nil { raceName  = race.name }
+            if raceVenue == nil { raceVenue = race.location }
+            // Backfill race_date too if it was lost — same root cause, same fix.
+            let storedDate = UserDefaults.standard.double(forKey: "race_date")
+            if storedDate == 0 {
+                UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
+                AppGroupConstants.syncRaceDateToWidget(race.date)
+            }
+        } catch {
+            print("[RaceProfileStore] backfill failed: \(error)")
+        }
+    }
 }
 
 // MARK: - App Group Shared Data
