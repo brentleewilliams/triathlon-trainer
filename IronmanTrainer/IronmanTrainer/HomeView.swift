@@ -1027,36 +1027,16 @@ struct SectionHeaderWithWeather: View {
 
 struct SelectedDayWorkoutCard: View {
     let workout: DayWorkout?
-    let additionalWorkouts: [DayWorkout]
     let dayLabel: String         // e.g. "Mon", "Tue"
     let hkWorkouts: [HKWorkout]
     let isCompleted: Bool
     let onSwap: () -> Void
     let onLogWorkout: () -> Void
 
-    init(workout: DayWorkout?,
-         additionalWorkouts: [DayWorkout] = [],
-         dayLabel: String,
-         hkWorkouts: [HKWorkout],
-         isCompleted: Bool,
-         onSwap: @escaping () -> Void,
-         onLogWorkout: @escaping () -> Void) {
-        self.workout = workout
-        self.additionalWorkouts = additionalWorkouts
-        self.dayLabel = dayLabel
-        self.hkWorkouts = hkWorkouts
-        self.isCompleted = isCompleted
-        self.onSwap = onSwap
-        self.onLogWorkout = onLogWorkout
-    }
-
     var body: some View {
         VStack(spacing: 0) {
             if let workout = workout {
                 workoutBody(workout)
-                if !additionalWorkouts.isEmpty {
-                    additionalWorkoutsSection
-                }
                 ctaRow(workout)
             } else {
                 restDayFallback
@@ -1223,39 +1203,6 @@ struct SelectedDayWorkoutCard: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                     }
-                }
-            }
-        }
-    }
-
-    // MARK: Additional workouts (AM/PM second session)
-
-    private var additionalWorkoutsSection: some View {
-        VStack(spacing: 0) {
-            Divider()
-            ForEach(additionalWorkouts, id: \.type) { w in
-                let color = sportColor(for: w.type)
-                HStack(spacing: 12) {
-                    Rectangle()
-                        .fill(color)
-                        .frame(width: 3)
-                        .frame(height: 44)
-                    Circle()
-                        .fill(color)
-                        .frame(width: 7, height: 7)
-                    Text(strippedType(w.type))
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.primary)
-                    Spacer()
-                    Text(w.duration + (w.zone.isEmpty ? "" : " · \(w.zone)"))
-                        .font(.system(size: 12))
-                        .foregroundColor(.secondary)
-                        .monospacedDigit()
-                }
-                .padding(.horizontal, 16)
-                .padding(.trailing, 16)
-                if w.type != additionalWorkouts.last?.type {
-                    Divider().padding(.leading, 16)
                 }
             }
         }
@@ -2365,27 +2312,38 @@ struct HomeView: View {
                                 date: selectedDayDate
                             )
 
-                            // Selected day workout card
-                            SelectedDayWorkoutCard(
-                                workout: selectedDayWorkout,
-                                additionalWorkouts: Array(selectedDayAllWorkouts.dropFirst()),
-                                dayLabel: workoutsByDay.indices.contains(selectedDayIndex)
-                                    ? workoutsByDay[selectedDayIndex].day : "Today",
-                                hkWorkouts: selectedDayHKWorkouts,
-                                isCompleted: selectedDayAfterWorkout,
-                                onSwap: {
-                                    // Seed the chat with a partial swap prompt — user fills
-                                    // in what they want to swap for. Tag with the app-insight
-                                    // marker so the coach knows it came from a UI tap.
-                                    let seed = swapSeed(for: selectedDayWorkout, on: selectedDayDate)
-                                    NotificationCenter.default.post(
-                                        name: .navigateToChat,
-                                        object: nil,
-                                        userInfo: ["seed": seed]
+                            // One card per workout — multi-session days (AM/PM) each
+                            // get their own full card so the user can scroll to each.
+                            let dayLabel = workoutsByDay.indices.contains(selectedDayIndex)
+                                ? workoutsByDay[selectedDayIndex].day : "Today"
+                            if selectedDayAllWorkouts.isEmpty {
+                                SelectedDayWorkoutCard(
+                                    workout: nil,
+                                    dayLabel: dayLabel,
+                                    hkWorkouts: selectedDayHKWorkouts,
+                                    isCompleted: false,
+                                    onSwap: {},
+                                    onLogWorkout: { showLogWorkout = true }
+                                )
+                            } else {
+                                ForEach(Array(selectedDayAllWorkouts.enumerated()), id: \.offset) { _, w in
+                                    SelectedDayWorkoutCard(
+                                        workout: w,
+                                        dayLabel: dayLabel,
+                                        hkWorkouts: selectedDayHKWorkouts,
+                                        isCompleted: isWorkoutCompleted(w),
+                                        onSwap: {
+                                            let seed = swapSeed(for: w, on: selectedDayDate)
+                                            NotificationCenter.default.post(
+                                                name: .navigateToChat,
+                                                object: nil,
+                                                userInfo: ["seed": seed]
+                                            )
+                                        },
+                                        onLogWorkout: { showLogWorkout = true }
                                     )
-                                },
-                                onLogWorkout: { showLogWorkout = true }
-                            )
+                                }
+                            }
 
                             // Week overview card (only shown for plan weeks)
                             if selectedWeek >= 1 {
