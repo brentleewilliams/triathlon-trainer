@@ -2395,23 +2395,14 @@ struct HomeView: View {
                 CourseDetailView()
             }
             .sheet(isPresented: $showLogWorkout) {
+                // Prefill the picker with the highlighted day on the strip;
+                // the sheet's own DatePicker lets the user fine-tune time.
                 LogWorkoutSheet(
                     prefilledType: hkType(for: selectedDayWorkout?.type ?? "Run"),
-                    onSave: { activityType, minutes in
+                    prefilledDate: selectedDayDate,
+                    onSave: { activityType, minutes, end in
                         showLogWorkout = false
                         Task {
-                            // Anchor the workout to the SELECTED day, not always today,
-                            // so a user can log a workout for any day in the strip.
-                            // For today: end = now. For past/future: end = noon of that day.
-                            let cal = Calendar.current
-                            let today = cal.startOfDay(for: Date())
-                            let target = cal.startOfDay(for: selectedDayDate)
-                            let end: Date
-                            if target == today {
-                                end = Date()
-                            } else {
-                                end = cal.date(byAdding: .hour, value: 12, to: target) ?? target
-                            }
                             let start = end.addingTimeInterval(-Double(minutes * 60))
                             try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)
                             try? await Task.sleep(nanoseconds: 750_000_000)

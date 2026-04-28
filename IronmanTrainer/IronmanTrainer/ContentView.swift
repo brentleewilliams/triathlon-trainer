@@ -111,15 +111,15 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $showLogWorkout) {
-            // Global manual-log sheet anchored to today. Per-day logging from
-            // the Home selected-day card has its own sheet that anchors to the
-            // selected day instead.
+            // Global manual-log sheet from the top-nav '+' button on Plan,
+            // Workouts, Analytics. Defaults to "now" — the sheet's own
+            // DatePicker lets the user adjust day + time.
             LogWorkoutSheet(
                 prefilledType: .running,
-                onSave: { activityType, minutes in
+                prefilledDate: Date(),
+                onSave: { activityType, minutes, end in
                     showLogWorkout = false
                     Task {
-                        let end = Date()
                         let start = end.addingTimeInterval(-Double(minutes * 60))
                         try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)
                         try? await Task.sleep(nanoseconds: 750_000_000)

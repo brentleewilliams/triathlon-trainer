@@ -25,7 +25,21 @@ private struct WorkoutTypeOption: Identifiable {
 
 struct LogWorkoutSheet: View {
     let prefilledType: HKWorkoutActivityType
-    let onSave: (HKWorkoutActivityType, Int) -> Void // type, totalMinutes
+    /// End-time the workout should be anchored to. Callers pass the
+    /// currently-selected day on Home (noon-anchored), or .now from
+    /// other tabs / the global "+" path.
+    let prefilledDate: Date
+    /// type, totalMinutes, endDate. The view passes the user-picked end date
+    /// straight back so the caller doesn't have to re-derive it from "today".
+    let onSave: (HKWorkoutActivityType, Int, Date) -> Void
+
+    init(prefilledType: HKWorkoutActivityType,
+         prefilledDate: Date = Date(),
+         onSave: @escaping (HKWorkoutActivityType, Int, Date) -> Void) {
+        self.prefilledType = prefilledType
+        self.prefilledDate = prefilledDate
+        self.onSave = onSave
+    }
 
     @Environment(\.dismiss) private var dismiss
 
@@ -34,6 +48,10 @@ struct LogWorkoutSheet: View {
 
     @State private var selectedHours: Int = 0
     @State private var selectedMinutes: Int = 0 // index into minuteSteps
+
+    /// End time of the workout — when the session finished. Defaults to
+    /// prefilledDate; user can adjust day + time independently.
+    @State private var endDate: Date = Date()
 
     @State private var isSaving = false
     @State private var showDurationError = false
@@ -67,6 +85,14 @@ struct LogWorkoutSheet: View {
                 Divider()
                     .padding(.top, 20)
 
+                // When did this happen — day + time
+                whenPicker
+                    .padding(.horizontal, 20)
+                    .padding(.top, 16)
+
+                Divider()
+                    .padding(.top, 16)
+
                 // Duration pickers
                 durationPickers
                     .padding(.horizontal, 20)
@@ -96,8 +122,29 @@ struct LogWorkoutSheet: View {
                 }
             }
         }
-        .presentationDetents([.fraction(0.72)])
-        .onAppear { applyPrefilledType() }
+        .presentationDetents([.fraction(0.85)])
+        .onAppear {
+            applyPrefilledType()
+            applyPrefilledDate()
+        }
+    }
+
+    private var whenPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("When")
+                .font(.subheadline)
+                .fontWeight(.semibold)
+                .foregroundStyle(.secondary)
+
+            DatePicker(
+                "Date and time",
+                selection: $endDate,
+                in: ...Date(),                  // can't log a future workout
+                displayedComponents: [.date, .hourAndMinute]
+            )
+            .labelsHidden()
+            .datePickerStyle(.compact)
+        }
     }
 
     // MARK: - Subviews
@@ -215,6 +262,19 @@ struct LogWorkoutSheet: View {
         }
     }
 
+    /// For a same-day prefill, anchor at "now" so the user-visible time is
+    /// recent and editable. For a different day (Home selected-day flow),
+    /// anchor at noon so the picker doesn't show a midnight time the user
+    /// has to clear before adjusting.
+    private func applyPrefilledDate() {
+        let cal = Calendar.current
+        if cal.isDateInToday(prefilledDate) {
+            endDate = Date()
+        } else {
+            endDate = cal.date(bySettingHour: 12, minute: 0, second: 0, of: prefilledDate) ?? prefilledDate
+        }
+    }
+
     private func handleLogTap() {
         guard !durationIsZero else {
             withAnimation { showDurationError = true }
@@ -222,7 +282,7 @@ struct LogWorkoutSheet: View {
         }
 
         isSaving = true
-        onSave(selectedOption.id, totalMinutes)
+        onSave(selectedOption.id, totalMinutes, endDate)
         // Give the caller a brief moment to kick off its async work, then dismiss.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             isSaving = false
@@ -236,8 +296,8 @@ struct LogWorkoutSheet: View {
 #Preview {
     Color.clear
         .sheet(isPresented: .constant(true)) {
-            LogWorkoutSheet(prefilledType: .cycling) { type, minutes in
-                print("Saved: \(type) for \(minutes) minutes")
+            LogWorkoutSheet(prefilledType: .cycling) { type, minutes, end in
+                print("Saved: \(type) for \(minutes) min ending \(end)")
             }
         }
 }
