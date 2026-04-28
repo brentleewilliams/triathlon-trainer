@@ -1408,31 +1408,44 @@ struct WeekOverviewCard: View {
                     let nonRestWorkouts = dayEntry.workouts.filter { !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding") }
                     let primaryWorkout = nonRestWorkouts.first
                         ?? dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
-                    let workoutLabel: String = {
-                        if nonRestWorkouts.isEmpty { return "Rest" }
-                        return nonRestWorkouts.map { w -> String in
-                            if let idx = w.type.firstIndex(where: { $0.isLetter }) { return String(w.type[idx...]) }
-                            return w.type
-                        }.joined(separator: " · ")
-                    }()
+                    let isBrick = nonRestWorkouts.count == 1 && (nonRestWorkouts[0].type.lowercased().contains("brick") || nonRestWorkouts[0].type.lowercased().contains("race sim"))
+                    let isMultiSession = nonRestWorkouts.count >= 2
+                    // Dot 1 color
+                    let dot1Color: Color = nonRestWorkouts.first.map { sportColor(for: $0.type) } ?? Color(.systemGray4)
+                    // Dot 2 color — second session color, or for brick: run color
+                    let dot2Color: Color? = isMultiSession ? nonRestWorkouts.dropFirst().first.map { sportColor(for: $0.type) }
+                        : isBrick ? AppTheme.run : nil
                     let isDropTarget = dropTargetDay == dayEntry.day
+
                     let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
                         HStack(spacing: 12) {
-                            // Sport color dot (or grey for rest)
-                            Circle()
-                                .fill(primaryWorkout.map { sportColor(for: $0.type) } ?? Color(.systemGray4))
-                                .frame(width: 8, height: 8)
+                            // Dual dots for AM/PM or Brick, single dot otherwise
+                            HStack(spacing: 3) {
+                                Circle().fill(dot1Color).frame(width: 7, height: 7)
+                                Circle().fill(dot2Color ?? Color.clear).frame(width: 7, height: 7)
+                            }
+                            .frame(width: 18, alignment: .leading)
 
-                            // Day + workout name(s)
+                            // Day abbreviation
                             Text(dayEntry.day)
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.secondary)
                                 .frame(width: 28, alignment: .leading)
 
-                            Text(workoutLabel)
-                                .font(.system(size: 13))
-                                .foregroundColor(.primary)
-                                .lineLimit(1)
+                            // Workout label — AM/PM format for dual sessions, Brick detail for bricks
+                            if isMultiSession, nonRestWorkouts.count >= 2 {
+                                let t0 = { () -> String in let t = nonRestWorkouts[0].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
+                                let t1 = { () -> String in let t = nonRestWorkouts[1].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
+                                Text("AM \(t0)").font(.system(size: 13)).foregroundColor(.primary)
+                                Text("| PM \(t1)").font(.system(size: 13)).foregroundColor(.secondary)
+                            } else if isBrick {
+                                let stripped = { () -> String in let t = nonRestWorkouts[0].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
+                                Text(stripped).font(.system(size: 13)).foregroundColor(.primary)
+                                Text("Bike & Run").font(.system(size: 12)).foregroundColor(.secondary)
+                            } else {
+                                let label = primaryWorkout.map { w -> String in if let i = w.type.firstIndex(where: { $0.isLetter }) { return String(w.type[i...]) }; return w.type } ?? "Rest"
+                                Text(label).font(.system(size: 13)).foregroundColor(.primary).lineLimit(1)
+                            }
 
                             Spacer()
 
