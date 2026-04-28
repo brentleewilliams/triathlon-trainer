@@ -433,8 +433,12 @@ class OnboardingViewModel: ObservableObject {
     func searchRace() async {
         guard !raceSearchQuery.isEmpty else { return }
         isSearchingRace = true
+        // Clear stale state so a re-search visibly replaces the previous
+        // result/error rather than appearing to do nothing while the old
+        // card lingers on screen.
         error = nil
         raceSuggestions = []
+        raceSearchResult = nil
 
         // Check local overrides first — guarantees correct date for known races
         if let override = localRaceOverride(query: raceSearchQuery) {

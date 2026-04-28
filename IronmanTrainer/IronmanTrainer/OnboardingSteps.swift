@@ -349,16 +349,6 @@ struct RaceSearchStep: View {
                         viewModel.raceSearchResult = result.withDate(newDate)
                     }
                     .padding(.horizontal, 16)
-
-                    Button {
-                        viewModel.raceSearchResult = nil
-                        viewModel.raceSearchQuery = ""
-                        localQuery = ""
-                    } label: {
-                        Text("Search again")
-                            .font(.subheadline)
-                            .foregroundStyle(.white.opacity(0.85))
-                    }
                 }
 
                 if let error = viewModel.error {
@@ -415,6 +405,18 @@ struct RaceSearchStep: View {
             .padding(.horizontal, 16)
         }
         .scrollDismissesKeyboard(.immediately)
+        // Clear the result/error/suggestions when the user edits the text
+        // away from whatever produced the current state. Without this, a
+        // stale result card sticks around while the user types and makes
+        // the input look unresponsive.
+        .onChange(of: localQuery) { newValue in
+            let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed != viewModel.raceSearchQuery.trimmingCharacters(in: .whitespacesAndNewlines) {
+                if viewModel.raceSearchResult != nil { viewModel.raceSearchResult = nil }
+                if viewModel.error != nil { viewModel.error = nil }
+                if !viewModel.raceSuggestions.isEmpty { viewModel.raceSuggestions = [] }
+            }
+        }
     }
 }
 
