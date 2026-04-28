@@ -13,32 +13,11 @@ func mondayOfWeek(_ date: Date) -> Date {
 
 // MARK: - Sport color helpers
 
-private let swimColor     = Color(hex: "007AFF")
-private let bikeColor     = Color(hex: "14B8A6")  // teal — sync with AppTheme.bike
-private let runColor      = Color(hex: "FF9500")
-private let strengthColor = Color(hex: "AF52DE")
-private let brickColor    = Color(hex: "DB2777")  // rose — distinct from race-ready red
-private let restColor     = Color(hex: "8E8E93")
-
-private func sportColor(for type: String) -> Color {
-    let t = type.lowercased()
-    if t.contains("swim") { return swimColor }
-    if t.contains("brick") || t.contains("race sim") { return brickColor }
-    if t.contains("bike") || t.contains("cycl") { return bikeColor }
-    if t.contains("run") { return runColor }
-    if t.contains("strength") || t.contains("gym") { return strengthColor }
-    return restColor
-}
-
-private func sportEmoji(for type: String) -> String {
-    let t = type.lowercased()
-    if t.contains("swim") { return "🏊" }
-    if t.contains("brick") || t.contains("race sim") { return "🚴🏃" }
-    if t.contains("bike") || t.contains("cycl") { return "🚴" }
-    if t.contains("run") { return "🏃" }
-    if t.contains("strength") || t.contains("gym") { return "💪" }
-    return "😴"
-}
+// Sport color/emoji helpers: thin shims that route to AppTheme so a single
+// edit in Theme.swift propagates everywhere. Don't reintroduce local hex
+// constants here — every sport color must come from AppTheme.
+private func sportColor(for type: String) -> Color { AppTheme.sportColor(for: type) }
+private func sportEmoji(for type: String) -> String { AppTheme.sportEmoji(for: type) }
 
 // MARK: - Phase color helper
 
@@ -915,12 +894,7 @@ struct WorkoutTabCardView: View {
     }
 
     private func hkWorkoutColor(_ type: HKWorkoutActivityType) -> Color {
-        switch type {
-        case .cycling: return Color(hex: "007AFF")
-        case .swimming: return Color(hex: "32ADE6")
-        case .running: return Color(hex: "34C759")
-        default: return Color(.systemGray3)
-        }
+        AppTheme.sportColor(for: type)
     }
 
     private func hkDurationString(_ seconds: TimeInterval) -> String {
@@ -1372,12 +1346,7 @@ struct SelectedDayWorkoutCard: View {
     }
 
     private func hkWorkoutColor(_ type: HKWorkoutActivityType) -> Color {
-        switch type {
-        case .cycling: return Color(hex: "007AFF")
-        case .swimming: return Color(hex: "32ADE6")
-        case .running: return Color(hex: "34C759")
-        default: return Color(.systemGray3)
-        }
+        AppTheme.sportColor(for: type)
     }
 
     private func hkDurationString(_ seconds: TimeInterval) -> String {

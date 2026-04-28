@@ -844,13 +844,13 @@ private struct DisciplineBalanceRow: View {
                             let width = geo.size.width * CGFloat(ctl / total)
                             let g = gap(for: disc)
                             let barColor: Color = {
-                                if g?.severity == .critical { return .red }
-                                if g?.severity == .warning { return .orange }
+                                if g?.severity == .critical { return AppTheme.statusRed }
+                                if g?.severity == .warning  { return AppTheme.statusAmber }
                                 switch disc {
-                                case .swim: return .blue
-                                case .bike: return .orange
-                                case .run: return .green
-                                default: return .gray
+                                case .swim: return AppTheme.swim
+                                case .bike: return AppTheme.bike
+                                case .run:  return AppTheme.run
+                                default:    return AppTheme.rest
                                 }
                             }()
                             Rectangle()

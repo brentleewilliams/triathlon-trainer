@@ -1,4 +1,5 @@
 import SwiftUI
+import HealthKit
 
 // MARK: - App Theme
 /// Centralized design constants and helpers. Use as a namespace — never instantiated.
@@ -40,6 +41,21 @@ enum AppTheme {
         if t.contains("run")                             { return run }
         if t.contains("strength") || t.contains("gym")  { return strength }
         return rest
+    }
+
+    /// HealthKit → sport color. Single bridge so HK-sourced UI (recorded
+    /// activities, sport dots on workout rows) uses the same palette as
+    /// planned-workout UI. Add new mappings here, never reach for hex.
+    static func sportColor(for hk: HKWorkoutActivityType) -> Color {
+        switch hk {
+        case .swimming, .swimBikeRun: return swim
+        case .cycling:                return bike
+        case .running:                return run
+        case .traditionalStrengthTraining,
+             .functionalStrengthTraining,
+             .crossTraining:          return strength
+        default:                      return rest
+        }
     }
 
     // MARK: - Sport Emoji Helper
