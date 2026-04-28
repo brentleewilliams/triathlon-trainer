@@ -104,13 +104,10 @@ struct ContentView: View {
         }
         .sheet(isPresented: $showCalendar) {
             NavigationStack {
+                // TrainingCalendarView owns its own trailing Done button —
+                // don't add a duplicate leading one here.
                 TrainingCalendarView()
                     .environmentObject(trainingPlan)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button("Done") { showCalendar = false }
-                        }
-                    }
             }
         }
         .sheet(isPresented: $showLogWorkout) {

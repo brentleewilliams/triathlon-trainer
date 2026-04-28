@@ -76,8 +76,11 @@ struct TrainingCalendarView: View {
         .navigationTitle("Training Calendar")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            // Changes (drag/swap, +Add) persist immediately via
+            // TrainingPlanManager, so this button is just a dismiss.
+            // Single Done in the trailing slot, no duplicate top-left.
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("Save") {
+                Button("Done") {
                     dismiss()
                 }
                 .fontWeight(.semibold)
