@@ -28,16 +28,12 @@ struct PlanView: View {
         trainingPlan.getWeek(trainingPlan.currentWeekNumber)?.phase ?? "Base"
     }
 
+    @AppStorage("race_primary_name") private var storedRaceName: String = ""
+
     var planName: String {
-        // Prefer the user's primary race name from onboarding; fall back to
-        // course-service profile (which itself falls back to the bundled
-        // Oregon 70.3) and finally a generic plan label.
-        let raw = RaceProfileStore.raceName
-            ?? RaceCourseService.shared.currentProfile?.raceName
-            ?? "Training Plan"
-        if raw.hasPrefix("Race1 — ") {
-            return String(raw.dropFirst("Race1 — ".count))
-        }
+        let raw = storedRaceName.isEmpty ? "Training Plan" : storedRaceName
+        if raw.hasPrefix("Race1 — ") { return String(raw.dropFirst("Race1 — ".count)) }
+        if raw.hasPrefix("Race1 - ")  { return String(raw.dropFirst("Race1 - ".count)) }
         return raw
     }
 

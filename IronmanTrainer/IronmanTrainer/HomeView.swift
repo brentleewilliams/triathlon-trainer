@@ -349,14 +349,16 @@ struct HomeHeroView: View {
                 // Top row: race name + venue (left), week/phase pill (right)
                 // Starts at 60pt to clear the 52pt transparent nav bar overlay.
                 HStack(alignment: .top) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(raceName)
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                            .kerning(0.8)
-                        Text(raceVenue)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.white.opacity(0.72))
+                    if !raceName.isEmpty {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(raceName)
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.85))
+                                .kerning(0.8)
+                            Text(raceVenue)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundColor(.white.opacity(0.72))
+                        }
                     }
 
                     Spacer()
@@ -1919,6 +1921,8 @@ struct HomeView: View {
     @State var draggedWorkout: DayWorkout?
 
     // New state
+    @AppStorage("race_primary_name")  private var storedRaceName:  String = ""
+    @AppStorage("race_primary_venue") private var storedRaceVenue: String = ""
     @State private var showWidgetTip: Bool = !UserDefaults.standard.bool(forKey: "widget_tip_dismissed")
     @State private var showCourseDetail: Bool = false
     @State private var showLogWorkout: Bool = false
@@ -2138,21 +2142,17 @@ struct HomeView: View {
     }
 
     // MARK: Race name / venue
-    // Prefer the user's primary race captured at onboarding (RaceProfileStore)
-    // over RaceCourseService.currentProfile, which falls back to the bundled
-    // Oregon 70.3 profile when no course profile is loaded — and that fallback
-    // was leaking through as the header for users training for other races.
+    // @AppStorage vars above (storedRaceName / storedRaceVenue) make these
+    // reactive: SwiftUI re-renders automatically when the async Firestore
+    // backfill writes the user's actual race into UserDefaults — preventing
+    // the bundled Oregon 70.3 profile from leaking through as the header.
     var raceName: String {
-        let raw = RaceProfileStore.raceName
-            ?? RaceCourseService.shared.currentProfile?.raceName
-            ?? "Your race"
-        return raw.replacingOccurrences(of: "Race1 — ", with: "")
-                  .replacingOccurrences(of: "Race1 - ", with: "")
+        storedRaceName
+            .replacingOccurrences(of: "Race1 — ", with: "")
+            .replacingOccurrences(of: "Race1 - ", with: "")
     }
     var raceVenue: String {
-        RaceProfileStore.raceVenue
-            ?? RaceCourseService.shared.currentProfile?.venue
-            ?? ""
+        storedRaceVenue.isEmpty ? "" : storedRaceVenue
     }
 
     // MARK: - Completion helpers (called by DayRowComponents / WorkoutDayRows)
