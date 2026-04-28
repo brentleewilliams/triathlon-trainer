@@ -142,6 +142,8 @@ struct SettingsView: View {
     @State private var isRegeneratingPlan = false
     @State private var regenerateError: String?
     @State private var storedThresholds: PerformanceThresholds = PerformanceThresholdsStore.load() ?? .empty
+    @State private var homeZip: String = ""
+    @State private var zipSaveTask: Task<Void, Never>?
     @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var raceDateDisplay: String {
@@ -206,6 +208,25 @@ struct SettingsView: View {
                     header: Text("Training Environment"),
                     footer: Text("Used to calibrate altitude and heat guidance. Inferred from your location on first launch; edit here anytime.")
                 ) {
+                    HStack {
+                        Text("Training Zip")
+                        Spacer()
+                        TextField("e.g. 97401", text: $homeZip)
+                            .keyboardType(.numberPad)
+                            .multilineTextAlignment(.trailing)
+                            .frame(maxWidth: 100)
+                            .foregroundColor(.secondary)
+                            .onChange(of: homeZip) { _, newValue in
+                                zipSaveTask?.cancel()
+                                zipSaveTask = Task {
+                                    try? await Task.sleep(nanoseconds: 700_000_000)
+                                    guard !Task.isCancelled,
+                                          let uid = authService.currentUserID else { return }
+                                    try? await FirestoreService.shared.updateHomeZip(newValue, for: uid)
+                                }
+                            }
+                    }
+
                     HStack {
                         Text("Elevation")
                         Spacer()
@@ -380,6 +401,11 @@ struct SettingsView: View {
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
+            .task {
+                guard let uid = authService.currentUserID,
+                      let profile = try? await FirestoreService.shared.getUserProfile(uid: uid) else { return }
+                homeZip = profile.homeZip ?? ""
+            }
             .alert("Generate New Plan?", isPresented: $showReOnboardAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Continue") {

@@ -784,6 +784,20 @@ struct WorkoutTabCardView: View {
                 .padding(.horizontal, 16)
                 .padding(.top, 4)
 
+            // Brick leg breakdown (tab card path — same fallback logic as SelectedDayWorkoutCard)
+            if workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim") {
+                let split = workout.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }
+                VStack(spacing: 0) {
+                    BrickLegRow(emoji: "🚴", label: "Bike", duration: split?.bikeDuration ?? "—", accent: AppTheme.bike)
+                    Divider().padding(.leading, 12)
+                    BrickLegRow(emoji: "🏃", label: "Run",  duration: split?.runDuration ?? "—",  accent: AppTheme.run, paceSuffix: split?.runPace)
+                }
+                .background(Color(.systemGray6).opacity(0.6))
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.horizontal, 16)
+                .padding(.top, 10)
+            }
+
             // Why box
             if let notes = workout.notes, !notes.isEmpty {
                 HStack(alignment: .top, spacing: 0) {
@@ -921,7 +935,7 @@ struct WorkoutTabCardView: View {
             if !afterWorkout {
                 HStack(spacing: 8) {
                     Button(action: onLogWorkout) {
-                        Text("Start workout")
+                        Text("Log workout")
                             .font(.system(size: 16, weight: .semibold))
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -1097,14 +1111,16 @@ struct SelectedDayWorkoutCard: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
 
-                // Brick leg breakdown — two-row card showing bike + run components
-                if (workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim")),
-                   let notes = workout.notes,
-                   let split = WorkoutDetailParser.parseBrickDetail(from: notes) {
+                // Brick leg breakdown — two-row card showing bike + run components.
+                // Always rendered for bricks; falls back to "—" when notes don't contain
+                // a parseable split (e.g. AI plan described split in prose, not in
+                // "Bike X:XX + Run Xmin" format).
+                if workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim") {
+                    let split = workout.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }
                     VStack(spacing: 0) {
-                        BrickLegRow(emoji: "🚴", label: "Bike", duration: split.bikeDuration, accent: AppTheme.bike)
+                        BrickLegRow(emoji: "🚴", label: "Bike", duration: split?.bikeDuration ?? "—", accent: AppTheme.bike)
                         Divider().padding(.leading, 12)
-                        BrickLegRow(emoji: "🏃", label: "Run",  duration: split.runDuration,  accent: AppTheme.run, paceSuffix: split.runPace)
+                        BrickLegRow(emoji: "🏃", label: "Run",  duration: split?.runDuration ?? "—",  accent: AppTheme.run, paceSuffix: split?.runPace)
                     }
                     .background(Color(.systemGray6).opacity(0.6))
                     .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -1215,7 +1231,7 @@ struct SelectedDayWorkoutCard: View {
         if !isCompleted {
             HStack(spacing: 8) {
                 Button(action: onLogWorkout) {
-                    Text("Start workout")
+                    Text("Log workout")
                         .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
@@ -1403,79 +1419,84 @@ struct WeekOverviewCard: View {
 
             if isExpanded {
                 Divider()
-                // Each day row
+                // One row per workout — multi-session days get individual rows
                 ForEach(Array(workoutsByDay.enumerated()), id: \.offset) { index, dayEntry in
-                    let nonRestWorkouts = dayEntry.workouts.filter { !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding") }
-                    let primaryWorkout = nonRestWorkouts.first
-                        ?? dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
-                    let isBrick = nonRestWorkouts.count == 1 && (nonRestWorkouts[0].type.lowercased().contains("brick") || nonRestWorkouts[0].type.lowercased().contains("race sim"))
-                    let isMultiSession = nonRestWorkouts.count >= 2
-                    // Dot 1 color
-                    let dot1Color: Color = nonRestWorkouts.first.map { sportColor(for: $0.type) } ?? Color(.systemGray4)
-                    // Dot 2 color — second session color, or for brick: run color
-                    let dot2Color: Color? = isMultiSession ? nonRestWorkouts.dropFirst().first.map { sportColor(for: $0.type) }
-                        : isBrick ? AppTheme.run : nil
+                    let nonRestWorkouts = dayEntry.workouts.filter {
+                        !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding")
+                    }
+                    // If all workouts are rest/placeholder, show one rest row; otherwise show each non-rest workout
+                    let displayWorkouts: [DayWorkout] = nonRestWorkouts.isEmpty
+                        ? dayEntry.workouts.filter { !$0.type.contains("pre_onboarding") }.prefix(1).map { $0 }
+                        : nonRestWorkouts
                     let isDropTarget = dropTargetDay == dayEntry.day
 
-                    let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
-                        HStack(spacing: 12) {
-                            // Dual dots for AM/PM or Brick, single dot otherwise
-                            HStack(spacing: 3) {
-                                Circle().fill(dot1Color).frame(width: 7, height: 7)
-                                Circle().fill(dot2Color ?? Color.clear).frame(width: 7, height: 7)
+                    VStack(spacing: 0) {
+                        ForEach(Array(displayWorkouts.enumerated()), id: \.offset) { wIndex, workout in
+                            let isRest = workout.type.lowercased().contains("rest")
+                            let dotColor: Color = isRest ? Color(.systemGray4) : sportColor(for: workout.type)
+                            let isBrick = !isRest && (workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim"))
+                            let label: String = {
+                                if let i = workout.type.firstIndex(where: { $0.isLetter }) { return String(workout.type[i...]) }
+                                return workout.type
+                            }()
+
+                            let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
+                                HStack(spacing: 12) {
+                                    Circle()
+                                        .fill(dotColor)
+                                        .frame(width: 7, height: 7)
+                                        .frame(width: 18, alignment: .leading)
+
+                                    Text(dayEntry.day)
+                                        .font(.system(size: 13, weight: .semibold))
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 28, alignment: .leading)
+
+                                    Text(label)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(isRest ? .secondary : .primary)
+                                        .lineLimit(1)
+
+                                    if isBrick {
+                                        Text("Bike & Run")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+
+                                    Spacer()
+
+                                    if !isRest {
+                                        Image(systemName: isWorkoutCompleted(workout) ? "checkmark.circle.fill" : "circle")
+                                            .foregroundColor(isWorkoutCompleted(workout) ? AppTheme.statusGreen : Color(.systemGray4))
+                                            .font(.system(size: 16))
+                                    }
+                                }
+                                .padding(.horizontal, AppTheme.cardPadding)
+                                .padding(.vertical, 10)
+                                .background(
+                                    isDropTarget
+                                        ? Color.accentColor.opacity(0.18)
+                                        : (index == selectedDayIndex ? AppTheme.bike.opacity(0.06) : Color.clear)
+                                )
                             }
-                            .frame(width: 18, alignment: .leading)
+                            .buttonStyle(.plain)
 
-                            // Day abbreviation
-                            Text(dayEntry.day)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(.secondary)
-                                .frame(width: 28, alignment: .leading)
-
-                            // Workout label — AM/PM format for dual sessions, Brick detail for bricks
-                            if isMultiSession, nonRestWorkouts.count >= 2 {
-                                let t0 = { () -> String in let t = nonRestWorkouts[0].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
-                                let t1 = { () -> String in let t = nonRestWorkouts[1].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
-                                Text("AM \(t0)").font(.system(size: 13)).foregroundColor(.primary)
-                                Text("| PM \(t1)").font(.system(size: 13)).foregroundColor(.secondary)
-                            } else if isBrick {
-                                let stripped = { () -> String in let t = nonRestWorkouts[0].type; if let i = t.firstIndex(where: { $0.isLetter }) { return String(t[i...]) }; return t }()
-                                Text(stripped).font(.system(size: 13)).foregroundColor(.primary)
-                                Text("Bike & Run").font(.system(size: 12)).foregroundColor(.secondary)
-                            } else {
-                                let label = primaryWorkout.map { w -> String in if let i = w.type.firstIndex(where: { $0.isLetter }) { return String(w.type[i...]) }; return w.type } ?? "Rest"
-                                Text(label).font(.system(size: 13)).foregroundColor(.primary).lineLimit(1)
+                            Group {
+                                if !isRest, onSwap != nil {
+                                    rowContent
+                                        .draggable(DraggedWorkoutRef(
+                                            weekNumber: 0,
+                                            sourceDay: dayEntry.day,
+                                            workout: workout
+                                        ))
+                                } else {
+                                    rowContent
+                                }
                             }
 
-                            Spacer()
-
-                            // Completion indicator
-                            if let w = primaryWorkout {
-                                Image(systemName: isWorkoutCompleted(w) ? "checkmark.circle.fill" : "circle")
-                                    .foregroundColor(isWorkoutCompleted(w) ? AppTheme.statusGreen : Color(.systemGray4))
-                                    .font(.system(size: 16))
+                            if wIndex < displayWorkouts.count - 1 {
+                                Divider().padding(.leading, AppTheme.cardPadding + 20)
                             }
-                        }
-                        .padding(.horizontal, AppTheme.cardPadding)
-                        .padding(.vertical, 10)
-                        .background(
-                            isDropTarget
-                                ? Color.accentColor.opacity(0.18)
-                                : (index == selectedDayIndex ? AppTheme.bike.opacity(0.06) : Color.clear)
-                        )
-                    }
-                    .buttonStyle(.plain)
-
-                    Group {
-                        if let w = primaryWorkout, !w.type.lowercased().contains("rest"), onSwap != nil {
-                            rowContent
-                                .draggable(DraggedWorkoutRef(
-                                    weekNumber: 0, // weekNumber unused for same-week swaps; kept for payload compat
-                                    sourceDay: dayEntry.day,
-                                    workout: w
-                                ))
-                        } else {
-                            rowContent
                         }
                     }
                     .dropDestination(for: DraggedWorkoutRef.self) { items, _ in

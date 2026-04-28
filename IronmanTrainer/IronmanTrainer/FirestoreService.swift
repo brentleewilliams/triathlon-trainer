@@ -51,6 +51,10 @@ class FirestoreService: ObservableObject {
         return try decode(UserProfile.self, from: data)
     }
 
+    func updateHomeZip(_ zip: String, for uid: String) async throws {
+        try await db.collection("users").document(uid).updateData(["homeZip": zip])
+    }
+
     // MARK: - Race
 
     func saveRace(_ race: Race, for uid: String) async throws {
