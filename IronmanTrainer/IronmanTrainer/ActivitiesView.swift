@@ -188,13 +188,15 @@ struct ActivitiesView: View {
         } label: {
             Text(type.rawValue)
                 .font(.system(size: 14, weight: .medium))
-                .foregroundColor(isSelected ? .white : (type == .all ? .primary : type.themeColor))
+                .foregroundColor(isSelected
+                    ? (type == .all ? Color(.systemBackground) : .white)
+                    : (type == .all ? .primary : type.themeColor))
                 .padding(.horizontal, 14)
                 .padding(.vertical, 7)
                 .background(
                     Capsule()
                         .fill(isSelected
-                              ? (type == .all ? Color.primary : type.themeColor)
+                              ? (type == .all ? Color(.label) : type.themeColor)
                               : Color.clear)
                 )
                 .overlay(
