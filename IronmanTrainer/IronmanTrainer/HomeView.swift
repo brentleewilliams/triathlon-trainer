@@ -414,15 +414,33 @@ struct HomeHeroView: View {
                 }
                 .padding(.top, 14)
 
-                // Readiness pills row
+                // Readiness pills row. In single-sport (road-race) mode the
+                // race-ready dot is appended inline so the layout stays one
+                // row instead of dropping a near-empty band underneath.
                 HStack(spacing: 8) {
                     ReadinessPillView(score: readinessScore, label: readinessLabel)
                     StatPillView(label: "Sleep", value: sleepLabel)
                     StatPillView(label: "HRV", value: hrvLabel)
+                    if isSingleSport, let s = raceReadiness.first {
+                        HStack(spacing: 5) {
+                            Circle()
+                                .fill(s.statusColor)
+                                .frame(width: 9, height: 9)
+                                .shadow(color: s.statusColor.opacity(0.5), radius: 3)
+                            Text(s.sport)
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundColor(.white)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.14))
+                        .clipShape(Capsule())
+                    }
                 }
                 .padding(.top, 16)
 
-                // Race-ready traffic lights (tri only)
+                // Race-ready traffic lights — multi-discipline only. Single-sport
+                // case is folded into the readiness pills row above.
                 if !isSingleSport && !raceReadiness.isEmpty {
                     HStack(spacing: 10) {
                         Text("RACE-READY")
@@ -2070,10 +2088,14 @@ struct HomeView: View {
     var streakBroken: Bool { trainingStatusService.status?.readiness.level == .tired }
 
     // MARK: Race readiness per sport
+    var activeDisciplineSet: Set<TrainingDiscipline> {
+        activeDisciplines(in: trainingPlan.weeks)
+    }
     var raceReadiness: [SportReadiness] {
         deriveRaceReadiness(
             from: trainingStatusService.status,
-            today: todayWorkout?.type ?? ""
+            today: todayWorkout?.type ?? "",
+            only: activeDisciplineSet
         )
     }
     var raceReadinessOverall: Int {
@@ -2246,7 +2268,7 @@ struct HomeView: View {
                                 streakCount: streakCount,
                                 streakBroken: streakBroken,
                                 raceReadiness: raceReadiness,
-                                isSingleSport: false,
+                                isSingleSport: activeDisciplineSet.count <= 1,
                                 isRaceWeek: isRaceWeek
                             )
                             .padding(.top, safeTop)
