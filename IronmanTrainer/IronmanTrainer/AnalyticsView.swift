@@ -272,61 +272,6 @@ struct AnalyticsView: View {
 
             ScrollView {
             VStack(spacing: 20) {
-                // Volume Summary
-                VStack(spacing: 12) {
-                    Text("Volume Summary")
-                        .font(.headline)
-
-                    let hasAnyVolume = analyticsVM.cachedPlannedVolume.swim > 0 || analyticsVM.cachedPlannedVolume.bike > 0 || analyticsVM.cachedPlannedVolume.run > 0
-                    if hasAnyVolume {
-                        HStack(spacing: 20) {
-                            if analyticsVM.cachedPlannedVolume.swim > 0 {
-                                VolumeCard(label: "Swim", hours: analyticsVM.cachedVolume.swim, planned: analyticsVM.cachedPlannedVolume.swim, color: .blue)
-                            }
-                            if analyticsVM.cachedPlannedVolume.bike > 0 {
-                                VolumeCard(label: "Bike", hours: analyticsVM.cachedVolume.bike, planned: analyticsVM.cachedPlannedVolume.bike, color: .orange)
-                            }
-                            if analyticsVM.cachedPlannedVolume.run > 0 {
-                                VolumeCard(label: "Run", hours: analyticsVM.cachedVolume.run, planned: analyticsVM.cachedPlannedVolume.run, color: .green)
-                            }
-                        }
-                    } else {
-                        Text("Rest Week")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 8)
-                    }
-
-                    // Bonus (off-plan) activity summary
-                    let u = analyticsVM.cachedUnplannedVolume
-                    let totalBonusHours = u.swim + u.bike + u.run + u.other
-                    if totalBonusHours > 0 {
-                        Divider()
-                        HStack(alignment: .top, spacing: 8) {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(.orange)
-                                .font(.caption)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Bonus activity: \(formatBonusHours(totalBonusHours))")
-                                    .font(.caption)
-                                    .fontWeight(.semibold)
-                                    .foregroundColor(.orange)
-                                let parts = bonusBreakdown(u)
-                                if !parts.isEmpty {
-                                    Text(parts.joined(separator: " \u{2022} "))
-                                        .font(.caption2)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            Spacer()
-                        }
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-
                 // Zone Distribution
                 VStack(spacing: 12) {
                     Text("Zone Distribution (Week \(selectedWeek))")
@@ -371,43 +316,6 @@ struct AnalyticsView: View {
                             ZoneBar(zone: "Z4", plannedPercent: analyticsVM.cachedZonePercentages["Z4"] ?? 0, actualPercent: actualZonePercentages["Z4"] ?? 0, color: .orange)
                             ZoneBar(zone: "Z5", plannedPercent: analyticsVM.cachedZonePercentages["Z5"] ?? 0, actualPercent: actualZonePercentages["Z5"] ?? 0, color: .red)
                         }
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-
-                // Weekly Compliance Trend
-                VStack(spacing: 12) {
-                    Text("Weekly Compliance Trend")
-                        .font(.headline)
-
-                    if analyticsVM.cachedComplianceTrend.isEmpty {
-                        Text("No compliance data yet")
-                            .font(.caption)
-                            .foregroundColor(.gray)
-                            .frame(maxWidth: .infinity)
-                            .padding()
-                    } else {
-                        HStack(alignment: .bottom, spacing: 6) {
-                            ForEach(analyticsVM.cachedComplianceTrend, id: \.week) { entry in
-                                VStack(spacing: 4) {
-                                    Text("\(Int(entry.percent))%")
-                                        .font(.system(size: 9))
-                                        .foregroundColor(.secondary)
-
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(complianceBarColor(entry.percent))
-                                        .frame(height: max(4, CGFloat(entry.percent) * 0.8))
-
-                                    Text("W\(entry.week)")
-                                        .font(.system(size: 9))
-                                        .foregroundColor(.gray)
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .frame(height: 100)
                     }
                 }
                 .padding()
