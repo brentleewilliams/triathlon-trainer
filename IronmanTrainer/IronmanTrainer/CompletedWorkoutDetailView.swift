@@ -7,8 +7,12 @@ struct CompletedWorkoutDetailView: View {
     let workout: HKWorkout
     @EnvironmentObject var healthKit: HealthKitManager
 
+    @Environment(\.dismiss) private var dismiss
+
     // Persisted notes keyed by workout UUID
     @State private var notes: String = ""
+    @State private var showDeleteAlert = false
+    @State private var isDeleting = false
     private var notesKey: String { "workout_notes_\(workout.uuid.uuidString)" }
 
     // MARK: - Computed display values
@@ -113,6 +117,24 @@ struct CompletedWorkoutDetailView: View {
         calories > 0 ? "\(Int(calories))" : "—"
     }
 
+    // MARK: - Source
+
+    private var isAppCreated: Bool {
+        workout.sourceRevision.source.bundleIdentifier == "com.brent.race1"
+    }
+
+    private var sourceName: String {
+        isAppCreated ? "Race1 Trainer (manual)" : workout.sourceRevision.source.name
+    }
+
+    private var sourceIcon: String {
+        if isAppCreated { return "square.and.pencil" }
+        let name = workout.sourceRevision.source.name.lowercased()
+        if name.contains("watch") { return "applewatch" }
+        if name.contains("iphone") || name.contains("phone") { return "iphone" }
+        return "app.connected.to.app.below.fill"
+    }
+
     // Zone colors matching the 5-zone system
     private let zoneColors: [String: Color] = [
         "Z1": Color(hex: "92CBFD"),
@@ -137,7 +159,11 @@ struct CompletedWorkoutDetailView: View {
                 if hasZoneData {
                     zoneBreakdown
                 }
+                sourceSection
                 notesSection
+                if isAppCreated {
+                    deleteButton
+                }
             }
             .padding(.bottom, 30)
         }
@@ -153,6 +179,18 @@ struct CompletedWorkoutDetailView: View {
         }
         .onAppear {
             notes = UserDefaults.standard.string(forKey: notesKey) ?? ""
+        }
+        .alert("Delete Workout?", isPresented: $showDeleteAlert) {
+            Button("Delete", role: .destructive) {
+                Task {
+                    isDeleting = true
+                    try? await healthKit.deleteWorkout(workout)
+                    dismiss()
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will permanently remove the workout from Health. This cannot be undone.")
         }
     }
 
@@ -308,6 +346,57 @@ struct CompletedWorkoutDetailView: View {
         .cornerRadius(AppTheme.cardCornerRadius)
         .shadow(color: .black.opacity(AppTheme.cardShadowOpacity),
                 radius: AppTheme.cardShadowRadius, x: 0, y: 2)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Source Section
+
+    private var sourceSection: some View {
+        HStack(spacing: 12) {
+            Image(systemName: sourceIcon)
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.secondary)
+                .frame(width: 24)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Source")
+                    .font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
+                Text(sourceName)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(.primary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
+        .background(Color(.systemBackground))
+        .cornerRadius(AppTheme.cardCornerRadius)
+        .shadow(color: .black.opacity(AppTheme.cardShadowOpacity),
+                radius: AppTheme.cardShadowRadius, x: 0, y: 2)
+        .padding(.horizontal, 16)
+    }
+
+    // MARK: - Delete Button
+
+    private var deleteButton: some View {
+        Button {
+            showDeleteAlert = true
+        } label: {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14)
+                    .fill(Color(.systemRed))
+                    .frame(height: 52)
+                if isDeleting {
+                    ProgressView().tint(.white)
+                } else {
+                    Text("Delete Workout")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                }
+            }
+        }
+        .disabled(isDeleting)
         .padding(.horizontal, 16)
     }
 

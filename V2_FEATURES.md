@@ -62,3 +62,20 @@ Currently HealthKit is always-connected with no way to disconnect from the app. 
 **Current:** `SettingsView` → `PlanGenerationService.regenerateSurroundingWeeks()` → `OpenAIService` → OpenAI directly from the app (model hardcoded client-side).
 
 **V2:** Route through `LLMProxyService` like coaching and plan generation already do, so model selection lives in LangSmith server-side and the app stays model-agnostic end-to-end. `PlanGenerationService.swift` and `OpenAIService.swift` can then be deleted.
+
+---
+
+## Settings Reorganization
+**Current:** Settings sections are not logically grouped — Race Date lives inside About, notifications are split, Health fields are scattered.
+
+**Proposed section order for V2:**
+
+1. **Your Race** — Race Date + Secondary Races (promoted to top; most-visited setting)
+2. **Notifications** — Morning Workout Reminder + Morning Check-In toggle + time picker (merged into one section)
+3. **Coaching** — Swim Drills toggle
+4. **Health** — Max HR, Age, HR Zones (consolidated; derived from each other so grouped)
+5. **Training Environment** — Training Elevation, Climate, Pool/Open Water/Trainer toggles
+6. **Plan Management** — Generate Plan, Regenerate, Restore Previous Plan
+7. **Advanced** — Performance Thresholds disclosure group
+8. **Account** — User ID, Sign Out, Delete Account
+9. **About** — Version number only (bottom, standard iOS placement; Race Date moved to Your Race)

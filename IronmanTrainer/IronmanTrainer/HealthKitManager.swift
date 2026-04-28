@@ -90,7 +90,14 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    // MARK: - Save Workout
+    // MARK: - Save / Delete Workout
+
+    func deleteWorkout(_ workout: HKWorkout) async throws {
+        try await healthStore.delete(workout)
+        await MainActor.run {
+            workouts.removeAll { $0.uuid == workout.uuid }
+        }
+    }
 
     func saveWorkout(activityType: HKWorkoutActivityType, start: Date, end: Date) async throws {
         // Ensure write authorization has been requested (read may be authorized but write may not)
