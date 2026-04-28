@@ -54,6 +54,7 @@ final class RaceCourseService: ObservableObject {
         } else {
             self.athleteEnvironment = AthleteEnvironment.defaultInferred()
         }
+        self.currentProfile = BundledCourseProfiles.all[BundledCourseProfiles.ironman703Oregon2026.raceId]
     }
 
     // MARK: - Profile Loading

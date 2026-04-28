@@ -5,7 +5,6 @@ import SwiftUI
 struct PlanView: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @State private var showConnectedApps = false
-    @State private var showManagePlan = false
     @State private var expandedWeeks: Set<Int> = []
 
     // MARK: - Computed Properties
@@ -101,12 +100,6 @@ struct PlanView: View {
                             ) {
                                 showConnectedApps = true
                             }
-                            PlanActionButton(
-                                label: "Manage Plan",
-                                icon: "slider.horizontal.3"
-                            ) {
-                                showManagePlan = true
-                            }
                         }
                         .padding(.horizontal, AppTheme.cardPadding)
 
@@ -147,9 +140,6 @@ struct PlanView: View {
         }
         .sheet(isPresented: $showConnectedApps) {
             ConnectedAppsSheet()
-        }
-        .sheet(isPresented: $showManagePlan) {
-            ManagePlanSheet()
         }
     }
 }
@@ -605,33 +595,3 @@ private struct ConnectedAppsSheet: View {
     }
 }
 
-// MARK: - Manage Plan Sheet
-
-private struct ManagePlanSheet: View {
-    @Environment(\.dismiss) var dismiss
-
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 24) {
-                Spacer()
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 48))
-                    .foregroundColor(.secondary)
-                Text("Plan Customization")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-                Text("Plan customization coming soon")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-            }
-            .navigationTitle("Manage Plan")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-    }
-}

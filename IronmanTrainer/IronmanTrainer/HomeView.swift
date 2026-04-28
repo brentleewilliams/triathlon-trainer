@@ -1405,7 +1405,8 @@ struct WeekOverviewCard: View {
                 Divider()
                 // Each day row
                 ForEach(Array(workoutsByDay.enumerated()), id: \.offset) { index, dayEntry in
-                    let primaryWorkout = dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
+                    let primaryWorkout = dayEntry.workouts.first { !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding") }
+                        ?? dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
                     let isDropTarget = dropTargetDay == dayEntry.day
                     let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
                         HStack(spacing: 12) {

@@ -26,3 +26,34 @@ protocol RaceSearchServiceProtocol {
 
 extension LLMProxyService: CoachingServiceProtocol {}
 extension LLMProxyService: RaceSearchServiceProtocol {}
+
+// MARK: - Shared LLM error type
+
+enum ClaudeServiceError: LocalizedError {
+    case invalidRequest
+    case networkError
+    case invalidResponse
+    case invalidAPIKey
+    case rateLimitExceeded
+    case serverError
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidRequest:
+            return "Invalid request format"
+        case .networkError:
+            return "Network connection failed"
+        case .invalidResponse:
+            return "Invalid response from server"
+        case .invalidAPIKey:
+            return "Invalid API key"
+        case .rateLimitExceeded:
+            return "Rate limit exceeded"
+        case .serverError:
+            // Generic copy — each LLM-using feature (chat, race search, prep
+            // race) wraps with its own context-specific error message at the
+            // call site.
+            return "Service temporarily unavailable. Please try again in a moment."
+        }
+    }
+}
