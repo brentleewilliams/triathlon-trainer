@@ -255,7 +255,9 @@ struct ActivitiesView: View {
             Image(systemName: "figure.run.circle")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary.opacity(0.5))
-            Text("No \(filterType.rawValue) workouts found")
+            Text(filterType == .all
+                 ? "No workouts found"
+                 : "No \(filterType.rawValue) workouts found")
                 .font(.headline)
                 .foregroundColor(.primary)
             Text("Sync your workouts from HealthKit")
