@@ -1399,6 +1399,10 @@ struct PlanReviewStep: View {
                                 RaceProfileStore.raceName  = race.name
                                 RaceProfileStore.raceVenue = race.location
                             }
+                            if let race = viewModel.buildRace(),
+                               let uid = AuthService.shared.currentUserID {
+                                Task { try? await FirestoreService.shared.saveRace(race, for: uid) }
+                            }
                             onComplete(plan)
                         }
                     } label: {
