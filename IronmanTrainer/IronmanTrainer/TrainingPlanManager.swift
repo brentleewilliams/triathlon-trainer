@@ -449,6 +449,69 @@ class TrainingPlanManager: ObservableObject {
         AppGroupConstants.syncWeeksToWidget(weeks)
     }
 
+    /// Drag-and-drop swap/move within a single week.
+    /// - If the destination day already has a non-rest workout, the two
+    ///   workouts swap days (true swap).
+    /// - If the destination day is empty/rest, the source moves there.
+    /// Persists a plan version so the change is undoable.
+    func swapOrMoveWorkout(weekNumber: Int, source: DayWorkout, sourceDay: String, destDay: String) {
+        guard sourceDay != destDay else { return }
+        guard let weekIdx = weeks.firstIndex(where: { $0.weekNumber == weekNumber }) else { return }
+        let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+        let week = weeks[weekIdx]
+        var workouts = week.workouts
+
+        guard let srcIdx = workouts.firstIndex(where: { $0 == source }) else { return }
+
+        // Find a non-rest workout on the destination day to swap with, if any.
+        let destIdx = workouts.firstIndex(where: {
+            $0.day == destDay && !$0.type.lowercased().contains("rest")
+        })
+
+        // Rebuild source on the new day.
+        let movedSrc = DayWorkout(
+            day: destDay,
+            type: source.type,
+            duration: source.duration,
+            zone: source.zone,
+            status: source.status,
+            nutritionTarget: source.nutritionTarget,
+            notes: source.notes
+        )
+        workouts[srcIdx] = movedSrc
+
+        let isSwap: Bool
+        if let dIdx = destIdx {
+            let dest = workouts[dIdx]
+            workouts[dIdx] = DayWorkout(
+                day: sourceDay,
+                type: dest.type,
+                duration: dest.duration,
+                zone: dest.zone,
+                status: dest.status,
+                nutritionTarget: dest.nutritionTarget,
+                notes: dest.notes
+            )
+            isSwap = true
+        } else {
+            isSwap = false
+        }
+
+        workouts.sort {
+            (dayOrder.firstIndex(of: $0.day) ?? 0) < (dayOrder.firstIndex(of: $1.day) ?? 0)
+        }
+        weeks[weekIdx] = TrainingWeek(
+            weekNumber: week.weekNumber,
+            phase: week.phase,
+            startDate: week.startDate,
+            endDate: week.endDate,
+            workouts: workouts
+        )
+        let verb = isSwap ? "Swapped" : "Moved"
+        savePlanVersion(source: "drag", description: "\(verb) \(sourceDay) ↔ \(destDay) (Week \(weekNumber))")
+        AppGroupConstants.syncWeeksToWidget(weeks)
+    }
+
     private func setupTrainingPlan() {
         let phaseNames = ["Ramp Up", "Ramp Up", "Ramp Up", "Ramp Up", "Build 1", "Build 1", "Build 2", "Build 2", "Build 3", "Taper", "Taper", "Taper", "Race Prep", "Race Prep", "Race Prep", "Rest", "Race Week"]
 

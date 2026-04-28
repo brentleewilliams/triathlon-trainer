@@ -277,6 +277,8 @@ struct PlanWeekCard: View {
 
     @EnvironmentObject var trainingPlan: TrainingPlanManager
 
+    @State private var dropTargetDay: String? = nil
+
     private let dayOrder = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     // MARK: - Helpers
@@ -382,7 +384,20 @@ struct PlanWeekCard: View {
                     ForEach(sortedWorkouts) { workout in
                         WorkoutPlanRow(
                             workout: workout,
-                            isPast: isPastWorkout(workout)
+                            isPast: isPastWorkout(workout),
+                            weekNumber: week.weekNumber,
+                            isDropTarget: dropTargetDay == workout.day,
+                            onSwap: { ref, destDay in
+                                trainingPlan.swapOrMoveWorkout(
+                                    weekNumber: week.weekNumber,
+                                    source: ref.workout,
+                                    sourceDay: ref.sourceDay,
+                                    destDay: destDay
+                                )
+                            },
+                            onTargetedChange: { targeted, day in
+                                dropTargetDay = targeted ? day : (dropTargetDay == day ? nil : dropTargetDay)
+                            }
                         )
                         if workout.id != sortedWorkouts.last?.id {
                             Divider()
@@ -419,6 +434,10 @@ struct PlanWeekCard: View {
 private struct WorkoutPlanRow: View {
     let workout: DayWorkout
     let isPast: Bool
+    let weekNumber: Int
+    let isDropTarget: Bool
+    let onSwap: (DraggedWorkoutRef, String) -> Void
+    let onTargetedChange: (Bool, String) -> Void
 
     var isRest: Bool {
         workout.type.lowercased().contains("rest")
@@ -478,6 +497,45 @@ private struct WorkoutPlanRow: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+        .background(isDropTarget ? Color.accentColor.opacity(0.18) : Color.clear)
+        .contentShape(Rectangle())
+        .modifier(WorkoutRowDragDrop(
+            isRest: isRest,
+            weekNumber: weekNumber,
+            workout: workout,
+            onSwap: onSwap,
+            onTargetedChange: onTargetedChange
+        ))
+    }
+}
+
+/// Conditionally attaches .draggable + .dropDestination so rest rows are
+/// drop-targets only (you can drag *to* them but can't drag a rest day).
+private struct WorkoutRowDragDrop: ViewModifier {
+    let isRest: Bool
+    let weekNumber: Int
+    let workout: DayWorkout
+    let onSwap: (DraggedWorkoutRef, String) -> Void
+    let onTargetedChange: (Bool, String) -> Void
+
+    func body(content: Content) -> some View {
+        let dropApplied = content.dropDestination(for: DraggedWorkoutRef.self) { items, _ in
+            guard let ref = items.first else { return false }
+            onSwap(ref, workout.day)
+            return true
+        } isTargeted: { targeted in
+            onTargetedChange(targeted, workout.day)
+        }
+
+        if isRest {
+            dropApplied
+        } else {
+            dropApplied.draggable(DraggedWorkoutRef(
+                weekNumber: weekNumber,
+                sourceDay: workout.day,
+                workout: workout
+            ))
+        }
     }
 }
 

@@ -1366,8 +1366,13 @@ struct WeekOverviewCard: View {
     let workoutsByDay: [(day: String, workouts: [DayWorkout])]
     @Binding var selectedDayIndex: Int
     let isWorkoutCompleted: (DayWorkout) -> Bool
+    /// Invoked when the user drags a workout from one day onto another. Both
+    /// arguments are short day names ("Mon", "Tue", …). The drop site supplies
+    /// destDay; the dragged payload supplies sourceDay + workout.
+    var onSwap: ((DayWorkout, String, String) -> Void)? = nil
 
     @State private var isExpanded = true
+    @State private var dropTargetDay: String? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -1395,7 +1400,8 @@ struct WeekOverviewCard: View {
                 // Each day row
                 ForEach(Array(workoutsByDay.enumerated()), id: \.offset) { index, dayEntry in
                     let primaryWorkout = dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
-                    Button(action: { withAnimation { selectedDayIndex = index } }) {
+                    let isDropTarget = dropTargetDay == dayEntry.day
+                    let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
                         HStack(spacing: 12) {
                             // Sport color dot (or grey for rest)
                             Circle()
@@ -1424,9 +1430,33 @@ struct WeekOverviewCard: View {
                         }
                         .padding(.horizontal, AppTheme.cardPadding)
                         .padding(.vertical, 10)
-                        .background(index == selectedDayIndex ? AppTheme.bike.opacity(0.06) : Color.clear)
+                        .background(
+                            isDropTarget
+                                ? Color.accentColor.opacity(0.18)
+                                : (index == selectedDayIndex ? AppTheme.bike.opacity(0.06) : Color.clear)
+                        )
                     }
                     .buttonStyle(.plain)
+
+                    Group {
+                        if let w = primaryWorkout, !w.type.lowercased().contains("rest"), onSwap != nil {
+                            rowContent
+                                .draggable(DraggedWorkoutRef(
+                                    weekNumber: 0, // weekNumber unused for same-week swaps; kept for payload compat
+                                    sourceDay: dayEntry.day,
+                                    workout: w
+                                ))
+                        } else {
+                            rowContent
+                        }
+                    }
+                    .dropDestination(for: DraggedWorkoutRef.self) { items, _ in
+                        guard let ref = items.first, let onSwap else { return false }
+                        onSwap(ref.workout, ref.sourceDay, dayEntry.day)
+                        return true
+                    } isTargeted: { targeted in
+                        dropTargetDay = targeted ? dayEntry.day : (dropTargetDay == dayEntry.day ? nil : dropTargetDay)
+                    }
 
                     if index < workoutsByDay.count - 1 {
                         Divider().padding(.leading, AppTheme.cardPadding + 20)
@@ -2278,7 +2308,15 @@ struct HomeView: View {
                                 WeekOverviewCard(
                                     workoutsByDay: workoutsByDay,
                                     selectedDayIndex: $selectedDayIndex,
-                                    isWorkoutCompleted: isWorkoutCompleted
+                                    isWorkoutCompleted: isWorkoutCompleted,
+                                    onSwap: { workout, srcDay, destDay in
+                                        trainingPlan.swapOrMoveWorkout(
+                                            weekNumber: selectedWeek,
+                                            source: workout,
+                                            sourceDay: srcDay,
+                                            destDay: destDay
+                                        )
+                                    }
                                 )
                             }
 
