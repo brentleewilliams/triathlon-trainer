@@ -2091,14 +2091,21 @@ struct HomeView: View {
     }
 
     // MARK: Race name / venue
+    // Prefer the user's primary race captured at onboarding (RaceProfileStore)
+    // over RaceCourseService.currentProfile, which falls back to the bundled
+    // Oregon 70.3 profile when no course profile is loaded — and that fallback
+    // was leaking through as the header for users training for other races.
     var raceName: String {
-        let raw = RaceCourseService.shared.currentProfile?.raceName ?? "Pacific NW 70.3"
-        // Strip "Race1 — " prefix if present
+        let raw = RaceProfileStore.raceName
+            ?? RaceCourseService.shared.currentProfile?.raceName
+            ?? "Your race"
         return raw.replacingOccurrences(of: "Race1 — ", with: "")
                   .replacingOccurrences(of: "Race1 - ", with: "")
     }
     var raceVenue: String {
-        RaceCourseService.shared.currentProfile?.venue ?? "Cascade Lake — Bend, OR"
+        RaceProfileStore.raceVenue
+            ?? RaceCourseService.shared.currentProfile?.venue
+            ?? ""
     }
 
     // MARK: - Completion helpers (called by DayRowComponents / WorkoutDayRows)

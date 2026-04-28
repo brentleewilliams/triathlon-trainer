@@ -1389,10 +1389,15 @@ struct PlanReviewStep: View {
                     Button {
                         if let plan = viewModel.generatedPlan {
                             viewModel.planApproved = true
-                            // Persist race date for countdown banner and widget
-                            if let raceDate = viewModel.raceSearchResult?.date {
-                                UserDefaults.standard.set(raceDate.timeIntervalSince1970, forKey: "race_date")
-                                AppGroupConstants.syncRaceDateToWidget(raceDate)
+                            // Persist race date + name + venue so the countdown
+                            // banner, plan header, and widget all show the
+                            // user's actual primary race rather than the
+                            // bundled course-profile fallback.
+                            if let race = viewModel.raceSearchResult {
+                                UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
+                                AppGroupConstants.syncRaceDateToWidget(race.date)
+                                RaceProfileStore.raceName  = race.name
+                                RaceProfileStore.raceVenue = race.location
                             }
                             onComplete(plan)
                         }

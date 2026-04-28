@@ -52,6 +52,40 @@ enum OnboardingStore {
     }
 }
 
+// MARK: - Primary Race Store
+/// Persists the user's primary race (name, venue, date) so the home and plan
+/// views can show *their* race in the header instead of the bundled course
+/// profile fallback. Onboarding writes here on completion; SettingsView
+/// updates it when the race is changed.
+enum RaceProfileStore {
+    private static let nameKey  = "race_primary_name"
+    private static let venueKey = "race_primary_venue"
+    // race_date already exists as a top-level UserDefaults key — read it
+    // through the existing call sites; we don't shadow it here.
+
+    static var raceName: String? {
+        get { UserDefaults.standard.string(forKey: nameKey) }
+        set {
+            if let v = newValue, !v.isEmpty {
+                UserDefaults.standard.set(v, forKey: nameKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: nameKey)
+            }
+        }
+    }
+
+    static var raceVenue: String? {
+        get { UserDefaults.standard.string(forKey: venueKey) }
+        set {
+            if let v = newValue, !v.isEmpty {
+                UserDefaults.standard.set(v, forKey: venueKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: venueKey)
+            }
+        }
+    }
+}
+
 // MARK: - App Group Shared Data
 enum AppGroupConstants {
     static let suiteName = "group.com.brent.race1"

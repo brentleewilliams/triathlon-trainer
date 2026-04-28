@@ -30,8 +30,12 @@ struct PlanView: View {
     }
 
     var planName: String {
-        let raw = RaceCourseService.shared.currentProfile?.raceName ?? "Half Iron Tri Plan"
-        // Strip "Race1 — " prefix if present
+        // Prefer the user's primary race name from onboarding; fall back to
+        // course-service profile (which itself falls back to the bundled
+        // Oregon 70.3) and finally a generic plan label.
+        let raw = RaceProfileStore.raceName
+            ?? RaceCourseService.shared.currentProfile?.raceName
+            ?? "Training Plan"
         if raw.hasPrefix("Race1 — ") {
             return String(raw.dropFirst("Race1 — ".count))
         }

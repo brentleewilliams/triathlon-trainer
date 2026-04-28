@@ -392,6 +392,11 @@ struct SettingsView: View {
                         UserDefaults.standard.removeObject(forKey: "saved_plan_\(uid)")
                     }
                     OnboardingStore.onboardingDate = nil
+                    // Clear the primary-race header info too, so the new
+                    // onboarding flow doesn't briefly show the previous race.
+                    RaceProfileStore.raceName = nil
+                    RaceProfileStore.raceVenue = nil
+                    UserDefaults.standard.removeObject(forKey: "race_date")
                     authService.savedPlan = nil
                     trainingPlan.clearAllPlanVersions()
                     authService.onboardingComplete = false
