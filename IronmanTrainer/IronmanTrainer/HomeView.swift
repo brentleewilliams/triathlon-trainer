@@ -841,7 +841,7 @@ struct WorkoutTabCardView: View {
                                  borderLeft: true, borderTop: true)
                 }
             }
-            .background(Color(hex: "FAFAFC"))
+            .background(Color(.secondarySystemBackground))
 
             // Actual workouts recorded today (all HK workouts, matched or not)
             if isToday && !todayHKWorkouts.isEmpty {
@@ -1027,16 +1027,36 @@ struct SectionHeaderWithWeather: View {
 
 struct SelectedDayWorkoutCard: View {
     let workout: DayWorkout?
+    let additionalWorkouts: [DayWorkout]
     let dayLabel: String         // e.g. "Mon", "Tue"
     let hkWorkouts: [HKWorkout]
     let isCompleted: Bool
     let onSwap: () -> Void
     let onLogWorkout: () -> Void
 
+    init(workout: DayWorkout?,
+         additionalWorkouts: [DayWorkout] = [],
+         dayLabel: String,
+         hkWorkouts: [HKWorkout],
+         isCompleted: Bool,
+         onSwap: @escaping () -> Void,
+         onLogWorkout: @escaping () -> Void) {
+        self.workout = workout
+        self.additionalWorkouts = additionalWorkouts
+        self.dayLabel = dayLabel
+        self.hkWorkouts = hkWorkouts
+        self.isCompleted = isCompleted
+        self.onSwap = onSwap
+        self.onLogWorkout = onLogWorkout
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if let workout = workout {
                 workoutBody(workout)
+                if !additionalWorkouts.isEmpty {
+                    additionalWorkoutsSection
+                }
                 ctaRow(workout)
             } else {
                 restDayFallback
@@ -1167,7 +1187,7 @@ struct SelectedDayWorkoutCard: View {
                             .overlay(Rectangle().fill(Color(.systemGray5)).frame(height: 0.5), alignment: .top)
                     }
                 }
-                .background(Color(hex: "FAFAFC"))
+                .background(Color(.secondarySystemBackground))
 
                 // Recorded workouts for this day
                 if !hkWorkouts.isEmpty {
@@ -1203,6 +1223,39 @@ struct SelectedDayWorkoutCard: View {
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                     }
+                }
+            }
+        }
+    }
+
+    // MARK: Additional workouts (AM/PM second session)
+
+    private var additionalWorkoutsSection: some View {
+        VStack(spacing: 0) {
+            Divider()
+            ForEach(additionalWorkouts, id: \.type) { w in
+                let color = sportColor(for: w.type)
+                HStack(spacing: 12) {
+                    Rectangle()
+                        .fill(color)
+                        .frame(width: 3)
+                        .frame(height: 44)
+                    Circle()
+                        .fill(color)
+                        .frame(width: 7, height: 7)
+                    Text(strippedType(w.type))
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Spacer()
+                    Text(w.duration + (w.zone.isEmpty ? "" : " · \(w.zone)"))
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .monospacedDigit()
+                }
+                .padding(.horizontal, 16)
+                .padding(.trailing, 16)
+                if w.type != additionalWorkouts.last?.type {
+                    Divider().padding(.leading, 16)
                 }
             }
         }
@@ -1405,8 +1458,16 @@ struct WeekOverviewCard: View {
                 Divider()
                 // Each day row
                 ForEach(Array(workoutsByDay.enumerated()), id: \.offset) { index, dayEntry in
-                    let primaryWorkout = dayEntry.workouts.first { !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding") }
+                    let nonRestWorkouts = dayEntry.workouts.filter { !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding") }
+                    let primaryWorkout = nonRestWorkouts.first
                         ?? dayEntry.workouts.first { !$0.type.contains("pre_onboarding") }
+                    let workoutLabel: String = {
+                        if nonRestWorkouts.isEmpty { return "Rest" }
+                        return nonRestWorkouts.map { w -> String in
+                            if let idx = w.type.firstIndex(where: { $0.isLetter }) { return String(w.type[idx...]) }
+                            return w.type
+                        }.joined(separator: " · ")
+                    }()
                     let isDropTarget = dropTargetDay == dayEntry.day
                     let rowContent = Button(action: { withAnimation { selectedDayIndex = index } }) {
                         HStack(spacing: 12) {
@@ -1415,13 +1476,13 @@ struct WeekOverviewCard: View {
                                 .fill(primaryWorkout.map { sportColor(for: $0.type) } ?? Color(.systemGray4))
                                 .frame(width: 8, height: 8)
 
-                            // Day + workout name
+                            // Day + workout name(s)
                             Text(dayEntry.day)
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(.secondary)
                                 .frame(width: 28, alignment: .leading)
 
-                            Text(primaryWorkout?.type ?? "Rest")
+                            Text(workoutLabel)
                                 .font(.system(size: 13))
                                 .foregroundColor(.primary)
                                 .lineLimit(1)
@@ -1896,12 +1957,16 @@ struct HomeView: View {
 
     // MARK: Selected-day computed properties
 
-    /// The workout for the currently selected day in the strip.
-    var selectedDayWorkout: DayWorkout? {
-        guard selectedDayIndex < workoutsByDay.count else { return nil }
-        let dayWorkouts = workoutsByDay[selectedDayIndex].workouts
-        return dayWorkouts.first { !$0.type.contains("Rest") && !$0.type.contains("pre_onboarding") }
+    /// All non-Rest workouts for the selected day, in plan order.
+    var selectedDayAllWorkouts: [DayWorkout] {
+        guard selectedDayIndex < workoutsByDay.count else { return [] }
+        return workoutsByDay[selectedDayIndex].workouts.filter {
+            !$0.type.lowercased().contains("rest") && !$0.type.contains("pre_onboarding")
+        }
     }
+
+    /// The primary workout for the currently selected day in the strip.
+    var selectedDayWorkout: DayWorkout? { selectedDayAllWorkouts.first }
 
     /// Calendar date corresponding to the currently selected day in the strip.
     var selectedDayDate: Date {
@@ -2303,6 +2368,7 @@ struct HomeView: View {
                             // Selected day workout card
                             SelectedDayWorkoutCard(
                                 workout: selectedDayWorkout,
+                                additionalWorkouts: Array(selectedDayAllWorkouts.dropFirst()),
                                 dayLabel: workoutsByDay.indices.contains(selectedDayIndex)
                                     ? workoutsByDay[selectedDayIndex].day : "Today",
                                 hkWorkouts: selectedDayHKWorkouts,
