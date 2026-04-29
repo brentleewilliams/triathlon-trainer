@@ -253,6 +253,7 @@ final class TrainingStatusService: ObservableObject {
 
     @Published var status: TrainingStatus?
     @Published var isComputing = false
+    @Published var hasEverComputed = false
 
     private let healthKit: HealthKitManager?
     private static let cacheKey = "trainingStatus_v1"
@@ -282,7 +283,7 @@ final class TrainingStatusService: ObservableObject {
 
     func compute() async {
         isComputing = true
-        defer { isComputing = false }
+        defer { isComputing = false; hasEverComputed = true }
 
         let workouts = healthKit?.workouts ?? []
         let maxHR = Double(healthKit?.maxHeartRate ?? 182)

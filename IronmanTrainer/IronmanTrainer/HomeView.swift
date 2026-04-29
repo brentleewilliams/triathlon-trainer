@@ -2117,7 +2117,7 @@ struct HomeView: View {
         activeDisciplines(in: trainingPlan.weeks)
     }
     var raceReadiness: [SportReadiness] {
-        guard !trainingStatusService.isComputing else {
+        guard trainingStatusService.hasEverComputed else {
             let allDisciplines: [(String, TrainingDiscipline)] = [("Swim", .swim), ("Bike", .bike), ("Run", .run)]
             let disciplines = activeDisciplineSet.isEmpty ? allDisciplines : allDisciplines.filter { activeDisciplineSet.contains($0.1) }
             return disciplines.map { (name, _) in
