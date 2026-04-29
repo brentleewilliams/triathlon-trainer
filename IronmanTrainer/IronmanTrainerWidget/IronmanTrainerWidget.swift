@@ -25,6 +25,7 @@ struct WidgetWorkout {
     let type: String
     let duration: String
     let zone: String
+    let isCompleted: Bool
 }
 
 // MARK: - Training Plan Data
@@ -75,9 +76,20 @@ struct WidgetTrainingPlan {
     static func workoutsForToday() -> [WidgetWorkout] {
         guard let weeks = sharedWeeks(), let week = currentWeek(from: weeks) else { return [] }
         let day = todayDayName()
+        let completed = todayCompletedTypes()
         return week.workouts
             .filter { $0.day == day && !$0.type.contains("Rest") }
-            .map { WidgetWorkout(type: $0.type, duration: $0.duration, zone: $0.zone) }
+            .map { WidgetWorkout(type: $0.type, duration: $0.duration, zone: $0.zone, isCompleted: completed.contains($0.type)) }
+    }
+
+    static func todayCompletedTypes() -> Set<String> {
+        guard let defaults = sharedDefaults,
+              let data = defaults.data(forKey: "completed_today"),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dateStr = dict["date"] as? String,
+              let types = dict["types"] as? [String] else { return [] }
+        let today = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: Date()))
+        return dateStr == today ? Set(types) : []
     }
 }
 
@@ -124,7 +136,7 @@ struct WorkoutEntry: TimelineEntry {
 struct WorkoutTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> WorkoutEntry {
         WorkoutEntry(date: Date(), weekNumber: 1, phase: "Base", dayName: "Mon", workouts: [
-            WidgetWorkout(type: "🏃 Run", duration: "45min", zone: "Z2")
+            WidgetWorkout(type: "🏃 Run", duration: "45min", zone: "Z2", isCompleted: false)
         ], daysUntilRace: 90, weather: WidgetWeather(icon: "⛅", highTemp: 64))
     }
 
@@ -133,7 +145,7 @@ struct WorkoutTimelineProvider: TimelineProvider {
             completion(WorkoutEntry(
                 date: Date(), weekNumber: 3, phase: "Build",
                 dayName: "Tue",
-                workouts: [WidgetWorkout(type: "🏃 Run", duration: "50min", zone: "Z2")],
+                workouts: [WidgetWorkout(type: "🏃 Run", duration: "50min", zone: "Z2", isCompleted: false)],
                 daysUntilRace: 75,
                 weather: WidgetWeather(icon: "☀️", highTemp: 68)
             ))
@@ -237,8 +249,14 @@ struct Race1WidgetView: View {
                         Text(" \(workout.duration)")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(.white)
+                            .foregroundColor(workout.isCompleted ? .white.opacity(0.5) : .white)
                             .lineLimit(1)
+                        Spacer()
+                        if workout.isCompleted {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.caption)
+                        }
                     }
                 }
                 if entry.workouts.count > 3 {

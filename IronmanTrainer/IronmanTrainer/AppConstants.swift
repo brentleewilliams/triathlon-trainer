@@ -126,6 +126,17 @@ enum AppGroupConstants {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// Sync today's completed workout types so the widget can show checkmarks
+    static func syncTodayCompletedToWidget(completedTypes: Set<String>) {
+        guard let defaults = sharedDefaults else { return }
+        let today = ISO8601DateFormatter().string(from: Calendar.current.startOfDay(for: Date()))
+        let payload: [String: Any] = ["date": today, "types": Array(completedTypes)]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            defaults.set(data, forKey: "completed_today")
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     /// Sync race date to App Group so widget can show correct countdown
     static func syncRaceDateToWidget(_ date: Date) {
         sharedDefaults?.set(date.timeIntervalSince1970, forKey: "race_date")

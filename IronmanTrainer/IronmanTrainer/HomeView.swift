@@ -40,21 +40,23 @@ struct SportReadiness {
     let gapText: String
     let actionText: String?
 
-    enum Status { case green, amber, red }
+    enum Status { case green, amber, red, loading }
 
     var statusColor: Color {
         switch status {
-        case .green: return Color(hex: "34C759")
-        case .amber: return Color(hex: "FFCC00")
-        case .red:   return Color(hex: "FF3B30")
+        case .green:   return Color(hex: "34C759")
+        case .amber:   return Color(hex: "FFCC00")
+        case .red:     return Color(hex: "FF3B30")
+        case .loading: return Color.gray.opacity(0.3)
         }
     }
 
     var statusLabel: String {
         switch status {
-        case .green: return "On track"
-        case .amber: return "Slipping"
-        case .red:   return "Behind"
+        case .green:   return "On track"
+        case .amber:   return "Slipping"
+        case .red:     return "Behind"
+        case .loading: return ""
         }
     }
 }
@@ -86,6 +88,9 @@ func deriveRaceReadiness(from status: TrainingStatus?, today sport: String, only
     ]
     let disciplines = filter.map { f in allDisciplines.filter { f.contains($0.1) } } ?? allDisciplines
     return disciplines.map { (name, disc) in
+        guard status != nil else {
+            return SportReadiness(sport: name, score: 0, status: .loading, gapText: "Loading…", actionText: nil)
+        }
         let v = status?.disciplineVolumeStatuses.first { $0.discipline == disc }
         let score = max(0, min(100, v?.percent ?? 0))
 
@@ -2475,7 +2480,17 @@ struct HomeView: View {
 
     // MARK: - Private helpers
 
+    private func syncCompletedWorkoutsToWidget() {
+        guard let week = trainingPlan.getWeek(trainingPlan.currentWeekNumber) else { return }
+        let today = todayDayAbbrev
+        let completed = Set(week.workouts
+            .filter { $0.day == today && !$0.type.contains("Rest") && isWorkoutCompleted($0) }
+            .map { $0.type })
+        AppGroupConstants.syncTodayCompletedToWidget(completedTypes: completed)
+    }
+
     private func fetchHealthData() async {
+        await MainActor.run { syncCompletedWorkoutsToWidget() }
         // Sleep
         if let sleep = await healthKit.fetchSleepData(for: Date()) {
             let h = sleep.totalSleepMinutes / 60

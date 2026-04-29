@@ -245,23 +245,26 @@ final class CheckInManager: ObservableObject {
             return
         }
         let center = UNUserNotificationCenter.current()
-        let cal = Calendar.current
-        let hour = cal.component(.hour, from: checkInTime)
-        let minute = cal.component(.minute, from: checkInTime)
+        center.requestAuthorization(options: [.alert, .badge, .sound]) { [weak self] granted, _ in
+            guard granted, let self else { return }
+            let cal = Calendar.current
+            let hour = cal.component(.hour, from: self.checkInTime)
+            let minute = cal.component(.minute, from: self.checkInTime)
 
-        let content = UNMutableNotificationContent()
-        content.title = "Morning Check-In"
-        content.body = loadCachedOpeningMessage()?.notificationBody ?? "How are you feeling today?"
-        content.sound = .default
-        content.userInfo = ["kind": "check_in"]
+            let content = UNMutableNotificationContent()
+            content.title = "Morning Check-In"
+            content.body = self.loadCachedOpeningMessage()?.notificationBody ?? "How are you feeling today?"
+            content.sound = .default
+            content.userInfo = ["kind": "check_in"]
 
-        var comps = DateComponents()
-        comps.hour = hour
-        comps.minute = minute
-        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
-        let req = UNNotificationRequest(identifier: "morning-checkin-local", content: content, trigger: trigger)
-        center.removePendingNotificationRequests(withIdentifiers: ["morning-checkin-local"])
-        center.add(req)
+            var comps = DateComponents()
+            comps.hour = hour
+            comps.minute = minute
+            let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+            let req = UNNotificationRequest(identifier: "morning-checkin-local", content: content, trigger: trigger)
+            center.removePendingNotificationRequests(withIdentifiers: ["morning-checkin-local"])
+            center.add(req)
+        }
     }
 
     // MARK: - Complete

@@ -71,15 +71,9 @@ struct ChatView: View {
                         }
 
                         if viewModel.isLoading {
-                            HStack(spacing: 4) {
-                                ForEach(0..<3, id: \.self) { i in
-                                    Circle()
-                                        .fill(Color.gray.opacity(0.6))
-                                        .frame(width: 8, height: 8)
-                                }
-                            }
-                            .padding(.leading, 16)
-                            .padding(.vertical, 8)
+                            TypingBubblesView()
+                                .padding(.leading, 16)
+                                .padding(.vertical, 8)
                         }
 
                         if let error = viewModel.error {
@@ -467,5 +461,28 @@ struct ChatBubble: View {
                 Spacer()
             }
         }
+    }
+}
+
+private struct TypingBubblesView: View {
+    @State private var animating = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .fill(Color.gray.opacity(0.7))
+                    .frame(width: 10, height: 10)
+                    .scaleEffect(animating ? 1.2 : 0.8)
+                    .offset(y: animating ? -4 : 0)
+                    .animation(
+                        .easeInOut(duration: 0.45)
+                            .repeatForever(autoreverses: true)
+                            .delay(Double(i) * 0.15),
+                        value: animating
+                    )
+            }
+        }
+        .onAppear { animating = true }
     }
 }
