@@ -2117,7 +2117,14 @@ struct HomeView: View {
         activeDisciplines(in: trainingPlan.weeks)
     }
     var raceReadiness: [SportReadiness] {
-        deriveRaceReadiness(
+        guard !trainingStatusService.isComputing else {
+            let allDisciplines: [(String, TrainingDiscipline)] = [("Swim", .swim), ("Bike", .bike), ("Run", .run)]
+            let disciplines = activeDisciplineSet.isEmpty ? allDisciplines : allDisciplines.filter { activeDisciplineSet.contains($0.1) }
+            return disciplines.map { (name, _) in
+                SportReadiness(sport: name, score: 0, status: .loading, gapText: "Loading…", actionText: nil)
+            }
+        }
+        return deriveRaceReadiness(
             from: trainingStatusService.status,
             today: todayWorkout?.type ?? "",
             only: activeDisciplineSet
@@ -2447,6 +2454,9 @@ struct HomeView: View {
             .onChange(of: trainingPlan.currentWeekNumber) { newValue in
                 selectedWeek = newValue
             }
+            .onReceive(healthKit.$workouts) { _ in
+                syncCompletedWorkoutsToWidget()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .navigateToWeek)) { notification in
                 if let week = notification.userInfo?["week"] as? Int {
                     withAnimation { selectedWeek = week }
@@ -2490,7 +2500,6 @@ struct HomeView: View {
     }
 
     private func fetchHealthData() async {
-        await MainActor.run { syncCompletedWorkoutsToWidget() }
         // Sleep
         if let sleep = await healthKit.fetchSleepData(for: Date()) {
             let h = sleep.totalSleepMinutes / 60
