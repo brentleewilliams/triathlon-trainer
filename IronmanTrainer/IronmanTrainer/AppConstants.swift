@@ -91,16 +91,25 @@ enum RaceProfileStore {
     /// already exist or when there is no race in Firestore (so it'll retry
     /// on the next launch instead of pinning a stale negative result).
     static func backfillFromFirestoreIfNeeded(uid: String) async {
-        if raceName != nil && raceVenue != nil { return }
+        let needsSports = (UserDefaults.standard.array(forKey: "race_sports") as? [String]) == nil
+        let needsNameVenue = raceName == nil || raceVenue == nil
+        guard needsSports || needsNameVenue else { return }
         do {
             guard let race = try await FirestoreService.shared.getRace(for: uid) else { return }
             if raceName  == nil { raceName  = race.name }
             if raceVenue == nil { raceVenue = race.location }
-            // Backfill race_date too if it was lost — same root cause, same fix.
+            // Backfill race_date if it was cleared (sign-out) or never written.
             let storedDate = UserDefaults.standard.double(forKey: "race_date")
             if storedDate == 0 {
                 UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
                 AppGroupConstants.syncRaceDateToWidget(race.date)
+            }
+            // Backfill race_sports for widget discipline filtering.
+            // Runs for all existing users on first launch after this update.
+            if needsSports {
+                let sports = race.type.relevantSports
+                UserDefaults.standard.set(sports, forKey: "race_sports")
+                AppGroupConstants.syncRaceSportsToWidget(sports)
             }
         } catch {
             print("[RaceProfileStore] backfill failed: \(error)")

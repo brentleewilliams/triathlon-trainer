@@ -4,6 +4,15 @@ import Foundation
 
 enum RaceType: String, Codable, CaseIterable {
     case triathlon, running, cycling, swimming
+
+    var relevantSports: [String] {
+        switch self {
+        case .triathlon: return ["swim", "bike", "run"]
+        case .running:   return ["run"]
+        case .cycling:   return ["bike"]
+        case .swimming:  return ["swim"]
+        }
+    }
 }
 
 // MARK: - Schedule Pattern
