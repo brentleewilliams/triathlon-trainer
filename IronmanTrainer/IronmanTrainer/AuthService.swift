@@ -170,13 +170,9 @@ class AuthService: ObservableObject {
         self.onboardingComplete = false
         self.savedPlan = nil
 
-        // Nuclear wipe of ALL UserDefaults — no per-key list that can fall out
-        // of sync. Restores has_launched_before so the fresh-install Keychain
-        // clear doesn't re-trigger on next launch (we're signing out, not reinstalling).
-        if let bundleID = Bundle.main.bundleIdentifier {
-            UserDefaults.standard.removePersistentDomain(forName: bundleID)
-        }
-        UserDefaults.standard.set(true, forKey: "has_launched_before")
+        // Wipe all local persistence. Static so unit tests can call it directly
+        // with an isolated UserDefaults suite.
+        AuthService.wipeLocalDefaults()
 
         // Nuke App Group shared data so the widget shows nothing until the
         // next user's data is written.
@@ -187,6 +183,17 @@ class AuthService: ObservableObject {
 
         clearKeychain()
         try Auth.auth().signOut()
+    }
+
+    /// Wipes all UserDefaults for the given domain (defaults to the app's bundle ID).
+    /// Extracted as a static so tests can inject an isolated suite and verify
+    /// that no key from one user survives to the next.
+    static func wipeLocalDefaults(
+        defaults: UserDefaults = .standard,
+        bundleID: String = Bundle.main.bundleIdentifier ?? ""
+    ) {
+        defaults.removePersistentDomain(forName: bundleID)
+        defaults.set(true, forKey: "has_launched_before")
     }
 
     private func clearKeychain() {

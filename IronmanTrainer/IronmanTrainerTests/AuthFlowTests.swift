@@ -298,6 +298,119 @@ final class AuthSignOutStateTests: XCTestCase {
     }
 }
 
+// MARK: - Sign-Out UserDefaults Wipe Tests
+//
+// These are the tests that would have caught the race-data-leak bug.
+// They drive AuthService.wipeLocalDefaults() directly with an isolated
+// UserDefaults suite so no Firebase dependency is needed.
+
+final class SignOutWipeTests: XCTestCase {
+
+    let suite = "com.race1.tests.signoutwipe"
+    var defaults: UserDefaults!
+
+    override func setUp() {
+        super.setUp()
+        defaults = UserDefaults(suiteName: suite)!
+        defaults.removePersistentDomain(forName: suite)
+    }
+
+    override func tearDown() {
+        defaults.removePersistentDomain(forName: suite)
+        defaults = nil
+        super.tearDown()
+    }
+
+    // MARK: - The actual bug: global race keys must not survive sign-out
+
+    func testWipe_clearsRaceDate() {
+        defaults.set(Date().timeIntervalSince1970, forKey: "race_date")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertEqual(defaults.double(forKey: "race_date"), 0,
+                       "race_date left over from user A was visible to user B")
+    }
+
+    func testWipe_clearsRacePrimaryName() {
+        defaults.set("Chicago Marathon", forKey: "race_primary_name")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertNil(defaults.string(forKey: "race_primary_name"),
+                     "race_primary_name from user A leaked to user B")
+    }
+
+    func testWipe_clearsRacePrimaryVenue() {
+        defaults.set("Chicago, IL", forKey: "race_primary_venue")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertNil(defaults.string(forKey: "race_primary_venue"))
+    }
+
+    func testWipe_clearsChatHistory() {
+        defaults.set(Data(), forKey: "coaching_chat_history")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertNil(defaults.data(forKey: "coaching_chat_history"),
+                     "chat history from user A leaked to user B")
+    }
+
+    func testWipe_clearsRaceSports() {
+        defaults.set(["swim", "bike", "run"], forKey: "race_sports")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertNil(defaults.array(forKey: "race_sports"))
+    }
+
+    func testWipe_clearsOnboardingDate() {
+        defaults.set(Date().timeIntervalSince1970, forKey: "onboarding_date_global")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertEqual(defaults.double(forKey: "onboarding_date_global"), 0)
+    }
+
+    func testWipe_preservesHasLaunchedBefore() {
+        // has_launched_before must survive the wipe so the fresh-install
+        // Keychain clear doesn't re-trigger on the next sign-in.
+        defaults.set(true, forKey: "has_launched_before")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+        XCTAssertTrue(defaults.bool(forKey: "has_launched_before"),
+                      "has_launched_before was lost — would trigger spurious Keychain clear")
+    }
+
+    // MARK: - Cross-account isolation (the exact failure scenario)
+
+    func testCrossAccount_userA_raceNotVisibleToUserB() {
+        // User A logs in, onboards with Chicago Marathon.
+        defaults.set(1_800_000_000.0, forKey: "race_date")
+        defaults.set("Chicago Marathon", forKey: "race_primary_name")
+        defaults.set("Chicago, IL", forKey: "race_primary_venue")
+        defaults.set(["run"], forKey: "race_sports")
+
+        // User A signs out — full wipe.
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+
+        // User B signs in — must see a blank slate, not Chicago.
+        XCTAssertEqual(defaults.double(forKey: "race_date"), 0)
+        XCTAssertNil(defaults.string(forKey: "race_primary_name"))
+        XCTAssertNil(defaults.string(forKey: "race_primary_venue"))
+        XCTAssertNil(defaults.array(forKey: "race_sports"))
+    }
+
+    func testCrossAccount_userB_changesRace_notVisibleToUserA() {
+        // User A has Chicago; signs out.
+        defaults.set(1_800_000_000.0, forKey: "race_date")
+        defaults.set("Chicago Marathon", forKey: "race_primary_name")
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+
+        // User B signs in, changes race to Berlin.
+        defaults.set(1_854_000_000.0, forKey: "race_date")
+        defaults.set("Berlin Marathon", forKey: "race_primary_name")
+
+        // User B signs out.
+        AuthService.wipeLocalDefaults(defaults: defaults, bundleID: suite)
+
+        // User A signs back in — must NOT see Berlin.
+        XCTAssertEqual(defaults.double(forKey: "race_date"), 0,
+                       "User B's Berlin race date leaked back to user A")
+        XCTAssertNil(defaults.string(forKey: "race_primary_name"),
+                     "User B's race name leaked back to user A")
+    }
+}
+
 // MARK: - Fresh Install Detection Tests
 
 final class FreshInstallTests: XCTestCase {
