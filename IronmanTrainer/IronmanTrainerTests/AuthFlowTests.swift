@@ -470,24 +470,17 @@ final class FreshInstallTests: XCTestCase {
  ┌─────────────────────────────────────────────────────────────────────┐
  │  MANUAL DEVICE TEST MATRIX                                          │
  │  Run on a real device after each auth-related change.               │
- │  Firebase + Apple ID cannot be automated in unit tests.             │
+ │  Apple Sign In removed — Email OTP is the only sign-in method.     │
  ├─────────────────────────────────────────────────────────────────────┤
  │ PATH                                          │ EXPECTED            │
  ├───────────────────────────────────────────────┼─────────────────────┤
  │ New user → Email OTP                          │ Onboarding shown    │
- │ New user → Apple (real email)                 │ Onboarding shown    │
- │ New user → Apple (Hide My Email)              │ Onboarding shown    │
- │ Returning user → same Email OTP               │ Skip, existing plan │
- │ Returning user → same Apple ID                │ Skip, existing plan │
- │ Email OTP → sign out → same Apple (real email)│ Skip, same account  │
- │ Email OTP → sign out → Apple Hide My Email    │ Onboarding, new acct│
- │ Sign out → immediately sign in (race test)    │ No session bleed    │
+ │ Returning user → same email                   │ Skip, existing plan │
+ │ Alias email (+tag) → new sign-in              │ Onboarding, new acct│
+ │ Sign out → sign in same email (race test)     │ No session bleed    │
+ │ Sign out → sign in different email            │ No session bleed    │
  │ Uninstall → reinstall → sign in               │ Onboarding shown    │
- │ Alias email (+tag) → sign out → Apple         │ Onboarding, new acct│
  └───────────────────────────────────────────────┴─────────────────────┘
 
- To reset between manual tests:
-   Settings → [Apple ID] → Password & Security → Sign in with Apple
-   → Race1 Trainer → Delete
- Then uninstall the app before reinstalling.
+ To reset between manual tests: uninstall the app before reinstalling.
 */

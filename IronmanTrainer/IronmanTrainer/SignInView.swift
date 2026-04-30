@@ -1,12 +1,9 @@
 import SwiftUI
-import AuthenticationServices
-import CryptoKit
 
 struct SignInView: View {
     @StateObject private var authService = AuthService.shared
     @State private var errorMessage: String?
     @State private var showError = false
-    @State private var currentNonce: String?
 
     // Email OTP state
     @State private var showEmailFlow = false
@@ -37,69 +34,18 @@ struct SignInView: View {
 
             Spacer()
 
-            VStack(spacing: 16) {
-                SignInWithAppleButton(.signIn) { request in
-                    let nonce = randomNonceString()
-                    currentNonce = nonce
-                    request.requestedScopes = [.fullName, .email]
-                    request.nonce = sha256(nonce)
-                } onCompletion: { result in
-                    switch result {
-                    case .success(let authorization):
-                        guard let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential else {
-                            errorMessage = "Sign in failed. Please try again."
-                            showError = true
-                            return
-                        }
-                        guard let nonce = currentNonce else {
-                            errorMessage = "Sign in failed. Please try again."
-                            showError = true
-                            return
-                        }
-                        Task {
-                            do {
-                                try await authService.signInWithApple(credential: appleIDCredential, nonce: nonce)
-                            } catch {
-                                print("[AUTH] Apple Sign In failed: \(error)")
-                                errorMessage = "Sign in failed. Please check your internet connection and try again."
-                                showError = true
-                            }
-                        }
-                    case .failure(let error):
-                        print("[AUTH] Apple authorization failed: \(error)")
-                        if (error as? ASAuthorizationError)?.code != .canceled {
-                            errorMessage = "Sign in failed. Please try again."
-                            showError = true
-                        }
-                    }
-                }
-                .signInWithAppleButtonStyle(.black)
-                .frame(height: 50)
-                .cornerRadius(8)
-
-                // Divider
+            Button {
+                withAnimation { showEmailFlow = true }
+            } label: {
                 HStack {
-                    Rectangle().fill(Color(.separator)).frame(height: 1)
-                    Text("or")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    Rectangle().fill(Color(.separator)).frame(height: 1)
+                    Image(systemName: "envelope.fill")
+                    Text("Sign in with Email")
                 }
-
-                // Email OTP button
-                Button {
-                    withAnimation { showEmailFlow = true }
-                } label: {
-                    HStack {
-                        Image(systemName: "envelope.fill")
-                        Text("Sign in with Email")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(Color(.systemGray5))
-                    .foregroundStyle(.primary)
-                    .cornerRadius(8)
-                }
+                .frame(maxWidth: .infinity)
+                .frame(height: 50)
+                .background(Color(.systemGray5))
+                .foregroundStyle(.primary)
+                .cornerRadius(8)
             }
             .padding(.horizontal, 40)
 
@@ -178,25 +124,6 @@ struct SignInView: View {
         otpCode = ""
         otpSent = false
         isLoadingOTP = false
-    }
-
-    // MARK: - Nonce Helpers
-
-    private func randomNonceString(length: Int = 32) -> String {
-        precondition(length > 0)
-        var randomBytes = [UInt8](repeating: 0, count: length)
-        let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
-        if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
-        }
-        let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")
-        return String(randomBytes.map { charset[Int($0) % charset.count] })
-    }
-
-    private func sha256(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashedData = SHA256.hash(data: inputData)
-        return hashedData.compactMap { String(format: "%02x", $0) }.joined()
     }
 }
 
@@ -287,10 +214,7 @@ struct EmailOTPSheet: View {
                             .focused($codeFocused)
                             .padding(.horizontal, 60)
                             .onChange(of: otpCode) {
-                                // Auto-verify when 6 digits entered
-                                if otpCode.count == 6 {
-                                    onVerifyOTP()
-                                }
+                                if otpCode.count == 6 { onVerifyOTP() }
                             }
 
                         Button {

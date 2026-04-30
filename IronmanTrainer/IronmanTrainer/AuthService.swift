@@ -1,6 +1,5 @@
 import Foundation
 import FirebaseAuth
-import AuthenticationServices
 import UserNotifications
 
 @MainActor
@@ -145,23 +144,6 @@ class AuthService: ObservableObject {
         }
     }
 
-    func signInWithApple(credential: ASAuthorizationAppleIDCredential, nonce: String) async throws {
-        guard let appleIDToken = credential.identityToken,
-              let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-            throw AuthError.missingToken
-        }
-
-        let oauthCredential = OAuthProvider.appleCredential(
-            withIDToken: idTokenString,
-            rawNonce: nonce,
-            fullName: credential.fullName
-        )
-
-        let result = try await Auth.auth().signIn(with: oauthCredential)
-        self.currentUserID = result.user.uid
-        self.isAuthenticated = true
-    }
-
     func signOut() throws {
         // Clear in-memory published state immediately.
         self.isAuthenticated = false
@@ -273,7 +255,6 @@ class AuthService: ObservableObject {
     }
 
     enum AuthError: LocalizedError {
-        case missingToken
         case otpSendFailed(_ message: String?)
         case otpVerifyFailed(_ message: String?)
         case notSignedIn
@@ -281,8 +262,6 @@ class AuthService: ObservableObject {
 
         var errorDescription: String? {
             switch self {
-            case .missingToken:
-                return "Unable to retrieve Apple ID token."
             case .otpSendFailed(let msg):
                 return msg ?? "Failed to send verification code."
             case .otpVerifyFailed(let msg):
