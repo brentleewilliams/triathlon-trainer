@@ -188,7 +188,7 @@ class AuthService: ObservableObject {
     /// Wipes all UserDefaults for the given domain (defaults to the app's bundle ID).
     /// Extracted as a static so tests can inject an isolated suite and verify
     /// that no key from one user survives to the next.
-    static func wipeLocalDefaults(
+    nonisolated static func wipeLocalDefaults(
         defaults: UserDefaults = .standard,
         bundleID: String = Bundle.main.bundleIdentifier ?? ""
     ) {
