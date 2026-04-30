@@ -65,6 +65,7 @@
 		CI0001011F1C0001 /* CheckInManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001001F1C0001 /* CheckInManager.swift */; };
 		CI0001031F1C0001 /* CheckInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001021F1C0001 /* CheckInView.swift */; };
 		LW0001011F1E0001 /* LogWorkoutSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = LW0001001F1E0001 /* LogWorkoutSheet.swift */; };
+		AF0001011F1E0001 /* AuthFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AF0001021F1E0001 /* AuthFlowTests.swift */; };
 		CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001041F1C0001 /* CheckInManagerTests.swift */; };
 		CI0001071F1C0001 /* SleepFetchTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CI0001061F1C0001 /* SleepFetchTests.swift */; };
 		F0FF4699BFFD3906A99E46BF /* SignInView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29D426AAD0F04F2CAAE16BF /* SignInView.swift */; };
@@ -183,6 +184,7 @@
 		CI0001001F1C0001 /* CheckInManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManager.swift; sourceTree = "<group>"; };
 		CI0001021F1C0001 /* CheckInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInView.swift; sourceTree = "<group>"; };
 		LW0001001F1E0001 /* LogWorkoutSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogWorkoutSheet.swift; sourceTree = "<group>"; };
+		AF0001021F1E0001 /* AuthFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthFlowTests.swift; sourceTree = "<group>"; };
 		CI0001041F1C0001 /* CheckInManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckInManagerTests.swift; sourceTree = "<group>"; };
 		CI0001061F1C0001 /* SleepFetchTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleepFetchTests.swift; sourceTree = "<group>"; };
 		D29D426AAD0F04F2CAAE16BF /* SignInView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SignInView.swift; path = IronmanTrainer/SignInView.swift; sourceTree = SOURCE_ROOT; };
@@ -337,6 +339,7 @@
 				844AF6CB2F7E1B4F004C5061 /* ErrorMessageTests.swift */,
 				844AF6D12F7E1D4F004C5064 /* LLMFeatureTests.swift */,
 				BD0001051F1B0001 /* PlanDiffEngineTests.swift */,
+				AF0001021F1E0001 /* AuthFlowTests.swift */,
 				CI0001041F1C0001 /* CheckInManagerTests.swift */,
 				CI0001061F1C0001 /* SleepFetchTests.swift */,
 				RC0001081F1D0001 /* RaceCourseServiceTests.swift */,
@@ -628,6 +631,7 @@
 				1A0001661F1A0003 /* TemplateSelectionTests.swift in Sources */,
 				FB000006000000001 /* OnboardingTests.swift in Sources */,
 				BD0001061F1B0001 /* PlanDiffEngineTests.swift in Sources */,
+				AF0001011F1E0001 /* AuthFlowTests.swift in Sources */,
 				CI0001051F1C0001 /* CheckInManagerTests.swift in Sources */,
 				CI0001071F1C0001 /* SleepFetchTests.swift in Sources */,
 				RC0001091F1D0001 /* RaceCourseServiceTests.swift in Sources */,

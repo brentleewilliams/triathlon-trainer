@@ -54,15 +54,15 @@ class AuthService: ObservableObject {
         print("[AuthService] checkForExistingPlan called for uid: \(uid)")
 
         // Try local plan cache first for instant startup
-        if UserDefaults.standard.bool(forKey: "onboarding_complete_\(uid)") {
-            if let data = UserDefaults.standard.data(forKey: "saved_plan_\(uid)"),
-               let plan = try? JSONDecoder().decode([TrainingWeek].self, from: data) {
-                print("[AuthService] Local plan cache hit — loading plan instantly")
-                savedPlan = plan
-                onboardingComplete = true
-                return
-            }
-            // Cache flag set but no plan data — fall through to Firestore
+        if let plan = AuthPlanCache.read(uid: uid) {
+            print("[AuthService] Local plan cache hit — loading plan instantly")
+            savedPlan = plan
+            onboardingComplete = true
+            return
+        }
+
+        // Flag set but no decodable plan data — fall through to Firestore
+        if AuthPlanCache.flagExists(uid: uid) {
             print("[AuthService] Onboarding complete flag set but no local plan, checking Firestore...")
         } else {
             print("[AuthService] No local cache, checking Firestore...")
@@ -77,10 +77,7 @@ class AuthService: ObservableObject {
                         let plan = result.weeks
                         await MainActor.run {
                             self.savedPlan = plan
-                            // Cache plan locally for fast future startups
-                            if let data = try? JSONEncoder().encode(plan) {
-                                UserDefaults.standard.set(data, forKey: "saved_plan_\(uid)")
-                            }
+                            AuthPlanCache.write(uid: uid, plan: plan)
                         }
                         return true
                     }
@@ -99,12 +96,12 @@ class AuthService: ObservableObject {
             print("[AuthService] Firestore result: found=\(found)")
             if found {
                 onboardingComplete = true
-                UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
+                AuthPlanCache.setFlag(uid: uid)
             }
         } catch {
             // Network error — fall back to local cache flag if present
             print("[AuthService] Firestore check failed: \(error)")
-            if UserDefaults.standard.bool(forKey: "onboarding_complete_\(uid)") {
+            if AuthPlanCache.flagExists(uid: uid) {
                 print("[AuthService] Network error, using local onboarding flag (no plan)")
                 onboardingComplete = true
             }
@@ -120,10 +117,7 @@ class AuthService: ObservableObject {
 
         if let plan {
             savedPlan = plan
-            // Cache locally for instant future startups
-            if let data = try? JSONEncoder().encode(plan) {
-                UserDefaults.standard.set(data, forKey: "saved_plan_\(uid)")
-            }
+            AuthPlanCache.write(uid: uid, plan: plan)
             Task {
                 let metadata = PlanMetadata(
                     generatedAt: Date(),
@@ -140,7 +134,7 @@ class AuthService: ObservableObject {
         }
 
         // Flip last so SwiftUI rebuilds with all persisted state in place.
-        UserDefaults.standard.set(true, forKey: "onboarding_complete_\(uid)")
+        AuthPlanCache.setFlag(uid: uid)
         onboardingComplete = true
     }
 
@@ -168,13 +162,14 @@ class AuthService: ObservableObject {
     }
 
     func signOut() throws {
-        clearKeychain()
-        try Auth.auth().signOut()
+        // Clear local state first so it's always reset even if Firebase throws.
         self.isAuthenticated = false
         self.currentUserID = nil
         self.currentUserEmail = nil
         self.onboardingComplete = false
         self.savedPlan = nil
+        clearKeychain()
+        try Auth.auth().signOut()
     }
 
     private func clearKeychain() {
@@ -275,4 +270,40 @@ class AuthService: ObservableObject {
             }
         }
     }
+}
+
+// MARK: - Plan Cache
+
+/// Pure UserDefaults helpers for the per-UID plan cache. Extracted so tests
+/// can exercise cache logic without a live Firebase instance.
+enum AuthPlanCache {
+    static func read(uid: String, defaults: UserDefaults = .standard) -> [TrainingWeek]? {
+        guard defaults.bool(forKey: flagKey(uid)),
+              let data = defaults.data(forKey: planKey(uid)),
+              let plan = try? JSONDecoder().decode([TrainingWeek].self, from: data)
+        else { return nil }
+        return plan
+    }
+
+    static func write(uid: String, plan: [TrainingWeek], defaults: UserDefaults = .standard) {
+        if let data = try? JSONEncoder().encode(plan) {
+            defaults.set(data, forKey: planKey(uid))
+        }
+    }
+
+    static func setFlag(uid: String, defaults: UserDefaults = .standard) {
+        defaults.set(true, forKey: flagKey(uid))
+    }
+
+    static func flagExists(uid: String, defaults: UserDefaults = .standard) -> Bool {
+        defaults.bool(forKey: flagKey(uid))
+    }
+
+    static func clear(uid: String, defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: flagKey(uid))
+        defaults.removeObject(forKey: planKey(uid))
+    }
+
+    static func flagKey(_ uid: String) -> String { "onboarding_complete_\(uid)" }
+    static func planKey(_ uid: String) -> String { "saved_plan_\(uid)" }
 }
