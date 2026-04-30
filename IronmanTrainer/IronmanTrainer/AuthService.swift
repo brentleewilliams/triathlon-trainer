@@ -24,16 +24,7 @@ class AuthService: ObservableObject {
         let hasLaunchedKey = "has_launched_before"
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
-            // Force-clear the Firebase Keychain entries directly in case
-            // signOut() fails — Firebase stores tokens under this service name.
-            let secItemClasses = [
-                kSecClassGenericPassword,
-                kSecClassInternetPassword,
-            ]
-            for secClass in secItemClasses {
-                let query: [CFString: Any] = [kSecClass: secClass]
-                SecItemDelete(query as CFDictionary)
-            }
+            clearKeychain()
             try? Auth.auth().signOut()
         }
 
@@ -177,12 +168,19 @@ class AuthService: ObservableObject {
     }
 
     func signOut() throws {
+        clearKeychain()
         try Auth.auth().signOut()
         self.isAuthenticated = false
         self.currentUserID = nil
         self.currentUserEmail = nil
         self.onboardingComplete = false
         self.savedPlan = nil
+    }
+
+    private func clearKeychain() {
+        for secClass in [kSecClassGenericPassword, kSecClassInternetPassword] {
+            SecItemDelete([kSecClass: secClass] as CFDictionary)
+        }
     }
 
     /// Permanently delete the account: Firestore data, local caches, and the
