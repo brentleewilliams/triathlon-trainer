@@ -48,7 +48,10 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         HKQuantityType.quantityType(forIdentifier: .heartRate)!,
         HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
         HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
-        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
+        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
+        HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
+        HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!,
+        HKObjectType.categoryType(forIdentifier: .appleStandHour)!,
     ]
 
     func checkAuthorization() {
@@ -467,6 +470,52 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: distType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: [sort]) { _, results, _ in
                 continuation.resume(returning: (results as? [HKQuantitySample]) ?? [])
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    struct ActivityRings {
+        let activeCalories: Int
+        let exerciseMinutes: Int
+        let standHours: Int
+    }
+
+    func fetchActivityRings(for date: Date = Date()) async -> ActivityRings {
+        let cal = Calendar.current
+        let start = cal.startOfDay(for: date)
+        let end = cal.date(byAdding: .day, value: 1, to: start)!
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+
+        async let calories = sumQuantity(identifier: .activeEnergyBurned, predicate: predicate, unit: .kilocalorie())
+        async let exercise = sumQuantity(identifier: .appleExerciseTime, predicate: predicate, unit: .minute())
+        async let stand = countStandHours(start: start, end: end)
+
+        return await ActivityRings(
+            activeCalories: Int(calories),
+            exerciseMinutes: Int(exercise),
+            standHours: stand
+        )
+    }
+
+    private func sumQuantity(identifier: HKQuantityTypeIdentifier, predicate: NSPredicate, unit: HKUnit) async -> Double {
+        guard let type = HKQuantityType.quantityType(forIdentifier: identifier) else { return 0 }
+        return await withCheckedContinuation { continuation in
+            let query = HKStatisticsQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum) { _, stats, _ in
+                continuation.resume(returning: stats?.sumQuantity()?.doubleValue(for: unit) ?? 0)
+            }
+            healthStore.execute(query)
+        }
+    }
+
+    private func countStandHours(start: Date, end: Date) async -> Int {
+        guard let standType = HKObjectType.categoryType(forIdentifier: .appleStandHour) else { return 0 }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let stood = HKCategoryValueAppleStandHour.stood.rawValue
+        return await withCheckedContinuation { continuation in
+            let query = HKSampleQuery(sampleType: standType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, results, _ in
+                let count = (results as? [HKCategorySample])?.filter { $0.value == stood }.count ?? 0
+                continuation.resume(returning: count)
             }
             healthStore.execute(query)
         }

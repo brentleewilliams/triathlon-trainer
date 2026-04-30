@@ -711,6 +711,11 @@ class ChatViewModel: ObservableObject {
             context += "\n\n" + ts.contextString(brief: false)
         }
 
+        if let hk = healthKit {
+            let rings = await hk.fetchActivityRings()
+            context += "\n\nACTIVITY RINGS (today): Move \(rings.activeCalories) cal · Exercise \(rings.exerciseMinutes) min · Stand \(rings.standHours) hrs"
+        }
+
         return context
     }
 
