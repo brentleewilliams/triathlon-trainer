@@ -170,6 +170,9 @@ class AuthService: ObservableObject {
         try Auth.auth().signOut()
         self.isAuthenticated = false
         self.currentUserID = nil
+        self.currentUserEmail = nil
+        self.onboardingComplete = false
+        self.savedPlan = nil
     }
 
     /// Permanently delete the account: Firestore data, local caches, and the

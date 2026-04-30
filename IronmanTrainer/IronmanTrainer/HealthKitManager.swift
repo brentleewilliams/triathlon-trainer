@@ -43,14 +43,20 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     /// HealthKit types the app reads. Force-unwraps are safe here: all identifiers
     /// are standard Apple-defined constants that cannot return nil at runtime.
     /// Morning Check-In v1: includes sleep analysis. HRV + resting HR deferred to v2.
-    private static let requiredHKTypes: Set<HKObjectType> = [
+    static let requiredHKTypes: Set<HKObjectType> = [
         HKObjectType.workoutType(),
+        HKSeriesType.workoutRoute(),
         HKQuantityType.quantityType(forIdentifier: .heartRate)!,
         HKQuantityType.quantityType(forIdentifier: .heartRateVariabilitySDNN)!,
-        HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
-        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
+        HKQuantityType.quantityType(forIdentifier: .restingHeartRate)!,
+        HKQuantityType.quantityType(forIdentifier: .vo2Max)!,
+        HKQuantityType.quantityType(forIdentifier: .height)!,
+        HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
         HKQuantityType.quantityType(forIdentifier: .activeEnergyBurned)!,
         HKQuantityType.quantityType(forIdentifier: .appleExerciseTime)!,
+        HKObjectType.characteristicType(forIdentifier: .dateOfBirth)!,
+        HKObjectType.characteristicType(forIdentifier: .biologicalSex)!,
+        HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
         HKObjectType.categoryType(forIdentifier: .appleStandHour)!,
     ]
 

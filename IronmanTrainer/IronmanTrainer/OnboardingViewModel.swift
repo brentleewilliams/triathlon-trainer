@@ -384,8 +384,8 @@ class OnboardingViewModel: ObservableObject {
 
     func loadHealthKitData() async {
         isProcessing = true
+        await HealthKitManager.shared.requestAuthorization()
         let helper = HealthKitOnboardingHelper()
-        await helper.requestExpandedAuthorization()
         let profile = await helper.fetchOnboardingProfile()
 
         hkProfile = profile

@@ -53,38 +53,6 @@ struct WorkoutSummary {
 class HealthKitOnboardingHelper {
     private let healthStore = HKHealthStore()
 
-    // MARK: - Authorization
-
-    /// Request read access to all HealthKit types needed for onboarding profile.
-    func requestExpandedAuthorization() async {
-        guard HKHealthStore.isHealthDataAvailable() else {
-            print("[Onboarding] HealthKit not available on this device")
-            return
-        }
-
-        var typesToRead: Set<HKObjectType> = [
-            HKObjectType.workoutType(),
-            HKQuantityType.quantityType(forIdentifier: .heartRate)!,
-            HKCharacteristicType.characteristicType(forIdentifier: .dateOfBirth)!,
-            HKCharacteristicType.characteristicType(forIdentifier: .biologicalSex)!,
-            HKQuantityType.quantityType(forIdentifier: .height)!,
-            HKQuantityType.quantityType(forIdentifier: .bodyMass)!,
-            HKQuantityType.quantityType(forIdentifier: .restingHeartRate)!,
-        ]
-
-        if let vo2MaxType = HKQuantityType.quantityType(forIdentifier: .vo2Max) {
-            typesToRead.insert(vo2MaxType)
-        }
-        typesToRead.insert(HKSeriesType.workoutRoute())
-
-        do {
-            try await healthStore.requestAuthorization(toShare: [], read: typesToRead)
-            print("[Onboarding] HealthKit authorization granted")
-        } catch {
-            print("[Onboarding] HealthKit authorization failed: \(error.localizedDescription)")
-        }
-    }
-
     // MARK: - Full Profile Fetch
 
     /// Pulls all available onboarding data from HealthKit in one call.

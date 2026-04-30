@@ -483,6 +483,15 @@ final class TrainingStatusService: ObservableObject {
         // not the user's actual state. The HK observer will trigger a recompute.
         if !recentWorkouts.isEmpty {
             Self.saveCache(newStatus)
+            let swimPct = newStatus.disciplineVolumeStatuses.first { $0.discipline == .swim }?.percent ?? 0
+            let bikePct = newStatus.disciplineVolumeStatuses.first { $0.discipline == .bike }?.percent ?? 0
+            let runPct  = newStatus.disciplineVolumeStatuses.first { $0.discipline == .run  }?.percent ?? 0
+            AppGroupConstants.syncReadinessToWidget(
+                score: newStatus.readiness.score,
+                swimPercent: swimPct,
+                bikePercent: bikePct,
+                runPercent: runPct
+            )
         }
     }
 

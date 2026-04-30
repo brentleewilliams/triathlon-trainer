@@ -142,6 +142,21 @@ enum AppGroupConstants {
         sharedDefaults?.set(date.timeIntervalSince1970, forKey: "race_date")
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    /// Sync readiness score and per-discipline volume percents so the medium widget can display them
+    static func syncReadinessToWidget(score: Int, swimPercent: Int, bikePercent: Int, runPercent: Int) {
+        guard let defaults = sharedDefaults else { return }
+        let payload: [String: Any] = [
+            "readinessScore": score,
+            "swimPercent": swimPercent,
+            "bikePercent": bikePercent,
+            "runPercent": runPercent
+        ]
+        if let data = try? JSONSerialization.data(withJSONObject: payload) {
+            defaults.set(data, forKey: "widget_readiness")
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+    }
 }
 
 // MARK: - Day Name Helpers
