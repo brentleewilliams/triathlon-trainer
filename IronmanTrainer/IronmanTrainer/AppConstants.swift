@@ -182,6 +182,14 @@ enum AppGroupConstants {
         sharedDefaults?.removeObject(forKey: "widget_readiness")
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    /// Nuclear wipe of the entire App Group suite — called on sign-out so no
+    /// data from one user is ever visible to the next. Widget timelines are
+    /// reloaded so the widget shows a blank/placeholder state.
+    static func wipeAllSharedData() {
+        sharedDefaults?.removePersistentDomain(forName: suiteName)
+        WidgetCenter.shared.reloadAllTimelines()
+    }
 }
 
 // MARK: - Day Name Helpers

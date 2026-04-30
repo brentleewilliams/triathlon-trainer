@@ -822,6 +822,25 @@ class TrainingPlanManager: ObservableObject {
         }
     }
 
+    /// Nuclear wipe of all Core Data for sign-out — deletes every WorkoutPlanVersion
+    /// and CompletedWorkoutEntity so no data from one account bleeds into the next.
+    func clearAllData() {
+        let context = container.viewContext
+        for entity in ["WorkoutPlanVersion", "CompletedWorkoutEntity"] {
+            let fetch = NSFetchRequest<NSFetchRequestResult>(entityName: entity)
+            let delete = NSBatchDeleteRequest(fetchRequest: fetch)
+            do {
+                try context.execute(delete)
+            } catch {
+                print("[COREDATA] Failed to delete \(entity): \(error)")
+            }
+        }
+        try? context.save()
+        self.currentPlanVersion = nil
+        self.previousPlanVersion = nil
+        print("[COREDATA] All Core Data wiped for sign-out")
+    }
+
     func loadPlanVersions() {
         let context = container.viewContext
         let fetchRequest = NSFetchRequest<NSFetchRequestResult>(entityName: "WorkoutPlanVersion")

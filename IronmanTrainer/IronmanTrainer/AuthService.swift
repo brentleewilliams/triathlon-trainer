@@ -1,6 +1,7 @@
 import Foundation
 import FirebaseAuth
 import AuthenticationServices
+import UserNotifications
 
 @MainActor
 class AuthService: ObservableObject {
@@ -162,18 +163,28 @@ class AuthService: ObservableObject {
     }
 
     func signOut() throws {
-        // Clear local state first so it's always reset even if Firebase throws.
+        // Clear in-memory published state immediately.
         self.isAuthenticated = false
         self.currentUserID = nil
         self.currentUserEmail = nil
         self.onboardingComplete = false
         self.savedPlan = nil
-        // Clear race-specific keys so a new user never sees a previous user's race.
-        UserDefaults.standard.removeObject(forKey: "race_date")
-        UserDefaults.standard.removeObject(forKey: "race_primary_name")
-        UserDefaults.standard.removeObject(forKey: "race_primary_venue")
-        UserDefaults.standard.removeObject(forKey: "race_sports")
-        AppGroupConstants.clearRaceData()
+
+        // Nuclear wipe of ALL UserDefaults — no per-key list that can fall out
+        // of sync. Restores has_launched_before so the fresh-install Keychain
+        // clear doesn't re-trigger on next launch (we're signing out, not reinstalling).
+        if let bundleID = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: bundleID)
+        }
+        UserDefaults.standard.set(true, forKey: "has_launched_before")
+
+        // Nuke App Group shared data so the widget shows nothing until the
+        // next user's data is written.
+        AppGroupConstants.wipeAllSharedData()
+
+        // Cancel all pending local notifications (morning check-in + workout reminders).
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
+
         clearKeychain()
         try Auth.auth().signOut()
     }
