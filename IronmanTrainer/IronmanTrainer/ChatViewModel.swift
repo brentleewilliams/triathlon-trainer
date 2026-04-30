@@ -672,7 +672,7 @@ class ChatViewModel: ObservableObject {
     }
 
     @MainActor
-    private func getContextForClaude() -> String {
+    private func getContextForClaude() async -> String {
         guard let plan = trainingPlan else {
             return "No training plan available"
         }
