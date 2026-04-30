@@ -24,6 +24,16 @@ class AuthService: ObservableObject {
         let hasLaunchedKey = "has_launched_before"
         if !UserDefaults.standard.bool(forKey: hasLaunchedKey) {
             UserDefaults.standard.set(true, forKey: hasLaunchedKey)
+            // Force-clear the Firebase Keychain entries directly in case
+            // signOut() fails — Firebase stores tokens under this service name.
+            let secItemClasses = [
+                kSecClassGenericPassword,
+                kSecClassInternetPassword,
+            ]
+            for secClass in secItemClasses {
+                let query: [CFString: Any] = [kSecClass: secClass]
+                SecItemDelete(query as CFDictionary)
+            }
             try? Auth.auth().signOut()
         }
 
