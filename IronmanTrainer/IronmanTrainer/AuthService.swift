@@ -168,6 +168,12 @@ class AuthService: ObservableObject {
         self.currentUserEmail = nil
         self.onboardingComplete = false
         self.savedPlan = nil
+        // Clear race-specific keys so a new user never sees a previous user's race.
+        UserDefaults.standard.removeObject(forKey: "race_date")
+        UserDefaults.standard.removeObject(forKey: "race_primary_name")
+        UserDefaults.standard.removeObject(forKey: "race_primary_venue")
+        UserDefaults.standard.removeObject(forKey: "race_sports")
+        AppGroupConstants.clearRaceData()
         clearKeychain()
         try Auth.auth().signOut()
     }

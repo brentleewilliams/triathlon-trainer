@@ -1398,6 +1398,9 @@ struct PlanReviewStep: View {
                                 AppGroupConstants.syncRaceDateToWidget(race.date)
                                 RaceProfileStore.raceName  = race.name
                                 RaceProfileStore.raceVenue = race.location
+                                let sports = viewModel.relevantSports
+                                UserDefaults.standard.set(sports, forKey: "race_sports")
+                                AppGroupConstants.syncRaceSportsToWidget(sports)
                             }
                             if let race = viewModel.buildRace(),
                                let uid = AuthService.shared.currentUserID {

@@ -33,20 +33,28 @@ struct WidgetReadiness {
     let swimPercent: Int
     let bikePercent: Int
     let runPercent: Int
+    /// Which sports are relevant for this user's race. Empty means show all (backwards compat).
+    let raceSports: [String]
 
-    static let preview = WidgetReadiness(score: 72, swimPercent: 85, bikePercent: 91, runPercent: 78)
+    static let preview = WidgetReadiness(score: 72, swimPercent: 85, bikePercent: 91, runPercent: 78, raceSports: ["swim", "bike", "run"])
 
     static func load(from defaults: UserDefaults?) -> WidgetReadiness? {
         guard let defaults,
               let data = defaults.data(forKey: "widget_readiness"),
               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let score = dict["readinessScore"] as? Int else { return nil }
+        let sports = defaults.stringArray(forKey: "race_sports") ?? []
         return WidgetReadiness(
             score: score,
             swimPercent: dict["swimPercent"] as? Int ?? 0,
             bikePercent: dict["bikePercent"] as? Int ?? 0,
-            runPercent: dict["runPercent"] as? Int ?? 0
+            runPercent: dict["runPercent"] as? Int ?? 0,
+            raceSports: sports
         )
+    }
+
+    func shows(_ sport: String) -> Bool {
+        raceSports.isEmpty || raceSports.contains(sport)
     }
 
     var levelLabel: String {
@@ -455,9 +463,15 @@ struct Race1MediumWidgetView: View {
                         Spacer(minLength: 4)
 
                         HStack(spacing: 10) {
-                            DisciplineCircle(icon: "🏊", percent: r.swimPercent)
-                            DisciplineCircle(icon: "🚴", percent: r.bikePercent)
-                            DisciplineCircle(icon: "🏃", percent: r.runPercent)
+                            if r.shows("swim") {
+                                DisciplineCircle(icon: "🏊", percent: r.swimPercent)
+                            }
+                            if r.shows("bike") {
+                                DisciplineCircle(icon: "🚴", percent: r.bikePercent)
+                            }
+                            if r.shows("run") {
+                                DisciplineCircle(icon: "🏃", percent: r.runPercent)
+                            }
                         }
                     }
                     .frame(minWidth: 110)

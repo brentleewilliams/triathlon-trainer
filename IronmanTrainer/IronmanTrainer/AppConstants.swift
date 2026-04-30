@@ -157,6 +157,22 @@ enum AppGroupConstants {
         }
         WidgetCenter.shared.reloadAllTimelines()
     }
+
+    /// Sync which sports are relevant for this user's race so the widget filters discipline circles.
+    /// Pass the same array as OnboardingViewModel.relevantSports (e.g. ["run"] for marathon).
+    static func syncRaceSportsToWidget(_ sports: [String]) {
+        sharedDefaults?.set(sports, forKey: "race_sports")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
+    /// Remove race-specific keys from the App Group on sign-out so a new user
+    /// starts with a clean slate before their onboarding writes fresh values.
+    static func clearRaceData() {
+        sharedDefaults?.removeObject(forKey: "race_date")
+        sharedDefaults?.removeObject(forKey: "race_sports")
+        sharedDefaults?.removeObject(forKey: "widget_readiness")
+        WidgetCenter.shared.reloadAllTimelines()
+    }
 }
 
 // MARK: - Day Name Helpers
