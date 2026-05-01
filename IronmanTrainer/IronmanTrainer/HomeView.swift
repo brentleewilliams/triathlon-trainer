@@ -388,7 +388,7 @@ struct HomeHeroView: View {
                                 .foregroundColor(.white)
                                 .kerning(0.8)
                                 .lineLimit(1)
-                            Text("Jul 19, 2026")
+                            Text(raceDate, format: .dateTime.month(.abbreviated).day().year())
                                 .font(.system(size: 12, weight: .medium))
                                 .foregroundColor(.white.opacity(0.85))
                                 .lineLimit(1)
