@@ -138,12 +138,12 @@ const PROMPT_MANIFEST = {
     optional: ["z2", "z3", "z4", "z5", "full_plan", "prep_races", "last_swap_info"],
   },
   "race-search": {
-    required: ["today"],
-    optional: [],
+    required: [],
+    optional: ["today"],
   },
   "prep-race-search": {
-    required: ["today"],
-    optional: [],
+    required: [],
+    optional: ["today"],
   },
   "plan-gen-summary": {
     required: ["race_name", "race_date", "weeks_available", "plan_start_date", "goal"],
