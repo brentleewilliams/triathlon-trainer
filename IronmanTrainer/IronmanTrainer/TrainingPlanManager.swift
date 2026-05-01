@@ -308,7 +308,8 @@ class TrainingPlanManager: ObservableObject {
             let fmt = DateFormatter()
             fmt.dateFormat = "yyyy-MM-dd"
             if let first = normalized.first {
-                print("[PLAN INIT] anchor=\(fmt.string(from: anchor)) W1=\(fmt.string(from: first.startDate))–\(fmt.string(from: first.endDate)) (\(normalized.count) weeks) rawFirst=\(fmt.string(from: externalWeeks.sorted { $0.weekNumber < $1.weekNumber }.first!.startDate))")
+                let rawFirst = externalWeeks.sorted { $0.weekNumber < $1.weekNumber }.first.map { fmt.string(from: $0.startDate) } ?? "?"
+                print("[PLAN INIT] anchor=\(fmt.string(from: anchor)) W1=\(fmt.string(from: first.startDate))–\(fmt.string(from: first.endDate)) (\(normalized.count) weeks) rawFirst=\(rawFirst)")
             }
             self.weeks = normalized
             insertAllSecondaryRaceCards()

@@ -196,9 +196,6 @@ class AuthService: ObservableObject {
 
         try await FirestoreService.shared.deleteUserData(uid: uid)
 
-        UserDefaults.standard.removeObject(forKey: "onboarding_complete_\(uid)")
-        UserDefaults.standard.removeObject(forKey: "saved_plan_\(uid)")
-
         do {
             try await user.delete()
         } catch let error as NSError {
@@ -213,6 +210,10 @@ class AuthService: ObservableObject {
         self.currentUserEmail = nil
         self.savedPlan = nil
         self.onboardingComplete = false
+
+        AuthService.wipeLocalDefaults()
+        AppGroupConstants.wipeAllSharedData()
+        clearKeychain()
     }
 
     // MARK: - Email OTP

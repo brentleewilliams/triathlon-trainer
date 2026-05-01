@@ -364,11 +364,11 @@ struct SettingsView: View {
                 }
 
                 Section(header: Text("Account")) {
-                    if let uid = authService.currentUserID {
+                    if let email = authService.currentUserEmail {
                         HStack {
-                            Text("User ID")
+                            Text("Signed in as")
                             Spacer()
-                            Text(String(uid.prefix(12)) + "...")
+                            Text(email)
                                 .foregroundColor(.secondary)
                                 .font(.caption)
                         }
