@@ -311,6 +311,7 @@ struct StreakChipView: View {
 
 struct HomeHeroView: View {
     let days: Int
+    let raceDate: Date
     let raceName: String
     let raceVenue: String
     let readinessScore: Int
@@ -2298,6 +2299,7 @@ struct HomeView: View {
                         ZStack(alignment: .top) {
                             HomeHeroView(
                                 days: daysUntilRace,
+                                raceDate: raceDate,
                                 raceName: raceName,
                                 raceVenue: raceVenue,
                                 readinessScore: readinessScore,
