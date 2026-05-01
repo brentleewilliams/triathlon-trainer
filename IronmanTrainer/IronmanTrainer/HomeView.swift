@@ -2358,12 +2358,6 @@ struct HomeView: View {
 
                         // ── Cards below ──
                         VStack(spacing: AppTheme.cardSpacing) {
-                            // Section header — day name + weather pulled out of the workout card
-                            SectionHeaderWithWeather(
-                                dayLabel: selectedDayHeaderLabel,
-                                date: selectedDayDate
-                            )
-
                             // One card per workout — multi-session days (AM/PM) each
                             // get their own full card so the user can scroll to each.
                             let dayLabel = workoutsByDay.indices.contains(selectedDayIndex)
