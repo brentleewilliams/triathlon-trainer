@@ -2008,11 +2008,15 @@ struct HomeView: View {
 
     // MARK: Race date
     var raceDate: Date {
-        if let ts = UserDefaults.standard.object(forKey: "race_date") as? Double {
+        if let ts = UserDefaults.standard.object(forKey: "race_date") as? Double, ts > 0 {
             return Date(timeIntervalSince1970: ts)
         }
-        var c = DateComponents(); c.year = 2026; c.month = 7; c.day = 19
-        return Calendar.current.date(from: c) ?? Date()
+        // Derive from last week of the loaded plan — works even after a sign-out
+        // wipe when the plan is restored from Firestore before race_date is backfilled.
+        if let lastWeek = trainingPlan.weeks.sorted(by: { $0.weekNumber < $1.weekNumber }).last {
+            return lastWeek.endDate
+        }
+        return Date().addingTimeInterval(60 * 24 * 3600) // distant future, never hardcode a specific race
     }
 
     var daysUntilRace: Int {

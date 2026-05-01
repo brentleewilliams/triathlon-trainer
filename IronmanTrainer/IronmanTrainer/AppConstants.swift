@@ -93,23 +93,29 @@ enum RaceProfileStore {
     static func backfillFromFirestoreIfNeeded(uid: String) async {
         let needsSports = (UserDefaults.standard.array(forKey: "race_sports") as? [String]) == nil
         let needsNameVenue = raceName == nil || raceVenue == nil
-        guard needsSports || needsNameVenue else { return }
+        let needsDate = UserDefaults.standard.double(forKey: "race_date") == 0
+        guard needsSports || needsNameVenue || needsDate else { return }
         do {
-            guard let race = try await FirestoreService.shared.getRace(for: uid) else { return }
-            if raceName  == nil { raceName  = race.name }
-            if raceVenue == nil { raceVenue = race.location }
-            // Backfill race_date if it was cleared (sign-out) or never written.
-            let storedDate = UserDefaults.standard.double(forKey: "race_date")
-            if storedDate == 0 {
-                UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
-                AppGroupConstants.syncRaceDateToWidget(race.date)
-            }
-            // Backfill race_sports for widget discipline filtering.
-            // Runs for all existing users on first launch after this update.
-            if needsSports {
-                let sports = race.type.relevantSports
-                UserDefaults.standard.set(sports, forKey: "race_sports")
-                AppGroupConstants.syncRaceSportsToWidget(sports)
+            if let race = try await FirestoreService.shared.getRace(for: uid) {
+                if raceName  == nil { raceName  = race.name }
+                if raceVenue == nil { raceVenue = race.location }
+                if needsDate {
+                    UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
+                    AppGroupConstants.syncRaceDateToWidget(race.date)
+                }
+                if needsSports {
+                    let sports = race.type.relevantSports
+                    UserDefaults.standard.set(sports, forKey: "race_sports")
+                    AppGroupConstants.syncRaceSportsToWidget(sports)
+                }
+            } else if needsDate {
+                // No race doc in Firestore — derive date from the plan's last week
+                // so the countdown shows the correct date rather than a hardcoded fallback.
+                if let plan = try await FirestoreService.shared.getTrainingPlan(for: uid),
+                   let lastWeek = plan.weeks.sorted(by: { $0.weekNumber < $1.weekNumber }).last {
+                    UserDefaults.standard.set(lastWeek.endDate.timeIntervalSince1970, forKey: "race_date")
+                    AppGroupConstants.syncRaceDateToWidget(lastWeek.endDate)
+                }
             }
         } catch {
             print("[RaceProfileStore] backfill failed: \(error)")
