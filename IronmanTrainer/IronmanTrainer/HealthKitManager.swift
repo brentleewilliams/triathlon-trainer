@@ -384,6 +384,28 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     static func summarizeSleep(samples: [HKCategorySample], nightOf date: Date) -> SleepSummary? {
         guard !samples.isEmpty else { return nil }
 
+        // Multiple devices (Apple Watch, iPhone, Oura, etc.) can each write sleep
+        // samples for the same night. Summing across all sources double-counts.
+        // Group by source bundle ID and pick the single best source.
+        let stageValues: Set<Int> = [
+            HKCategoryValueSleepAnalysis.asleepCore.rawValue,
+            HKCategoryValueSleepAnalysis.asleepDeep.rawValue,
+            HKCategoryValueSleepAnalysis.asleepREM.rawValue,
+            HKCategoryValueSleepAnalysis.awake.rawValue
+        ]
+
+        let grouped = Dictionary(grouping: samples, by: { $0.sourceRevision.source.bundleIdentifier })
+
+        // Prefer sources with sleep stages (Core/Deep/REM); break ties by total recorded time.
+        let chosenSamples = grouped.values.max(by: { a, b in
+            let aHasStages = a.contains { stageValues.contains($0.value) }
+            let bHasStages = b.contains { stageValues.contains($0.value) }
+            if aHasStages != bHasStages { return bHasStages }
+            let aTime = a.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+            let bTime = b.reduce(0.0) { $0 + $1.endDate.timeIntervalSince($1.startDate) }
+            return aTime < bTime
+        }) ?? []
+
         var total = 0
         var inBed = 0
         var deep = 0
@@ -391,7 +413,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         var awake = 0
         var sawStages = false
 
-        for s in samples {
+        for s in chosenSamples {
             let minutes = Int(s.endDate.timeIntervalSince(s.startDate) / 60.0)
             guard minutes > 0 else { continue }
 
@@ -425,9 +447,8 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         if inBed == 0 { inBed = total + awake }
         guard total > 0 || inBed > 0 else { return nil }
 
-        // Pick a representative source name. Prefer the longest sample's source.
-        let rawSource = samples.max(by: { $0.endDate.timeIntervalSince($0.startDate) < $1.endDate.timeIntervalSince($1.startDate) })?.sourceRevision.source.name
-        let source = (rawSource?.isEmpty == false) ? rawSource! : "Unknown"
+        let rawSource = chosenSamples.first?.sourceRevision.source.name
+        let sourceName = (rawSource?.isEmpty == false) ? rawSource! : "Unknown"
 
         return SleepSummary(
             date: date,
@@ -436,7 +457,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
             deepSleepMinutes: sawStages ? deep : nil,
             remSleepMinutes: sawStages ? rem : nil,
             awakeMinutes: sawStages ? awake : nil,
-            source: source
+            source: sourceName
         )
     }
 
