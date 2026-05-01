@@ -193,6 +193,8 @@ struct RaceResultCard: View {
         self._selectedDate = State(initialValue: result.date)
     }
 
+    private var isDateTBD: Bool { result.dateTBD == true }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -202,9 +204,28 @@ struct RaceResultCard: View {
                     .font(.headline)
             }
 
+            if isDateTBD {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.subheadline)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Next edition date not yet announced")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.orange)
+                        Text("Enter a placeholder below and update it when registration opens.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(10)
+                .background(Color.orange.opacity(0.1))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+
             Divider()
 
-            if onDateChange != nil {
+            if onDateChange != nil || isDateTBD {
                 HStack(spacing: 8) {
                     Image(systemName: "calendar")
                         .font(.caption)
@@ -255,15 +276,26 @@ struct RaceResultCard: View {
                 RaceDetailRow(icon: "cloud.sun.fill", label: "Typical Weather", value: weather)
             }
 
-            // Confirmation
-            HStack {
-                Image(systemName: "checkmark.circle.fill")
-                    .foregroundStyle(.green)
-                Text("Race details confirmed")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundStyle(.green)
+            // Confirmation / TBD footer
+            if isDateTBD {
+                HStack {
+                    Image(systemName: "calendar.badge.clock")
+                        .foregroundStyle(.orange)
+                    Text("Estimated date — update when officially announced")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.orange)
+                }
+                .padding(.top, 4)
+            } else {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("Race details confirmed")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(.green)
+                }
+                .padding(.top, 4)
             }
-            .padding(.top, 4)
         }
         .padding(16)
         .background(Color(.systemGray6))

@@ -346,7 +346,7 @@ struct RaceSearchStep: View {
                 // Results
                 if let result = viewModel.raceSearchResult {
                     RaceResultCard(result: result) { newDate in
-                        viewModel.raceSearchResult = result.withDate(newDate)
+                        viewModel.raceSearchResult = result.withDate(newDate, clearTBD: true)
                     }
                     .padding(.horizontal, 16)
                 }

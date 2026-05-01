@@ -676,11 +676,38 @@ struct RaceSearchResult: Codable {
     let elevationGainM: Double?
     let elevationAtVenueM: Double?
     let historicalWeather: String?
+    let dateConfidence: String?
+    /// True when the next edition date hasn't been announced yet and the
+    /// returned date is an estimate based on prior years. The UI shows a
+    /// warning and keeps the date picker active so the user can set a
+    /// placeholder and update it when the official date is confirmed.
+    let dateTBD: Bool?
 
-    func withDate(_ newDate: Date) -> RaceSearchResult {
+    init(name: String, date: Date, location: String, type: String,
+         distances: [String: Double], courseType: String,
+         elevationGainM: Double? = nil, elevationAtVenueM: Double? = nil,
+         historicalWeather: String? = nil, dateConfidence: String? = nil,
+         dateTBD: Bool? = nil) {
+        self.name = name
+        self.date = date
+        self.location = location
+        self.type = type
+        self.distances = distances
+        self.courseType = courseType
+        self.elevationGainM = elevationGainM
+        self.elevationAtVenueM = elevationAtVenueM
+        self.historicalWeather = historicalWeather
+        self.dateConfidence = dateConfidence
+        self.dateTBD = dateTBD
+    }
+
+    /// Returns a copy with a new date. Pass `clearTBD: true` when the user
+    /// has explicitly chosen a date so the TBD warning is dismissed.
+    func withDate(_ newDate: Date, clearTBD: Bool = false) -> RaceSearchResult {
         RaceSearchResult(name: name, date: newDate, location: location, type: type,
                          distances: distances, courseType: courseType,
                          elevationGainM: elevationGainM, elevationAtVenueM: elevationAtVenueM,
-                         historicalWeather: historicalWeather)
+                         historicalWeather: historicalWeather, dateConfidence: dateConfidence,
+                         dateTBD: clearTBD ? false : dateTBD)
     }
 }

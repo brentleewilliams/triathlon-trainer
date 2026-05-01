@@ -985,6 +985,7 @@ Race query: ${augmentedQuery}`
       const today = new Date(todayStr);
       if (raceDate < today) {
         parsed.dateConfidence = "low";
+        parsed.dateTBD = true;
       }
     }
     res.status(200).json({ result: parsed });

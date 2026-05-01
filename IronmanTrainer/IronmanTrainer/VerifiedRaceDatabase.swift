@@ -25,9 +25,8 @@ struct VerifiedRaceEntry {
             type: raceType,
             distances: distances,
             courseType: courseType,
-            elevationGainM: nil,
-            elevationAtVenueM: nil,
-            historicalWeather: historicalWeather
+            historicalWeather: historicalWeather,
+            dateConfidence: "high"
         )
     }
 
