@@ -630,6 +630,7 @@ class OnboardingViewModel: ObservableObject {
             if !parts.isEmpty { hkSummary = parts.joined(separator: "\n") }
         }
 
+        let effectiveStart = trainingStartDate > Date() ? trainingStartDate : Date()
         return PlanGenerationInput(
             race: race,
             profile: profile,
@@ -641,7 +642,8 @@ class OnboardingViewModel: ObservableObject {
             fitnessInjuries: fitnessInjuries,
             fitnessEquipment: fitnessEquipment,
             hkSummary: hkSummary,
-            chatSummary: nil
+            chatSummary: nil,
+            trainingStartDate: effectiveStart
         )
     }
 

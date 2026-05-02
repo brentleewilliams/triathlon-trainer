@@ -1021,17 +1021,19 @@ function buildPlanGenVars(input) {
   const profile = input.profile || {};
   const distances = race.distances || {};
   const distancesStr = Object.entries(distances).map(([k, v]) => `${k}: ${v} mi`).join(", ");
+  const effectiveStart = input.trainingStartDate
+    ? new Date(Math.max(new Date(input.trainingStartDate).getTime(), Date.now()))
+    : new Date();
   const weeksAvailable = (() => {
     if (!race.date) return 12;
     let raceDate = new Date(race.date);
-    const now = new Date();
-    while (raceDate < now) {
+    while (raceDate < effectiveStart) {
       raceDate.setFullYear(raceDate.getFullYear() + 1);
     }
-    const weeks = Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000));
+    const weeks = Math.round((raceDate - effectiveStart) / (7 * 24 * 60 * 60 * 1000));
     return weeks < 4 ? 12 : weeks;
   })();
-  const planStartDate = new Date().toISOString().split("T")[0];
+  const planStartDate = effectiveStart.toISOString().split("T")[0];
   const correctedRaceDate = (() => {
     if (!race.date) return "";
     let d = new Date(race.date);
@@ -1450,14 +1452,16 @@ async function handlePlanFromTemplate(req, res) {
 
   // Compute totalWeeks and planStartDate
   const race = input.race || {};
-  const now = new Date();
+  const effectiveStartFT = input.trainingStartDate
+    ? new Date(Math.max(new Date(input.trainingStartDate).getTime(), Date.now()))
+    : new Date();
   let raceDate = race.date ? new Date(race.date) : null;
   if (raceDate) {
-    while (raceDate < now) raceDate.setFullYear(raceDate.getFullYear() + 1);
+    while (raceDate < effectiveStartFT) raceDate.setFullYear(raceDate.getFullYear() + 1);
   }
-  const planStartDate = now.toISOString().split("T")[0];
+  const planStartDate = effectiveStartFT.toISOString().split("T")[0];
   const totalWeeks = raceDate
-    ? Math.max(4, Math.round((raceDate - now) / (7 * 24 * 60 * 60 * 1000)))
+    ? Math.max(4, Math.round((raceDate - effectiveStartFT) / (7 * 24 * 60 * 60 * 1000)))
     : 12;
 
   console.log(`[planFromTemplate] totalWeeks=${totalWeeks}, planStartDate=${planStartDate}`);

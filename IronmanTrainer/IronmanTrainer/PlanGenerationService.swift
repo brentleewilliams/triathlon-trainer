@@ -12,8 +12,9 @@ struct PlanGenerationInput: Codable {
     var fitnessSchedule: String
     var fitnessInjuries: String
     var fitnessEquipment: String
-    var hkSummary: String? // pre-built HK summary string (not the raw profile)
-    var chatSummary: String? // pre-built chat summary
+    var hkSummary: String?
+    var chatSummary: String?
+    var trainingStartDate: Date?
 
     /// Storage key for saving/loading from UserDefaults
     private static let storageKey = "plan_generation_input"
@@ -138,8 +139,9 @@ class PlanGenerationService {
     // MARK: - Pass 1: Summary
 
     private func generatePlanSummary(input: PlanGenerationInput) async throws -> String {
-        let weeksUntilRace = max(1, Calendar.current.dateComponents([.weekOfYear], from: Date(), to: input.race.date).weekOfYear ?? 12)
-        let startDate = Calendar.current.startOfDay(for: Date())
+        let effectiveStart = input.trainingStartDate.map { max($0, Date()) } ?? Date()
+        let weeksUntilRace = max(1, Calendar.current.dateComponents([.weekOfYear], from: effectiveStart, to: input.race.date).weekOfYear ?? 12)
+        let startDate = Calendar.current.startOfDay(for: effectiveStart)
 
         let goalString: String = {
             switch input.race.userGoal {
