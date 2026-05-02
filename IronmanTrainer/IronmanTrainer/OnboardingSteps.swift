@@ -741,51 +741,6 @@ struct GoalSettingStep: View {
                 }
                 .padding(.horizontal, 16)
 
-                // Injuries & Equipment
-                VStack(alignment: .leading, spacing: 12) {
-                    Divider().padding(.vertical, 4)
-
-                    Text("Injuries & Equipment")
-                        .font(.headline)
-
-                    // Injuries picker
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Any current injuries or limitations?")
-                            .font(.subheadline)
-
-                        Picker("Injuries", selection: $viewModel.fitnessInjuries) {
-                            Text("No injuries").tag("No current injuries or limitations")
-                            Text("Minor niggles").tag("Minor niggles but can train through them")
-                            Text("Recovering from injury").tag("Recovering from an injury — need modifications")
-                            Text("Chronic issue").tag("Chronic issue that limits some activities")
-                        }
-                        .pickerStyle(.menu)
-                    }
-
-                    // Equipment picker
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("What equipment do you have access to?")
-                            .font(.subheadline)
-
-                        let equipmentOpts = equipmentOptionsForRaceType()
-                        let validatedEquipment = Binding<String>(
-                            get: {
-                                equipmentOpts.contains(where: { $0.value == viewModel.fitnessEquipment })
-                                    ? viewModel.fitnessEquipment
-                                    : (equipmentOpts.first?.value ?? viewModel.fitnessEquipment)
-                            },
-                            set: { viewModel.fitnessEquipment = $0 }
-                        )
-                        Picker("Equipment", selection: validatedEquipment) {
-                            ForEach(equipmentOpts, id: \.value) { option in
-                                Text(option.label).tag(option.value)
-                            }
-                        }
-                        .pickerStyle(.menu)
-                    }
-                }
-                .padding(.horizontal, 16)
-
                 // Prep races section (optional)
                 PrepRacesOnboardingSection()
 
@@ -796,11 +751,6 @@ struct GoalSettingStep: View {
         .scrollDismissesKeyboard(.immediately)
         .onAppear {
             localCustomGoal = viewModel.customGoalText
-            // Reset equipment if current value isn't valid for this race type
-            let opts = equipmentOptionsForRaceType()
-            if !opts.contains(where: { $0.value == viewModel.fitnessEquipment }) {
-                viewModel.fitnessEquipment = opts.first?.value ?? viewModel.fitnessEquipment
-            }
         }
         .onChange(of: localCustomGoal) { _, newVal in viewModel.customGoalText = newVal }
         .onDisappear { viewModel.customGoalText = localCustomGoal }
@@ -809,44 +759,6 @@ struct GoalSettingStep: View {
         .onChange(of: viewModel.goalType) { _, _ in viewModel.validateGoal() }
     }
 
-    // MARK: - Equipment Options
-
-    struct EquipmentOption {
-        let label: String
-        let value: String
-    }
-
-    func equipmentOptionsForRaceType() -> [EquipmentOption] {
-        let sports = viewModel.relevantSports
-        if sports == ["run"] {
-            return [
-                EquipmentOption(label: "Full setup", value: "Full setup — running shoes, GPS watch, gym access, outdoor trails"),
-                EquipmentOption(label: "Basics", value: "Basics — running shoes and outdoor routes"),
-                EquipmentOption(label: "Gym access", value: "Gym access — treadmill, strength equipment"),
-                EquipmentOption(label: "Home only", value: "Home only — treadmill, basic gear"),
-            ]
-        } else if sports == ["bike"] {
-            return [
-                EquipmentOption(label: "Full setup", value: "Full setup — road bike, trainer, power meter, outdoor routes"),
-                EquipmentOption(label: "Basics", value: "Basics — bike, helmet, outdoor routes"),
-                EquipmentOption(label: "Indoor", value: "Indoor — bike trainer or spin bike"),
-                EquipmentOption(label: "Minimal", value: "Minimal — bike and helmet only"),
-            ]
-        } else if sports == ["swim"] {
-            return [
-                EquipmentOption(label: "Full setup", value: "Full setup — pool access, wetsuit, paddles, pull buoy"),
-                EquipmentOption(label: "Basics", value: "Basics — pool access, goggles, swim cap"),
-                EquipmentOption(label: "Open water", value: "Open water access — lake or ocean, wetsuit"),
-                EquipmentOption(label: "Pool only", value: "Pool only — lap pool access"),
-            ]
-        }
-        return [
-            EquipmentOption(label: "Full setup", value: "Full setup — bike trainer, pool access, gym, outdoor routes"),
-            EquipmentOption(label: "Basics", value: "Basics — bike, running shoes, pool access"),
-            EquipmentOption(label: "Minimal", value: "Minimal — running shoes and a gym membership"),
-            EquipmentOption(label: "Home only", value: "Home only — treadmill/trainer, no pool"),
-        ]
-    }
 }
 
 // MARK: - Prep Races Onboarding Section
@@ -1185,11 +1097,7 @@ struct PlanReviewStep: View {
     }
 
     private var chatAnswers: [String: String] {
-        var answers: [String: String] = [:]
-        answers["schedule"] = viewModel.schedulePattern.label
-        if !viewModel.fitnessInjuries.isEmpty { answers["injuries"] = viewModel.fitnessInjuries }
-        if !viewModel.fitnessEquipment.isEmpty { answers["equipment"] = viewModel.fitnessEquipment }
-        return answers
+        ["schedule": viewModel.schedulePattern.label]
     }
 
     private var planPhases: [(name: String, weeks: String, description: String, color: Color)] {
