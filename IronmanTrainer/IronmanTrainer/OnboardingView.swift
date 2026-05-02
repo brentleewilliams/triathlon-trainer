@@ -96,7 +96,7 @@ struct OnboardingView: View {
     /// Whether the current view is showing its gradient background (vs white form)
     private var isOnGradient: Bool {
         switch viewModel.currentStep {
-        case .profile: return !profileShowingForm
+        case .profile: return false
         case .goalSetting: return !goalsShowingForm
         default: return true
         }
@@ -129,7 +129,7 @@ struct OnboardingView: View {
                     case .healthKit:
                         HealthKitPermissionStep(viewModel: viewModel)
                     case .profile:
-                        ProfileStep(viewModel: viewModel, showingForm: $profileShowingForm)
+                        ProfileStep(viewModel: viewModel, showingForm: .constant(true))
                     case .raceSearch:
                         RaceSearchStep(viewModel: viewModel)
                     case .trainStart:
@@ -192,11 +192,6 @@ struct OnboardingView: View {
             }
             onComplete(plan)
             return
-        case .profile:
-            if !profileShowingForm {
-                withAnimation { profileShowingForm = true }
-                return
-            }
         case .goalSetting:
             if !goalsShowingForm {
                 withAnimation { goalsShowingForm = true }
@@ -209,11 +204,6 @@ struct OnboardingView: View {
 
     private func handleBack() {
         switch viewModel.currentStep {
-        case .profile:
-            if profileShowingForm {
-                withAnimation { profileShowingForm = false }
-                return
-            }
         case .goalSetting:
             if goalsShowingForm {
                 withAnimation { goalsShowingForm = false }
