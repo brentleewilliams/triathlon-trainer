@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import CoreLocation
 
 // MARK: - Sleep Summary (Morning Check-In v1)
 /// Captured overnight sleep snapshot used by the Morning Check-In feature.
@@ -545,6 +546,31 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 continuation.resume(returning: count)
             }
             healthStore.execute(query)
+        }
+    }
+
+    func fetchWorkoutLocations(for workout: HKWorkout) async -> [CLLocation] {
+        return await withCheckedContinuation { continuation in
+            let routeType = HKSeriesType.workoutRoute()
+            let predicate = HKQuery.predicateForObjects(from: workout)
+            let routeQuery = HKSampleQuery(sampleType: routeType, predicate: predicate, limit: 1, sortDescriptors: nil) { [weak self] _, results, _ in
+                guard let self, let route = results?.first as? HKWorkoutRoute else {
+                    continuation.resume(returning: [])
+                    return
+                }
+                var locations: [CLLocation] = []
+                var resumed = false
+                let locationQuery = HKWorkoutRouteQuery(route: route) { _, batch, done, _ in
+                    guard !resumed else { return }
+                    if let batch { locations.append(contentsOf: batch) }
+                    if done {
+                        resumed = true
+                        continuation.resume(returning: locations)
+                    }
+                }
+                self.healthStore.execute(locationQuery)
+            }
+            self.healthStore.execute(routeQuery)
         }
     }
 

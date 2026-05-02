@@ -1,5 +1,6 @@
 import SwiftUI
 import HealthKit
+import MapKit
 
 // MARK: - Workout Detail Parser
 struct WorkoutDetailParser {
@@ -48,6 +49,68 @@ struct WorkoutDetailParser {
             ])
         }
         return nil
+    }
+}
+
+// MARK: - Workout Map View
+struct WorkoutMapView: View {
+    let workout: HKWorkout
+    @ObservedObject var healthKit: HealthKitManager
+
+    @State private var locations: [CLLocation] = []
+    @State private var loaded = false
+
+    var body: some View {
+        Group {
+            if loaded && !locations.isEmpty {
+                mapContent
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            }
+        }
+        .task {
+            locations = await healthKit.fetchWorkoutLocations(for: workout)
+            loaded = true
+        }
+    }
+
+    @ViewBuilder
+    private var mapContent: some View {
+        let coords = locations.map(\.coordinate)
+        if coords.count > 1 {
+            Map(initialPosition: .region(regionFitting(coords))) {
+                MapPolyline(coordinates: coords)
+                    .stroke(.blue, lineWidth: 3)
+                if let first = coords.first {
+                    Marker("Start", coordinate: first).tint(.green)
+                }
+                if let last = coords.last {
+                    Marker("Finish", coordinate: last).tint(.red)
+                }
+            }
+            .mapControls { MapCompass() }
+        } else if let coord = coords.first {
+            Map(initialPosition: .region(MKCoordinateRegion(
+                center: coord,
+                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
+            ))) {
+                Marker("Workout", coordinate: coord)
+            }
+        }
+    }
+
+    private func regionFitting(_ coords: [CLLocationCoordinate2D]) -> MKCoordinateRegion {
+        let lats = coords.map(\.latitude)
+        let lons = coords.map(\.longitude)
+        let center = CLLocationCoordinate2D(
+            latitude: (lats.min()! + lats.max()!) / 2,
+            longitude: (lons.min()! + lons.max()!) / 2
+        )
+        let span = MKCoordinateSpan(
+            latitudeDelta: max((lats.max()! - lats.min()!) * 1.5, 0.005),
+            longitudeDelta: max((lons.max()! - lons.min()!) * 1.5, 0.005)
+        )
+        return MKCoordinateRegion(center: center, span: span)
     }
 }
 
@@ -120,6 +183,14 @@ struct DayDetailView: View {
         )
     }
 
+    var mapWorkout: HKWorkout? {
+        let isBrick = day.type.lowercased().contains("brick") || day.type.lowercased().contains("race sim")
+        if isBrick {
+            return matchingBikeWorkouts.first ?? matchingRunWorkouts.first
+        }
+        return matchingHealthKitWorkouts.first
+    }
+
     func getDateForDay() -> Date {
         dateForWorkoutDay(day.day, weekStartDate: week.startDate)
     }
@@ -147,6 +218,10 @@ struct DayDetailView: View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    if let workout = mapWorkout {
+                        WorkoutMapView(workout: workout, healthKit: healthKit)
+                    }
+
                     // Planned Workout
                     let isBrickDetail = day.type.lowercased().contains("brick") || day.type.lowercased().contains("race sim")
                     let brickSplit = isBrickDetail ? (day.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }) : nil
