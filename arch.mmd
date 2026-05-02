@@ -1,0 +1,98 @@
+graph TD
+    subgraph ENTRY["App Entry"]
+        App["IronmanTrainerApp\n────────────────\nFirebase init\nHealthKit sync on foreground\nAuth state listener\nNotification routing"]
+    end
+
+    subgraph UI["UI Layer  (SwiftUI Views)"]
+        direction LR
+        CT["ContentView\nTabView"]
+        HV["HomeView\nDay strip · Hero card\nWeek Overview · Coach tip"]
+        PV["PlanView\nWeek accordion\nDrag-to-swap"]
+        AV["ActivitiesView\nWorkout list\nDetail + delete"]
+        AN["AnalyticsView\nZone dist · Load & Readiness\nRace readiness"]
+        CV["ChatView\nMessages · Tool-call diffs\nCheck-In sheet"]
+        SV["SettingsView\nNotifications · Environment\nPlan mgmt · Account"]
+    end
+
+    subgraph SVC["Services & ViewModels"]
+        direction TB
+        AUTH["AuthService\nFirebase Auth\nSign In with Apple\nOnboarding gate"]
+        TPM["TrainingPlanManager\nWeek/day model\nPlan change execution\nCore Data versions"]
+        HKM["HealthKitManager\nWorkout sync (60 days)\nHR zone cache\nSleep fetch\nSave / delete workouts"]
+        CVM["ChatViewModel\nMessage history\nTool-call parsing\nPlanDiffEngine\nContext builder"]
+        CIM["CheckInManager\nDaily check-in\n6h cache\nLocal notification fallback"]
+        TSS["TrainingStatusService\nCTL / ATL / TSB\nHRV trend\nReadiness score 0-100\n6h cache"]
+        RCS["RaceCourseService\nCourse profile\nAltitude adjustment\nPacing strategy\nAthleteEnvironment"]
+        NM["NotificationManager\nWorkout reminders\n14-day schedule"]
+        PGS["PlanGenerationService\nOnboarding plan gen\nRegenerate plan"]
+        LLM["LLMProxyService\nCloud Function client\nCoaching · Check-in\nPlan generation"]
+    end
+
+    subgraph PERSIST["Persistence"]
+        CD["Core Data\nWorkoutPlanVersion\n(undo / rollback)"]
+        UD["UserDefaults\nPlan cache · Race date\nSettings · Thresholds\nAthleteEnvironment"]
+        FS["Firestore\nusers/{uid}\n└ profile\n└ plans/{planId}\n└ races/{raceId}"]
+    end
+
+    subgraph CLOUD["Cloud & External APIs"]
+        CF["Firebase Cloud Functions\nLLM Proxy\nPlan generation (2-pass)"]
+        CA["Anthropic Claude API\nclaude-sonnet-4-6\nCoaching · Check-in\nTool calls"]
+        LS["LangSmith\nRun tracing\nPrompt management"]
+        HK["Apple HealthKit\nWorkouts · HR samples\nHRV · Sleep · Distance"]
+        FA["Firebase Auth\nApple credential\nUID lifecycle"]
+        FCM["FCM / APNs\nCheck-in push\n(server-side trigger)"]
+    end
+
+    App --> CT
+    App --> AUTH
+    App --> HKM
+
+    CT --> HV & PV & AV & AN
+    CT -- "sheet" --> CV
+    CT -- "sheet" --> SV
+
+    HV --> TPM & HKM & TSS & CIM & RCS
+    PV --> TPM & HKM
+    AV --> HKM
+    AN --> TSS & HKM & TPM
+    CV --> CVM
+    SV --> AUTH & RCS & NM & PGS
+
+    CVM --> LLM
+    CVM --> TPM
+    CVM --> HKM
+    CVM --> TSS
+    CIM --> LLM
+
+    PGS --> LLM
+
+    LLM --> CF
+    CF --> CA
+    CF --> LS
+
+    AUTH --> FA
+    AUTH --> FS
+    TPM --> FS
+    TPM --> CD
+    TPM --> UD
+
+    HKM --> HK
+    TSS --> HKM
+
+    NM --> FCM
+    CIM --> FCM
+
+    RCS --> UD
+    SV --> UD
+
+    classDef entry fill:#1a1a2e,stroke:#4e4e8a,color:#fff
+    classDef ui fill:#16213e,stroke:#3a86ff,color:#fff
+    classDef svc fill:#0f3460,stroke:#e94560,color:#fff
+    classDef persist fill:#1a3a1a,stroke:#34c759,color:#fff
+    classDef cloud fill:#3a1a00,stroke:#ff9f0a,color:#fff
+
+    class App entry
+    class CT,HV,PV,AV,AN,CV,SV ui
+    class AUTH,TPM,HKM,CVM,CIM,TSS,RCS,NM,PGS,LLM svc
+    class CD,UD,FS persist
+    class CF,CA,LS,HK,FA,FCM cloud

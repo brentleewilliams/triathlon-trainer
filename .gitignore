@@ -7,3 +7,4 @@ __pycache__/
 .env.local
 IronmanTrainer/IronmanTrainer/Config.plist
 IronmanTrainer/IronmanTrainer/Config.xcconfig
+*service-account*.json
