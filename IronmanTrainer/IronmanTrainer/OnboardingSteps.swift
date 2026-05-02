@@ -48,21 +48,18 @@ struct HealthKitPermissionStep: View {
                     }
                     .padding(.top, 8)
                 } else {
-                    Button {
-                        Task {
-                            await viewModel.loadHealthKitData()
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "heart.fill")
-                            Text("Connect HealthKit")
-                        }
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Color(hex: "FF6B6B"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    VStack(spacing: 12) {
+                        Image(systemName: "heart.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.white.opacity(0.85))
+                        Text("HealthKit access is required to build your personalized training plan.")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .multilineTextAlignment(.center)
+                        Text("We use your workout history and heart rate data to calibrate your zones and starting fitness level.")
+                            .font(.caption)
+                            .foregroundStyle(.white.opacity(0.80))
+                            .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, 20)
                 }
@@ -349,6 +346,44 @@ struct RaceSearchStep: View {
                         viewModel.raceSearchResult = result.withDate(newDate, clearTBD: true)
                     }
                     .padding(.horizontal, 16)
+
+                    // Distance disambiguation picker
+                    if let options = result.distanceOptions, options.count > 1 {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Which distance?")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
+                                Button {
+                                    viewModel.raceSearchResult = RaceSearchResult(
+                                        name: result.name, date: result.date,
+                                        location: result.location, type: result.type,
+                                        distances: opt.distances, courseType: result.courseType,
+                                        elevationGainM: result.elevationGainM,
+                                        elevationAtVenueM: result.elevationAtVenueM,
+                                        historicalWeather: result.historicalWeather,
+                                        dateConfidence: result.dateConfidence,
+                                        dateTBD: result.dateTBD,
+                                        distanceOptions: nil
+                                    )
+                                } label: {
+                                    HStack {
+                                        Text(opt.label)
+                                            .font(.subheadline.weight(.medium))
+                                            .foregroundStyle(Color(hex: "FF9500"))
+                                        Spacer()
+                                        Image(systemName: "arrow.right.circle.fill")
+                                            .foregroundStyle(Color(hex: "FF9500"))
+                                    }
+                                    .padding(12)
+                                    .background(Color.white)
+                                    .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
                 }
 
                 if let error = viewModel.error {
@@ -420,7 +455,81 @@ struct RaceSearchStep: View {
     }
 }
 
-// MARK: - Step 4: Goal Setting
+// MARK: - Step 4: Training Start Date
+
+struct TrainingStartStep: View {
+    @ObservedObject var viewModel: OnboardingViewModel
+
+    private var raceDate: Date {
+        viewModel.raceSearchResult?.date ?? Date().addingTimeInterval(90 * 24 * 3600)
+    }
+
+    private var weeksToRace: Int {
+        let from = viewModel.trainingStartDate > Date() ? viewModel.trainingStartDate : Date()
+        return max(0, Calendar.current.dateComponents([.weekOfYear], from: from, to: raceDate).weekOfYear ?? 0)
+    }
+
+    var body: some View {
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer().frame(height: 20)
+
+                OnboardingIllustrationHeader(step: .trainStart)
+
+                VStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Training start date")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.75))
+                            .padding(.horizontal, 4)
+
+                        DatePicker(
+                            "",
+                            selection: $viewModel.trainingStartDate,
+                            in: ...raceDate,
+                            displayedComponents: .date
+                        )
+                        .datePickerStyle(.graphical)
+                        .labelsHidden()
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .padding(.horizontal, 16)
+
+                    if weeksToRace > 0 {
+                        Text("\(weeksToRace) weeks of training to race day")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 10)
+                            .background(Color.white.opacity(0.18))
+                            .clipShape(RoundedRectangle(cornerRadius: 10))
+                            .padding(.horizontal, 16)
+                    }
+
+                    if viewModel.trainingStartDate < Calendar.current.startOfDay(for: Date()) {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: "info.circle.fill")
+                                .foregroundStyle(.white.opacity(0.8))
+                            Text("Past start date — your plan generates from today. Previous workouts you've synced will still appear.")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.85))
+                        }
+                        .padding(12)
+                        .background(Color.white.opacity(0.15))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 16)
+                    }
+                }
+
+                Spacer()
+            }
+        }
+        .scrollDismissesKeyboard(.immediately)
+    }
+}
+
+// MARK: - Step 5: Goal Setting
 
 struct GoalSettingStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
@@ -972,108 +1081,89 @@ struct TutorialStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
 
     var body: some View {
-        VStack(spacing: 0) {
-            ScrollView {
-                VStack(spacing: 24) {
-                    Spacer().frame(height: 20)
+        ScrollView {
+            VStack(spacing: 24) {
+                Spacer().frame(height: 20)
 
-                    OnboardingIllustrationHeader(step: .tutorial)
+                OnboardingIllustrationHeader(step: .tutorial)
 
-                    // AI coach identity card
-                    HStack(alignment: .top, spacing: 12) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.white.opacity(0.2))
-                                .frame(width: 40, height: 40)
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 18, weight: .semibold))
-                                .foregroundStyle(.white)
-                        }
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 6) {
-                                Text("AI Coach")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                                Text("• Powered by Claude")
-                                    .font(.caption)
-                                    .foregroundStyle(.white.opacity(0.7))
-                            }
-                            Text("Hi! I'm your AI race coach. I'll ask a few quick questions about your schedule, injuries, and gear — then build your personalized plan.")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.95))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
+                // AI coach identity card
+                HStack(alignment: .top, spacing: 12) {
+                    ZStack {
+                        Circle()
+                            .fill(Color.white.opacity(0.2))
+                            .frame(width: 40, height: 40)
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 18, weight: .semibold))
+                            .foregroundStyle(.white)
                     }
-                    .padding(16)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text("AI Coach")
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(.white)
+                            Text("• Powered by Claude")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                        Text("Hi! I'm your AI race coach. I'll ask a few quick questions about your schedule, injuries, and gear — then build your personalized plan.")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.95))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .padding(16)
+                .background(Color.white.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 16)
+
+                // Plan generation status
+                if viewModel.isGeneratingPlan {
+                    HStack(spacing: 10) {
+                        ProgressView()
+                            .tint(.white)
+                        Text("Building your plan...")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
+                    }
+                    .padding()
+                    .frame(maxWidth: .infinity)
                     .background(Color.white.opacity(0.15))
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                     .padding(.horizontal, 16)
-
-                    // Plan generation status
-                    if viewModel.isGeneratingPlan {
-                        HStack(spacing: 10) {
-                            ProgressView()
-                                .tint(.white)
-                            Text("Building your plan...")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 16)
-                    } else if viewModel.planGenerationError != nil {
-                        VStack(spacing: 10) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.white)
-                            Text("Plan generation failed.")
-                                .font(.subheadline)
-                                .foregroundStyle(.white.opacity(0.85))
-                            Button {
-                                viewModel.retryPlanGeneration()
-                            } label: {
-                                HStack {
-                                    Image(systemName: "arrow.clockwise")
-                                    Text("Retry")
-                                }
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(Color(hex: "00C7BE"))
-                                .padding(.horizontal, 24)
-                                .padding(.vertical, 10)
-                                .background(Color.white)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                } else if viewModel.planGenerationError != nil {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                        Text("Plan generation failed.")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.85))
+                        Button {
+                            viewModel.retryPlanGeneration()
+                        } label: {
+                            HStack {
+                                Image(systemName: "arrow.clockwise")
+                                Text("Retry")
                             }
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(hex: "00C7BE"))
+                            .padding(.horizontal, 24)
+                            .padding(.vertical, 10)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.white.opacity(0.15))
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .padding(.horizontal, 16)
                     }
-
-                    Spacer()
+                    .padding()
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.15))
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
-            }
 
-            // Build My Plan button
-            VStack(spacing: 0) {
-                Button {
-                    viewModel.advance()
-                } label: {
-                    Text("Build My Plan")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(Color(hex: "00C7BE"))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.white)
-                        .clipShape(Capsule())
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 16)
+                Spacer()
             }
+            .padding(.horizontal, 16)
         }
     }
 }
@@ -1082,7 +1172,6 @@ struct TutorialStep: View {
 
 struct PlanReviewStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
-    var onComplete: ([TrainingWeek]) -> Void
 
     @State private var minimumSpinnerElapsed = false
 
@@ -1384,61 +1473,13 @@ struct PlanReviewStep: View {
 
                 }} // end if !isLoading / Group
 
-                // Action buttons
-                VStack(spacing: 12) {
-                    Button {
-                        if let plan = viewModel.generatedPlan {
-                            viewModel.planApproved = true
-                            // Persist race date + name + venue so the countdown
-                            // banner, plan header, and widget all show the
-                            // user's actual primary race rather than the
-                            // bundled course-profile fallback.
-                            if let race = viewModel.raceSearchResult {
-                                UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
-                                AppGroupConstants.syncRaceDateToWidget(race.date)
-                                RaceProfileStore.raceName  = race.name
-                                RaceProfileStore.raceVenue = race.location
-                                let sports = viewModel.relevantSports
-                                UserDefaults.standard.set(sports, forKey: "race_sports")
-                                AppGroupConstants.syncRaceSportsToWidget(sports)
-                            }
-                            if let race = viewModel.buildRace(),
-                               let uid = AuthService.shared.currentUserID {
-                                Task { try? await FirestoreService.shared.saveRace(race, for: uid) }
-                            }
-                            onComplete(plan)
-                        }
-                    } label: {
-                        HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Start Training")
-                        }
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(!isLoading && viewModel.generatedPlan != nil ? Color(hex: "5856D6") : .gray)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(!isLoading && viewModel.generatedPlan != nil ? Color.white : Color.white.opacity(0.3))
-                        .clipShape(Capsule())
-                    }
-                    .disabled(isLoading || viewModel.generatedPlan == nil)
-
-                    if !isLoading {
-                        Button {
-                            viewModel.goBackToGoalSetting()
-                        } label: {
-                            Text("Go Back & Adjust")
-                                .font(.body)
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
-
-                        Text("You can adjust your plan anytime by chatting with your AI coach.")
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.7))
-                            .multilineTextAlignment(.center)
-                            .padding(.top, 4)
-                    }
+                if !isLoading {
+                    Text("You can adjust your plan anytime by chatting with your AI coach.")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 16)
                 }
-                .padding(.horizontal, 16)
 
                 Spacer().frame(height: 20)
             }

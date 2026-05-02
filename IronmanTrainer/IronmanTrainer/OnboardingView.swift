@@ -22,6 +22,7 @@ extension OnboardingStep {
         case .healthKit: return [Color(hex: "8DC4E8"), Color(hex: "B8D9F0")]
         case .profile: return [Color(hex: "F2A99A"), Color(hex: "F9C5B5")]
         case .raceSearch: return [Color(hex: "3A3D8A"), Color(hex: "4A4DA0")]
+        case .trainStart: return [Color(hex: "6B48FF"), Color(hex: "8B6FFF")]
         case .goalSetting: return [Color(hex: "6DBF5E"), Color(hex: "8FD17A")]
         case .tutorial: return [Color(hex: "3DBFB4"), Color(hex: "5ECFC4")]
         case .planReview: return [Color(hex: "EDB870"), Color(hex: "F5CC8A")]
@@ -38,6 +39,7 @@ extension OnboardingStep {
         case .healthKit: return Color(hex: "4A90D9")
         case .profile: return Color(hex: "D9706A")
         case .raceSearch: return Color(hex: "3A3D8A")
+        case .trainStart: return Color(hex: "5A35E0")
         case .goalSetting: return Color(hex: "3DA832")
         case .tutorial: return Color(hex: "00A89E")
         case .planReview: return Color(hex: "C88A30")
@@ -49,6 +51,7 @@ extension OnboardingStep {
         case .healthKit: return "onboarding-profile"
         case .profile: return "onboarding-health"
         case .raceSearch: return "onboarding-race"
+        case .trainStart: return "onboarding-goals"
         case .goalSetting: return "onboarding-goals"
         case .tutorial: return "onboarding-chat"
         case .planReview: return "onboarding-plan"
@@ -60,6 +63,7 @@ extension OnboardingStep {
         case .healthKit: return "Let's see where you are"
         case .profile: return "A little about you"
         case .raceSearch: return "Pick your race"
+        case .trainStart: return "When do you start?"
         case .goalSetting: return "What does success look like?"
         case .tutorial: return "Meet your AI coach"
         case .planReview: return "Your plan is ready"
@@ -71,6 +75,7 @@ extension OnboardingStep {
         case .healthKit: return "We'll pull your workouts and heart rate history to build your starting point"
         case .profile: return "Height, weight, and location help us dial in your zones and plan for your climate"
         case .raceSearch: return "We'll pull the course, elevation, weather, and build your plan around it"
+        case .trainStart: return "Pick your training start date. We'll build your plan from there to race day."
         case .goalSetting: return "Finish strong, hit a time goal, or tell us in your own words"
         case .tutorial: return "Powered by Claude AI — your coach learns your schedule, injuries, and gear to build the perfect plan"
         case .planReview: return ""
@@ -127,12 +132,14 @@ struct OnboardingView: View {
                         ProfileStep(viewModel: viewModel, showingForm: $profileShowingForm)
                     case .raceSearch:
                         RaceSearchStep(viewModel: viewModel)
+                    case .trainStart:
+                        TrainingStartStep(viewModel: viewModel)
                     case .goalSetting:
                         GoalSettingStep(viewModel: viewModel, showingForm: $goalsShowingForm)
                     case .tutorial:
                         TutorialStep(viewModel: viewModel)
                     case .planReview:
-                        PlanReviewStep(viewModel: viewModel, onComplete: onComplete)
+                        PlanReviewStep(viewModel: viewModel)
                     }
                 }
                 .transition(.asymmetric(
@@ -162,6 +169,29 @@ struct OnboardingView: View {
 
     private func handleAdvance() {
         switch viewModel.currentStep {
+        case .healthKit:
+            if !viewModel.hkDataLoaded {
+                Task { await viewModel.loadHealthKitData() }
+                return
+            }
+        case .planReview:
+            guard let plan = viewModel.generatedPlan else { return }
+            viewModel.planApproved = true
+            if let race = viewModel.raceSearchResult {
+                UserDefaults.standard.set(race.date.timeIntervalSince1970, forKey: "race_date")
+                AppGroupConstants.syncRaceDateToWidget(race.date)
+                RaceProfileStore.raceName  = race.name
+                RaceProfileStore.raceVenue = race.location
+                let sports = viewModel.relevantSports
+                UserDefaults.standard.set(sports, forKey: "race_sports")
+                AppGroupConstants.syncRaceSportsToWidget(sports)
+            }
+            if let race = viewModel.buildRace(),
+               let uid = AuthService.shared.currentUserID {
+                Task { try? await FirestoreService.shared.saveRace(race, for: uid) }
+            }
+            onComplete(plan)
+            return
         case .profile:
             if !profileShowingForm {
                 withAnimation { profileShowingForm = true }
@@ -207,6 +237,7 @@ struct OnboardingProgressBar: View {
         case .healthKit: return "Health Data"
         case .profile: return "Profile"
         case .raceSearch: return "Your Race"
+        case .trainStart: return "Start Date"
         case .goalSetting: return "Goals"
         case .tutorial: return "Getting Started"
         case .planReview: return "Your Plan"
@@ -247,12 +278,14 @@ struct OnboardingNavBar: View {
     private var canAdvance: Bool {
         switch viewModel.currentStep {
         case .healthKit:
-            return viewModel.hkDataLoaded
+            return !viewModel.isProcessing
         case .profile:
             // Intro screen advances freely; form requires all fields filled.
             return isOnGradient ? true : viewModel.isProfileComplete
         case .raceSearch:
-            return viewModel.raceSearchResult != nil
+            guard let r = viewModel.raceSearchResult else { return false }
+            return (r.distanceOptions?.count ?? 0) <= 1
+        case .trainStart: return true
         case .goalSetting:
             // On the intro screen (gradient) the user can always advance to the form;
             // on the form screen they need all weekly-volume buckets selected.
@@ -260,7 +293,7 @@ struct OnboardingNavBar: View {
         case .tutorial:
             return viewModel.minimumWeeksLoaded
         case .planReview:
-            return false
+            return !viewModel.isGeneratingPlan && viewModel.generatedPlan != nil
         }
     }
 
@@ -295,25 +328,30 @@ struct OnboardingNavBar: View {
 
             Spacer()
 
-            if viewModel.currentStep != .planReview && viewModel.currentStep != .tutorial {
-                Button {
-                    (onAdvance ?? viewModel.advance)()
-                } label: {
-                    HStack(spacing: 4) {
-                        Text("Continue")
-                        Image(systemName: "chevron.right")
-                    }
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(isOnGradient ? (canAdvance ? viewModel.currentStep.accentColor : .gray) : .white)
-                    .padding(.horizontal, 24)
-                    .padding(.vertical, 12)
-                    .background(isOnGradient
-                                ? (canAdvance ? Color.white : Color.white.opacity(0.3))
-                                : (canAdvance ? viewModel.currentStep.accentColor : Color(.systemGray4)))
-                    .clipShape(Capsule())
+            let continueLabel: String = {
+                switch viewModel.currentStep {
+                case .planReview: return "Start Training"
+                case .tutorial: return "Build My Plan"
+                default: return "Continue"
                 }
-                .disabled(!canAdvance || viewModel.isProcessing)
+            }()
+            Button {
+                (onAdvance ?? viewModel.advance)()
+            } label: {
+                HStack(spacing: 4) {
+                    Text(continueLabel)
+                    Image(systemName: "chevron.right")
+                }
+                .font(.body.weight(.semibold))
+                .foregroundStyle(isOnGradient ? (canAdvance ? viewModel.currentStep.accentColor : .gray) : .white)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 12)
+                .background(isOnGradient
+                            ? (canAdvance ? Color.white : Color.white.opacity(0.3))
+                            : (canAdvance ? viewModel.currentStep.accentColor : Color(.systemGray4)))
+                .clipShape(Capsule())
             }
+            .disabled(!canAdvance || viewModel.isProcessing)
         }
     }
 }

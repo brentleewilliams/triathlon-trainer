@@ -342,16 +342,17 @@ final class OnboardingChatHelperTests: XCTestCase {
 final class OnboardingStepTests: XCTestCase {
 
     func testStepCount() {
-        XCTAssertEqual(OnboardingStep.allCases.count, 6)
+        XCTAssertEqual(OnboardingStep.allCases.count, 7)
     }
 
     func testStepOrder() {
         XCTAssertEqual(OnboardingStep.healthKit.rawValue, 0)
         XCTAssertEqual(OnboardingStep.profile.rawValue, 1)
         XCTAssertEqual(OnboardingStep.raceSearch.rawValue, 2)
-        XCTAssertEqual(OnboardingStep.goalSetting.rawValue, 3)
-        XCTAssertEqual(OnboardingStep.tutorial.rawValue, 4)
-        XCTAssertEqual(OnboardingStep.planReview.rawValue, 5)
+        XCTAssertEqual(OnboardingStep.trainStart.rawValue, 3)
+        XCTAssertEqual(OnboardingStep.goalSetting.rawValue, 4)
+        XCTAssertEqual(OnboardingStep.tutorial.rawValue, 5)
+        XCTAssertEqual(OnboardingStep.planReview.rawValue, 6)
     }
 }
 

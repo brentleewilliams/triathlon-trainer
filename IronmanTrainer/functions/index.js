@@ -968,6 +968,7 @@ Requirements:
 - If the ${currentYear} edition has already passed, find the next future occurrence
 - Include "sourceUrl" (the page where you found the date) in your JSON
 - Include "dateConfidence": "high" if date is from official race page, "low" if uncertain
+- If the race offers multiple distinct distance options (e.g. a 5K AND 10K at the same event), include "distanceOptions": [{"label": "5K", "distances": {"run": 3.1}}, {"label": "10K", "distances": {"run": 6.2}}]. If only one distance, omit distanceOptions.
 
 Race query: ${augmentedQuery}`
   });

@@ -5,9 +5,10 @@ enum OnboardingStep: Int, CaseIterable {
     case healthKit = 0
     case profile = 1
     case raceSearch = 2
-    case goalSetting = 3
-    case tutorial = 4
-    case planReview = 5
+    case trainStart = 3
+    case goalSetting = 4
+    case tutorial = 5
+    case planReview = 6
 }
 
 @MainActor
@@ -36,6 +37,9 @@ class OnboardingViewModel: ObservableObject {
     @Published var hkHasWeight = false
     @Published var hkHasRestingHR = false
     @Published var hkHasLocation = false
+
+    // Training start date (step 3.5)
+    @Published var trainingStartDate: Date = Date()
 
     // Race data (step 3)
     @Published var raceSearchQuery: String = ""
@@ -95,6 +99,9 @@ class OnboardingViewModel: ObservableObject {
             return (1, 30)                                    // Sprint (~16 mi)
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
+            if runMiles >= 80 { return (22, 0) }            // 100-miler
+            if runMiles >= 45 { return (11, 0) }            // 100K
+            if runMiles >= 28 { return (6, 0) }             // 50K
             if runMiles >= 25 { return (4, 30) }            // Marathon
             if runMiles >= 12 { return (2, 0) }             // Half Marathon
             if runMiles >= 6 { return (0, 55) }             // 10K
@@ -125,6 +132,9 @@ class OnboardingViewModel: ObservableObject {
             return 0...3                                // Sprint
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
+            if runMiles >= 80 { return 14...40 }        // 100-miler
+            if runMiles >= 45 { return 7...18 }         // 100K
+            if runMiles >= 28 { return 4...12 }         // 50K
             if runMiles >= 25 { return 2...7 }          // Marathon
             if runMiles >= 12 { return 1...4 }          // Half Marathon
             if runMiles >= 6 { return 0...2 }           // 10K
@@ -266,7 +276,10 @@ class OnboardingViewModel: ObservableObject {
             if runMiles < 4 { subtype = "5k" }
             else if runMiles < 8 { subtype = "10k" }
             else if runMiles < 15 { subtype = "half" }
-            else { subtype = "marathon" }
+            else if runMiles < 32 { subtype = "marathon" }
+            else if runMiles < 55 { subtype = "50k" }
+            else if runMiles < 75 { subtype = "100k" }
+            else { subtype = "100miler" }
             return ("running", subtype)
         }
 
@@ -499,6 +512,7 @@ class OnboardingViewModel: ObservableObject {
     // MARK: - Build Domain Objects
 
     func buildUserProfile(uid: String) -> UserProfile {
+        UserDefaults.standard.set(trainingStartDate.timeIntervalSince1970, forKey: "training_start_date")
         // Persist weekly volumes to local store so TrainingStatusService can
         // read them as the readiness denominator for pre-plan weeks.
         WeeklyVolumeStore.save(swim: swimVolume, bike: bikeVolume, run: runVolume)
@@ -536,8 +550,9 @@ class OnboardingViewModel: ObservableObject {
             let input = buildPlanGenerationInput()
             input.save() // Save for regeneration from Settings
 
+            let effectiveStart = trainingStartDate > Date() ? trainingStartDate : Date()
             let totalWeeks = max(4, Calendar.current.dateComponents(
-                [.weekOfYear], from: Date(), to: input.race.date
+                [.weekOfYear], from: effectiveStart, to: input.race.date
             ).weekOfYear ?? 12)
 
             // Split into batches of ~5 weeks each (dynamic for any plan length)
@@ -666,6 +681,11 @@ enum GoalSelection {
     case custom
 }
 
+struct DistanceOption: Codable {
+    let label: String
+    let distances: [String: Double]
+}
+
 struct RaceSearchResult: Codable {
     let name: String
     let date: Date
@@ -682,12 +702,13 @@ struct RaceSearchResult: Codable {
     /// warning and keeps the date picker active so the user can set a
     /// placeholder and update it when the official date is confirmed.
     let dateTBD: Bool?
+    let distanceOptions: [DistanceOption]?
 
     init(name: String, date: Date, location: String, type: String,
          distances: [String: Double], courseType: String,
          elevationGainM: Double? = nil, elevationAtVenueM: Double? = nil,
          historicalWeather: String? = nil, dateConfidence: String? = nil,
-         dateTBD: Bool? = nil) {
+         dateTBD: Bool? = nil, distanceOptions: [DistanceOption]? = nil) {
         self.name = name
         self.date = date
         self.location = location
@@ -699,6 +720,7 @@ struct RaceSearchResult: Codable {
         self.historicalWeather = historicalWeather
         self.dateConfidence = dateConfidence
         self.dateTBD = dateTBD
+        self.distanceOptions = distanceOptions
     }
 
     /// Returns a copy with a new date. Pass `clearTBD: true` when the user
@@ -708,6 +730,7 @@ struct RaceSearchResult: Codable {
                          distances: distances, courseType: courseType,
                          elevationGainM: elevationGainM, elevationAtVenueM: elevationAtVenueM,
                          historicalWeather: historicalWeather, dateConfidence: dateConfidence,
-                         dateTBD: clearTBD ? false : dateTBD)
+                         dateTBD: clearTBD ? false : dateTBD,
+                         distanceOptions: distanceOptions)
     }
 }

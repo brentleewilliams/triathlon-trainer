@@ -225,7 +225,7 @@ struct ReadinessPillView: View {
             .frame(width: 32, height: 32)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text("READINESS")
+                Text("DAILY READINESS")
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundColor(.white.opacity(0.70))
                     .kerning(0.6)
@@ -430,7 +430,7 @@ struct HomeHeroView: View {
                 // case is folded into the readiness pills row above.
                 if !isSingleSport && !raceReadiness.isEmpty {
                     HStack(spacing: 10) {
-                        Text("RACE-READY")
+                        Text("PLAN TARGET")
                             .font(.system(size: 10, weight: .semibold))
                             .foregroundColor(.white.opacity(0.85))
                             .kerning(0.6)
@@ -1055,11 +1055,15 @@ struct SelectedDayWorkoutCard: View {
     let onSwap: () -> Void
     let onLogWorkout: () -> Void
 
+    @State private var isExpanded = false
+
     var body: some View {
         VStack(spacing: 0) {
             if let workout = workout {
                 workoutBody(workout)
-                ctaRow(workout)
+                if isExpanded {
+                    ctaRow(workout)
+                }
             } else {
                 restDayFallback
             }
@@ -1082,7 +1086,7 @@ struct SelectedDayWorkoutCard: View {
                 .frame(width: 4)
 
             VStack(alignment: .leading, spacing: 0) {
-                // Header row
+                // Header row — always visible, tapping expands/collapses detail
                 HStack(spacing: 8) {
                     Text(isCompleted ? "\(dayLabel) · Completed" : "\(dayLabel) · Up next")
                         .font(.system(size: 11, weight: .semibold))
@@ -1099,10 +1103,19 @@ struct SelectedDayWorkoutCard: View {
                             .background(AppTheme.statusGreen.opacity(0.14))
                             .clipShape(Capsule())
                     }
+                    Spacer()
+                    Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                        .font(.system(size: 12))
+                        .foregroundColor(.secondary)
+                        .padding(.trailing, 8)
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 14)
                 .padding(.bottom, 8)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) { isExpanded.toggle() }
+                }
 
                 // Title
                 Text(strippedType(workout.type))
@@ -1118,114 +1131,117 @@ struct SelectedDayWorkoutCard: View {
                     .monospacedDigit()
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
+                    .padding(.bottom, 14)
 
-                // Brick leg breakdown — two-row card showing bike + run components.
-                // Always rendered for bricks; falls back to "—" when notes don't contain
-                // a parseable split (e.g. AI plan described split in prose, not in
-                // "Bike X:XX + Run Xmin" format).
-                if workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim") {
-                    let split = workout.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }
-                    VStack(spacing: 0) {
-                        BrickLegRow(emoji: "🚴", label: "Bike", duration: split?.bikeDuration ?? "—", accent: AppTheme.bike)
-                        Divider().padding(.leading, 12)
-                        BrickLegRow(emoji: "🏃", label: "Run",  duration: split?.runDuration ?? "—",  accent: AppTheme.run, paceSuffix: split?.runPace)
+                if isExpanded {
+                    // Brick leg breakdown — two-row card showing bike + run components.
+                    // Always rendered for bricks; falls back to "—" when notes don't contain
+                    // a parseable split (e.g. AI plan described split in prose, not in
+                    // "Bike X:XX + Run Xmin" format).
+                    if workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim") {
+                        let split = workout.notes.flatMap { WorkoutDetailParser.parseBrickDetail(from: $0) }
+                        VStack(spacing: 0) {
+                            BrickLegRow(emoji: "🚴", label: "Bike", duration: split?.bikeDuration ?? "—", accent: AppTheme.bike)
+                            Divider().padding(.leading, 12)
+                            BrickLegRow(emoji: "🏃", label: "Run",  duration: split?.runDuration ?? "—",  accent: AppTheme.run, paceSuffix: split?.runPace)
+                        }
+                        .background(Color(.systemGray6).opacity(0.6))
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
                     }
-                    .background(Color(.systemGray6).opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: 10))
-                    .padding(.horizontal, 16)
+
+                    // What box
+                    if let notes = workout.notes, !notes.isEmpty {
+                        HStack(alignment: .top, spacing: 0) {
+                            Text("What · ")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(color)
+                            + Text(notes)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(Color(.label).opacity(0.85))
+                        }
+                        .lineLimit(3)
+                        .padding(10)
+                        .background(color.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                        .padding(.bottom, 2)
+                    }
+
+                    // Timeline strip
+                    TimelineStripView(
+                        intervals: syntheticIntervals(for: workout, color: color),
+                        color: color
+                    )
                     .padding(.top, 10)
-                }
 
-                // Why box
-                if let notes = workout.notes, !notes.isEmpty {
-                    HStack(alignment: .top, spacing: 0) {
-                        Text("Why · ")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(color)
-                        + Text(notes)
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(Color(.label).opacity(0.85))
-                    }
-                    .lineLimit(3)
-                    .padding(10)
-                    .background(color.opacity(0.08))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .padding(.horizontal, 16)
-                    .padding(.top, 10)
-                    .padding(.bottom, 2)
-                }
-
-                // Timeline strip
-                TimelineStripView(
-                    intervals: syntheticIntervals(for: workout, color: color),
-                    color: color
-                )
-                .padding(.top, 10)
-
-                // 2×2 meta grid (weather moved up to the section header on home)
-                Divider().padding(.horizontal, 0)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 0) {
-                    MetaCellView(label: "Zone",
-                                 value: workout.zone.components(separatedBy: " · ").first ?? workout.zone,
-                                 sub: workout.zone.components(separatedBy: " · ").dropFirst().first)
-                    MetaCellView(label: "Duration",
-                                 value: workout.duration,
-                                 sub: nil,
-                                 borderLeft: true)
-                    if let nutrition = workout.nutritionTarget {
-                        MetaCellView(label: "Fueling",
-                                     value: nutrition.components(separatedBy: "·").first?.trimmingCharacters(in: .whitespaces) ?? nutrition,
-                                     sub: nutrition.components(separatedBy: "·").dropFirst().first?.trimmingCharacters(in: .whitespaces),
-                                     borderTop: true)
-                        MetaCellView(label: "Type",
-                                     value: strippedType(workout.type),
+                    // 2×2 meta grid (weather moved up to the section header on home)
+                    Divider().padding(.horizontal, 0)
+                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 0) {
+                        MetaCellView(label: "Zone",
+                                     value: workout.zone.components(separatedBy: " · ").first ?? workout.zone,
+                                     sub: workout.zone.components(separatedBy: " · ").dropFirst().first)
+                        MetaCellView(label: "Duration",
+                                     value: workout.duration,
                                      sub: nil,
-                                     borderLeft: true, borderTop: true)
-                    } else {
-                        MetaCellView(label: "Type",
-                                     value: strippedType(workout.type),
-                                     sub: nil,
-                                     borderTop: true)
-                        Color.clear.frame(height: 1)
-                            .overlay(Rectangle().fill(Color(.systemGray5)).frame(width: 0.5), alignment: .leading)
-                            .overlay(Rectangle().fill(Color(.systemGray5)).frame(height: 0.5), alignment: .top)
+                                     borderLeft: true)
+                        if let nutrition = workout.nutritionTarget {
+                            MetaCellView(label: "Fueling",
+                                         value: nutrition.components(separatedBy: "·").first?.trimmingCharacters(in: .whitespaces) ?? nutrition,
+                                         sub: nutrition.components(separatedBy: "·").dropFirst().first?.trimmingCharacters(in: .whitespaces),
+                                         borderTop: true)
+                            MetaCellView(label: "Type",
+                                         value: strippedType(workout.type),
+                                         sub: nil,
+                                         borderLeft: true, borderTop: true)
+                        } else {
+                            MetaCellView(label: "Type",
+                                         value: strippedType(workout.type),
+                                         sub: nil,
+                                         borderTop: true)
+                            Color.clear.frame(height: 1)
+                                .overlay(Rectangle().fill(Color(.systemGray5)).frame(width: 0.5), alignment: .leading)
+                                .overlay(Rectangle().fill(Color(.systemGray5)).frame(height: 0.5), alignment: .top)
+                        }
                     }
-                }
-                .background(Color(.secondarySystemBackground))
+                    .background(Color(.secondarySystemBackground))
 
-                // Recorded workouts for this day
-                if !hkWorkouts.isEmpty {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Divider()
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("RECORDED TODAY")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundColor(Color(.systemGray))
-                                .kerning(0.6)
-                                .padding(.bottom, 2)
-                            ForEach(hkWorkouts, id: \.uuid) { hkWorkout in
-                                HStack(spacing: 10) {
-                                    Circle()
-                                        .fill(hkWorkoutColor(hkWorkout.workoutActivityType))
-                                        .frame(width: 8, height: 8)
-                                    Text(hkWorkoutTypeName(hkWorkout.workoutActivityType))
-                                        .font(.system(size: 13, weight: .semibold))
-                                        .foregroundColor(.primary)
-                                    Spacer()
-                                    Text(hkDurationString(hkWorkout.duration))
-                                        .font(.system(size: 13, weight: .medium))
-                                        .foregroundColor(Color(.systemGray))
-                                        .monospacedDigit()
-                                    if let dist = hkDistanceString(hkWorkout) {
-                                        Text("· \(dist)")
-                                            .font(.system(size: 13))
-                                            .foregroundColor(Color(.systemGray2))
+                    // Recorded workouts for this day
+                    if !hkWorkouts.isEmpty {
+                        VStack(alignment: .leading, spacing: 0) {
+                            Divider()
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("RECORDED TODAY")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundColor(Color(.systemGray))
+                                    .kerning(0.6)
+                                    .padding(.bottom, 2)
+                                ForEach(hkWorkouts, id: \.uuid) { hkWorkout in
+                                    HStack(spacing: 10) {
+                                        Circle()
+                                            .fill(hkWorkoutColor(hkWorkout.workoutActivityType))
+                                            .frame(width: 8, height: 8)
+                                        Text(hkWorkoutTypeName(hkWorkout.workoutActivityType))
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(.primary)
+                                        Spacer()
+                                        Text(hkDurationString(hkWorkout.duration))
+                                            .font(.system(size: 13, weight: .medium))
+                                            .foregroundColor(Color(.systemGray))
+                                            .monospacedDigit()
+                                        if let dist = hkDistanceString(hkWorkout) {
+                                            Text("· \(dist)")
+                                                .font(.system(size: 13))
+                                                .foregroundColor(Color(.systemGray2))
+                                        }
                                     }
                                 }
                             }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 12)
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
                     }
                 }
             }
@@ -2389,23 +2405,6 @@ struct HomeView: View {
                                         onLogWorkout: { showLogWorkout = true }
                                     )
                                 }
-                            }
-
-                            // Week overview card (only shown for plan weeks)
-                            if selectedWeek >= 1 {
-                                WeekOverviewCard(
-                                    workoutsByDay: workoutsByDay,
-                                    selectedDayIndex: $selectedDayIndex,
-                                    isWorkoutCompleted: isWorkoutCompleted,
-                                    onSwap: { workout, srcDay, destDay in
-                                        trainingPlan.swapOrMoveWorkout(
-                                            weekNumber: selectedWeek,
-                                            source: workout,
-                                            sourceDay: srcDay,
-                                            destDay: destDay
-                                        )
-                                    }
-                                )
                             }
 
                             if isRaceWeek {
