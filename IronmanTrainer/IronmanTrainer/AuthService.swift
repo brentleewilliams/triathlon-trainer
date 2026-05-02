@@ -113,7 +113,10 @@ class AuthService: ObservableObject {
         // Record onboarding date and plan BEFORE flipping onboardingComplete so
         // the SwiftUI rebuild that instantiates ContentView sees fresh data.
         // Always update onboardingDate so re-onboarding re-anchors Week 1.
-        OnboardingStore.onboardingDate = Date()
+        // Use the user-selected training start date if it's in the future.
+        let storedStart = UserDefaults.standard.double(forKey: "training_start_date")
+        let selectedStart = storedStart > 0 ? Date(timeIntervalSince1970: storedStart) : Date()
+        OnboardingStore.onboardingDate = selectedStart > Date() ? selectedStart : Date()
 
         if let plan {
             savedPlan = plan

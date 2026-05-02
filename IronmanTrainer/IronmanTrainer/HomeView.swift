@@ -233,15 +233,10 @@ struct ReadinessPillView: View {
             }
             .frame(width: 32, height: 32)
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text("DAILY READINESS")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.70))
-                    .kerning(0.6)
-                Text(label)
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(.white)
-            }
+            Text("DAILY READINESS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundColor(.white.opacity(0.70))
+                .kerning(0.6)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
