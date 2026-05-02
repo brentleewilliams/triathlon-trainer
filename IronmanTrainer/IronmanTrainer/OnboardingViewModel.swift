@@ -99,9 +99,9 @@ class OnboardingViewModel: ObservableObject {
             return (1, 30)                                    // Sprint (~16 mi)
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
-            if runMiles >= 80 { return (22, 0) }            // 100-miler
-            if runMiles >= 45 { return (11, 0) }            // 100K
-            if runMiles >= 28 { return (6, 0) }             // 50K
+            if runMiles >= 80 { return (28, 0) }            // 100-miler
+            if runMiles >= 45 { return (16, 0) }            // 100K
+            if runMiles >= 28 { return (7, 0) }             // 50K
             if runMiles >= 25 { return (4, 30) }            // Marathon
             if runMiles >= 12 { return (2, 0) }             // Half Marathon
             if runMiles >= 6 { return (0, 55) }             // 10K
@@ -132,9 +132,9 @@ class OnboardingViewModel: ObservableObject {
             return 0...3                                // Sprint
         } else if type.contains("running") || type.contains("run") {
             let runMiles = result.distances["run"] ?? result.distances.values.max() ?? 0
-            if runMiles >= 80 { return 14...40 }        // 100-miler
-            if runMiles >= 45 { return 7...18 }         // 100K
-            if runMiles >= 28 { return 4...12 }         // 50K
+            if runMiles >= 80 { return 16...48 }        // 100-miler
+            if runMiles >= 45 { return 8...30 }         // 100K
+            if runMiles >= 28 { return 4...16 }         // 50K
             if runMiles >= 25 { return 2...7 }          // Marathon
             if runMiles >= 12 { return 1...4 }          // Half Marathon
             if runMiles >= 6 { return 0...2 }           // 10K
