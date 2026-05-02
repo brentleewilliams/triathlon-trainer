@@ -145,6 +145,9 @@ struct SettingsView: View {
     @State private var storedThresholds: PerformanceThresholds = PerformanceThresholdsStore.load() ?? .empty
     @State private var homeZip: String = ""
     @State private var zipSaveTask: Task<Void, Never>?
+    @State private var raceGoal: GoalType? = nil
+    @State private var editingCustomGoal = false
+    @State private var customGoalDraft = ""
     @EnvironmentObject var trainingPlan: TrainingPlanManager
 
     var raceDateDisplay: String {
@@ -271,6 +274,56 @@ struct SettingsView: View {
                         Spacer()
                         Text(raceDateDisplay)
                             .foregroundColor(.secondary)
+                    }
+                    if let goal = raceGoal {
+                        if case .custom(let text) = goal {
+                            if editingCustomGoal {
+                                VStack(alignment: .leading, spacing: 6) {
+                                    Text("Race Goal")
+                                        .font(.subheadline)
+                                    TextField("Describe your goal", text: $customGoalDraft, axis: .vertical)
+                                        .lineLimit(2...4)
+                                    HStack {
+                                        Button("Cancel") {
+                                            customGoalDraft = text
+                                            editingCustomGoal = false
+                                        }
+                                        .foregroundColor(.secondary)
+                                        Spacer()
+                                        Button("Save") {
+                                            editingCustomGoal = false
+                                            raceGoal = .custom(customGoalDraft)
+                                            guard let uid = authService.currentUserID else { return }
+                                            Task {
+                                                if var race = try? await FirestoreService.shared.getRace(for: uid) {
+                                                    race.userGoal = .custom(customGoalDraft)
+                                                    try? await FirestoreService.shared.saveRace(race, for: uid)
+                                                }
+                                            }
+                                        }
+                                        .fontWeight(.semibold)
+                                    }
+                                    .font(.subheadline)
+                                }
+                            } else {
+                                Button {
+                                    customGoalDraft = text
+                                    editingCustomGoal = true
+                                } label: {
+                                    HStack(alignment: .top) {
+                                        Text("Race Goal")
+                                        Spacer()
+                                        Text(text)
+                                            .foregroundColor(.secondary)
+                                            .multilineTextAlignment(.trailing)
+                                        Image(systemName: "pencil")
+                                            .foregroundColor(.secondary)
+                                            .font(.caption)
+                                    }
+                                }
+                                .foregroundColor(.primary)
+                            }
+                        }
                     }
                 }
                 Section(header: Text("Secondary Races")) {
@@ -403,9 +456,16 @@ struct SettingsView: View {
             }
             .navigationBarTitleDisplayMode(.inline)
             .task {
-                guard let uid = authService.currentUserID,
-                      let profile = try? await FirestoreService.shared.getUserProfile(uid: uid) else { return }
-                homeZip = profile.homeZip ?? ""
+                guard let uid = authService.currentUserID else { return }
+                if let profile = try? await FirestoreService.shared.getUserProfile(uid: uid) {
+                    homeZip = profile.homeZip ?? ""
+                }
+                if let race = try? await FirestoreService.shared.getRace(for: uid) {
+                    raceGoal = race.userGoal
+                    if case .custom(let text) = race.userGoal {
+                        customGoalDraft = text
+                    }
+                }
             }
             .alert("Generate New Plan?", isPresented: $showReOnboardAlert) {
                 Button("Cancel", role: .cancel) {}

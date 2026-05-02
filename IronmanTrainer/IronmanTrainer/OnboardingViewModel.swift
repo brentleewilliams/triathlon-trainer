@@ -44,6 +44,7 @@ class OnboardingViewModel: ObservableObject {
     // Race data (step 3)
     @Published var raceSearchQuery: String = ""
     @Published var raceSearchResult: RaceSearchResult?
+    @Published var selectedDistanceLabel: String? = nil
     @Published var isSearchingRace = false
     @Published var raceSuggestions: [VerifiedRaceEntry] = []
 
@@ -67,6 +68,7 @@ class OnboardingViewModel: ObservableObject {
         raceSearchResult = entry.toRaceSearchResult()
         raceSearchQuery = entry.name
         raceSuggestions = []
+        selectedDistanceLabel = nil
         error = nil
         updateStrengthDefault()
     }
@@ -452,6 +454,7 @@ class OnboardingViewModel: ObservableObject {
         error = nil
         raceSuggestions = []
         raceSearchResult = nil
+        selectedDistanceLabel = nil
 
         // Check local overrides first — guarantees correct date for known races
         if let override = localRaceOverride(query: raceSearchQuery) {

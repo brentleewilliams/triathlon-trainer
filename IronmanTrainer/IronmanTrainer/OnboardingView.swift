@@ -274,7 +274,8 @@ struct OnboardingNavBar: View {
             return isOnGradient ? true : viewModel.isProfileComplete
         case .raceSearch:
             guard let r = viewModel.raceSearchResult else { return false }
-            return (r.distanceOptions?.count ?? 0) <= 1
+            let hasMultiple = (r.distanceOptions?.count ?? 0) > 1
+            return !hasMultiple || viewModel.selectedDistanceLabel != nil
         case .trainStart: return true
         case .goalSetting:
             // On the intro screen (gradient) the user can always advance to the form;

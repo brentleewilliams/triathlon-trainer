@@ -354,7 +354,9 @@ struct RaceSearchStep: View {
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(.white)
                             ForEach(Array(options.enumerated()), id: \.offset) { _, opt in
+                                let isSelected = viewModel.selectedDistanceLabel == opt.label
                                 Button {
+                                    viewModel.selectedDistanceLabel = opt.label
                                     viewModel.raceSearchResult = RaceSearchResult(
                                         name: result.name, date: result.date,
                                         location: result.location, type: result.type,
@@ -364,19 +366,19 @@ struct RaceSearchStep: View {
                                         historicalWeather: result.historicalWeather,
                                         dateConfidence: result.dateConfidence,
                                         dateTBD: result.dateTBD,
-                                        distanceOptions: nil
+                                        distanceOptions: options
                                     )
                                 } label: {
                                     HStack {
                                         Text(opt.label)
                                             .font(.subheadline.weight(.medium))
-                                            .foregroundStyle(Color(hex: "FF9500"))
+                                            .foregroundStyle(isSelected ? .white : Color(hex: "FF9500"))
                                         Spacer()
-                                        Image(systemName: "arrow.right.circle.fill")
-                                            .foregroundStyle(Color(hex: "FF9500"))
+                                        Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(isSelected ? .white : Color(hex: "FF9500"))
                                     }
                                     .padding(12)
-                                    .background(Color.white)
+                                    .background(isSelected ? Color(hex: "FF9500") : Color.white)
                                     .clipShape(RoundedRectangle(cornerRadius: 10))
                                 }
                                 .buttonStyle(.plain)
