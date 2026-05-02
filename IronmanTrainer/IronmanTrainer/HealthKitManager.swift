@@ -550,10 +550,20 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     func fetchWorkoutLocations(for workout: HKWorkout) async -> [CLLocation] {
+        // Try association predicate first; fall back to time-range if it returns
+        // nothing (some Watch workouts store routes by time window rather than
+        // explicit association).
+        let byAssociation = await fetchRouteLocations(predicate: HKQuery.predicateForObjects(from: workout))
+        if !byAssociation.isEmpty { return byAssociation }
+        let byTime = await fetchRouteLocations(predicate: HKQuery.predicateForSamples(
+            withStart: workout.startDate, end: workout.endDate, options: []
+        ))
+        return byTime
+    }
+
+    private func fetchRouteLocations(predicate: NSPredicate) async -> [CLLocation] {
         return await withCheckedContinuation { continuation in
-            let routeType = HKSeriesType.workoutRoute()
-            let predicate = HKQuery.predicateForObjects(from: workout)
-            let routeQuery = HKSampleQuery(sampleType: routeType, predicate: predicate, limit: 1, sortDescriptors: nil) { [weak self] _, results, _ in
+            let routeQuery = HKSampleQuery(sampleType: HKSeriesType.workoutRoute(), predicate: predicate, limit: 1, sortDescriptors: nil) { [weak self] _, results, _ in
                 guard let self, let route = results?.first as? HKWorkoutRoute else {
                     continuation.resume(returning: [])
                     return
