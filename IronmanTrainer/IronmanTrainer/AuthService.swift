@@ -194,8 +194,8 @@ class AuthService: ObservableObject {
         }
         let uid = user.uid
 
-        try await FirestoreService.shared.deleteUserData(uid: uid)
-
+        // Attempt Auth deletion first — if the session is stale Firebase will
+        // reject this with requiresRecentLogin before we touch any user data.
         do {
             try await user.delete()
         } catch let error as NSError {
@@ -204,6 +204,9 @@ class AuthService: ObservableObject {
             }
             throw error
         }
+
+        // Auth user is gone — now wipe data.
+        try await FirestoreService.shared.deleteUserData(uid: uid)
 
         self.isAuthenticated = false
         self.currentUserID = nil

@@ -139,6 +139,7 @@ struct SettingsView: View {
     @State private var showDeleteAccountAlert = false
     @State private var isDeletingAccount = false
     @State private var deleteAccountError: String?
+    @State private var showReauthAlert = false
     @State private var isRegeneratingPlan = false
     @State private var regenerateError: String?
     @State private var storedThresholds: PerformanceThresholds = PerformanceThresholdsStore.load() ?? .empty
@@ -437,6 +438,15 @@ struct SettingsView: View {
                     try? authService.signOut()
                 }
             }
+            .alert("Sign In Required", isPresented: $showReauthAlert) {
+                Button("Cancel", role: .cancel) {}
+                Button("Sign Out Now", role: .destructive) {
+                    trainingPlan.clearAllData()
+                    try? authService.signOut()
+                }
+            } message: {
+                Text("For security, please sign out and sign back in before deleting your account. Your data has not been deleted.")
+            }
             .alert("Restore Original Plan?", isPresented: $showRestorePlanAlert) {
                 Button("Cancel", role: .cancel) {}
                 Button("Restore") {
@@ -465,6 +475,11 @@ struct SettingsView: View {
                 await MainActor.run {
                     trainingPlan.clearAllPlanVersions()
                     isDeletingAccount = false
+                }
+            } catch AuthService.AuthError.reauthRequired {
+                await MainActor.run {
+                    isDeletingAccount = false
+                    showReauthAlert = true
                 }
             } catch {
                 await MainActor.run {
