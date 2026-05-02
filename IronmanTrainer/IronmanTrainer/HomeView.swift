@@ -69,6 +69,15 @@ struct SportReadiness {
 /// Falls back to all three when nothing parses (e.g. an empty plan during
 /// onboarding).
 func activeDisciplines(in weeks: [TrainingWeek]) -> Set<TrainingDiscipline> {
+    // Primary: race_sports saved during onboarding from the chosen race type.
+    if let sports = UserDefaults.standard.array(forKey: "race_sports") as? [String], !sports.isEmpty {
+        var result: Set<TrainingDiscipline> = []
+        if sports.contains("swim") { result.insert(.swim) }
+        if sports.contains("bike") { result.insert(.bike) }
+        if sports.contains("run")  { result.insert(.run) }
+        if !result.isEmpty { return result }
+    }
+    // Fallback: scan the plan.
     var found: Set<TrainingDiscipline> = []
     for w in weeks {
         for wo in w.workouts {
