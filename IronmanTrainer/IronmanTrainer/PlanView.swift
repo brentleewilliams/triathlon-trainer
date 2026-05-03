@@ -266,6 +266,7 @@ struct PlanWeekCard: View {
     let onToggle: () -> Void
 
     @EnvironmentObject var trainingPlan: TrainingPlanManager
+    @EnvironmentObject var healthKit: HealthKitManager
 
     @State private var dropTargetDay: String? = nil
 
@@ -302,14 +303,33 @@ struct PlanWeekCard: View {
 
     // MARK: - Completion Check
 
-    func isPastWorkout(_ workout: DayWorkout) -> Bool {
+    func workoutDate(for workout: DayWorkout) -> Date {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
         let dayOffset = dayOrder.firstIndex(of: workout.day) ?? 0
-        guard let workoutDate = calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: week.startDate)) else {
-            return false
+        return calendar.date(byAdding: .day, value: dayOffset, to: calendar.startOfDay(for: week.startDate)) ?? week.startDate
+    }
+
+    func isWorkoutCompleted(_ workout: DayWorkout) -> Bool {
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: workoutDate(for: workout))
+        guard targetDay < calendar.startOfDay(for: Date()) else { return false }
+
+        let isBrick = workout.type.lowercased().contains("brick") || workout.type.lowercased().contains("race sim")
+        if isBrick {
+            let hasBike = healthKit.workouts.contains {
+                calendar.startOfDay(for: $0.startDate) == targetDay && $0.workoutActivityType == .cycling
+            }
+            let hasRun = healthKit.workouts.contains {
+                calendar.startOfDay(for: $0.startDate) == targetDay && $0.workoutActivityType == .running
+            }
+            return hasBike && hasRun
         }
-        return workoutDate < today
+
+        let workoutType = extractWorkoutTypeFromString(workout.type)
+        return healthKit.workouts.contains {
+            calendar.startOfDay(for: $0.startDate) == targetDay &&
+            workoutTypeMatchesActivityType(plannedType: workoutType, healthKitType: $0.workoutActivityType)
+        }
     }
 
     // MARK: - Body
@@ -374,7 +394,7 @@ struct PlanWeekCard: View {
                     ForEach(sortedWorkouts) { workout in
                         WorkoutPlanRow(
                             workout: workout,
-                            isPast: isPastWorkout(workout),
+                            isPast: isWorkoutCompleted(workout),
                             weekNumber: week.weekNumber,
                             isDropTarget: dropTargetDay == workout.day,
                             onSwap: { ref, destDay in
