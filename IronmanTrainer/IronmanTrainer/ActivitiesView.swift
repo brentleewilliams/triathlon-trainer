@@ -135,6 +135,7 @@ private struct MonthGroup: Identifiable {
 struct ActivitiesView: View {
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingPlan: TrainingPlanManager
+    @EnvironmentObject var router: NavigationRouter
 
     @State private var filterType: ActivityFilterType = .all
     @State private var selectedWorkout: HKWorkout? = nil
@@ -172,10 +173,10 @@ struct ActivitiesView: View {
                 // Top nav
                 PersistentTopNavView(
                     title: "Workouts",
-                    onProfile:  { NotificationCenter.default.post(name: .openSettings, object: nil) },
-                    onChat:     { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) },
-                    onAddWorkout: { NotificationCenter.default.post(name: .openLogWorkout, object: nil) }
+                    onProfile:    { router.openSettings() },
+                    onChat:       { router.openChat() },
+                    onCalendar:   { router.openCalendar() },
+                    onAddWorkout: { router.openLogWorkout() }
                 )
 
                 // Filter chips

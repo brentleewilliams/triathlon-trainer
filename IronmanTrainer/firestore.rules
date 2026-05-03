@@ -2,14 +2,27 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only read/write their own document
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Subcollections under user doc (races, plans, etc.)
-      match /{document=**} {
+      match /races/{raceId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+      match /plans/{planId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+      match /checkIns/{checkInId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // OTP codes are keyed by email, not by userId — allow write from any
+    // authenticated or unauthenticated context since OTP is pre-auth.
+    // The Cloud Function (server-side with admin SDK) manages these docs;
+    // client read is needed only for verifyOTP (also done server-side).
+    // Deny direct client read/write — only the Cloud Function admin SDK touches this.
+    match /otpCodes/{email} {
+      allow read, write: if false;
     }
   }
 }

@@ -6,11 +6,7 @@ struct ContentView: View {
     @StateObject private var chatViewModel = ChatViewModel()
     @StateObject private var checkInManager = CheckInManager.shared
     @StateObject private var trainingStatus = TrainingStatusService(healthKit: HealthKitManager.shared)
-    @State private var showCheckIn = false
-    @State private var showChat = false
-    @State private var showSettings = false
-    @State private var showCalendar = false
-    @State private var showLogWorkout = false
+    @StateObject private var router = NavigationRouter.shared
     @State private var selectedTab = 0
 
     init() {
@@ -24,6 +20,7 @@ struct ContentView: View {
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
                 .environmentObject(trainingStatus)
+                .environmentObject(router)
                 .tabItem {
                     Label("Today", systemImage: "sun.max")
                 }
@@ -32,6 +29,7 @@ struct ContentView: View {
             PlanView()
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
+                .environmentObject(router)
                 .tabItem {
                     Label("Plan", systemImage: "calendar.badge.clock")
                 }
@@ -40,6 +38,7 @@ struct ContentView: View {
             ActivitiesView()
                 .environmentObject(healthKit)
                 .environmentObject(trainingPlan)
+                .environmentObject(router)
                 .tabItem {
                     Label("Workouts", systemImage: "list.bullet")
                 }
@@ -49,72 +48,60 @@ struct ContentView: View {
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
                 .environmentObject(trainingStatus)
+                .environmentObject(router)
                 .tabItem {
                     Label("Analytics", systemImage: "chart.bar.fill")
                 }
                 .tag(3)
         }
         .onAppear {
+            NotificationManager.shared.setTrainingPlan(trainingPlan)
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
             chatViewModel.trainingStatus = trainingStatus
             Task { await trainingStatus.compute() }
         }
+        // Check-in comes from the system notification delegate in IronmanTrainerApp —
+        // keep as NotificationCenter since UNUserNotificationCenterDelegate cannot
+        // call router directly without a reference.
         .onReceive(NotificationCenter.default.publisher(for: .openCheckIn)) { _ in
-            showCheckIn = true
+            router.openCheckIn()
         }
-        .onReceive(NotificationCenter.default.publisher(for: .navigateToChat)) { note in
-            // Optional seed: callers can pre-fill the input (e.g. tapping a
-            // coach insight on the home screen passes the nudge text via
-            // userInfo["seed"]). The input bar drains pendingInputText on
-            // appear / on change.
-            if let seed = note.userInfo?["seed"] as? String, !seed.isEmpty {
-                chatViewModel.pendingInputText = seed
+        // Apply chat seed before the sheet appears
+        .onChange(of: router.showChat) { _, isShowing in
+            if isShowing && !router.chatSeed.isEmpty {
+                chatViewModel.pendingInputText = router.chatSeed
+                router.chatSeed = ""
             }
-            showChat = true
         }
-        .onReceive(NotificationCenter.default.publisher(for: .openSettings)) { _ in
-            showSettings = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openCalendar)) { _ in
-            showCalendar = true
-        }
-        .onReceive(NotificationCenter.default.publisher(for: .openLogWorkout)) { _ in
-            showLogWorkout = true
-        }
-        .sheet(isPresented: $showCheckIn) {
+        .sheet(isPresented: $router.showCheckIn) {
             CheckInView(viewModel: chatViewModel, checkIn: checkInManager)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
                 .environmentObject(trainingStatus)
         }
-        .sheet(isPresented: $showChat) {
+        .sheet(isPresented: $router.showChat) {
             ChatView(viewModel: chatViewModel)
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
         }
-        .sheet(isPresented: $showSettings) {
+        .sheet(isPresented: $router.showSettings) {
             SettingsView()
                 .environmentObject(trainingPlan)
                 .environmentObject(healthKit)
         }
-        .sheet(isPresented: $showCalendar) {
+        .sheet(isPresented: $router.showCalendar) {
             NavigationStack {
-                // TrainingCalendarView owns its own trailing Done button —
-                // don't add a duplicate leading one here.
                 TrainingCalendarView()
                     .environmentObject(trainingPlan)
             }
         }
-        .sheet(isPresented: $showLogWorkout) {
-            // Global manual-log sheet from the top-nav '+' button on Plan,
-            // Workouts, Analytics. Defaults to "now" — the sheet's own
-            // DatePicker lets the user adjust day + time.
+        .sheet(isPresented: $router.showLogWorkout) {
             LogWorkoutSheet(
                 prefilledType: .running,
                 prefilledDate: Date(),
                 onSave: { activityType, minutes, end in
-                    showLogWorkout = false
+                    router.showLogWorkout = false
                     Task {
                         let start = end.addingTimeInterval(-Double(minutes * 60))
                         try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)

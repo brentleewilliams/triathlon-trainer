@@ -4,6 +4,7 @@ import SwiftUI
 
 struct PlanView: View {
     @EnvironmentObject var trainingPlan: TrainingPlanManager
+    @EnvironmentObject var router: NavigationRouter
     @State private var showConnectedApps = false
     @State private var expandedWeeks: Set<Int> = []
 
@@ -54,16 +55,16 @@ struct PlanView: View {
                     title: "Plan",
                     isTransparent: false,
                     onProfile: {
-                        NotificationCenter.default.post(name: .openSettings, object: nil)
+                        router.openSettings()
                     },
                     onChat: {
-                        NotificationCenter.default.post(name: .navigateToChat, object: nil)
+                        router.openChat()
                     },
                     onCalendar: {
-                        NotificationCenter.default.post(name: .openCalendar, object: nil)
+                        router.openCalendar()
                     },
                     onAddWorkout: {
-                        NotificationCenter.default.post(name: .openLogWorkout, object: nil)
+                        router.openLogWorkout()
                     }
                 )
 

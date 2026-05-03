@@ -1937,6 +1937,7 @@ private extension View {
 // MARK: - Home View
 
 struct HomeView: View {
+    @EnvironmentObject var router: NavigationRouter
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var trainingStatusService: TrainingStatusService
@@ -2348,10 +2349,10 @@ struct HomeView: View {
                                     isTransparent: true,
                                     weekLabel: navWeekLabel,
                                     onWeekSelector: navWeekLabel != nil ? { showWeekPicker = true } : nil,
-                                    onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
-                                    onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) },
-                                    onAddWorkout: { NotificationCenter.default.post(name: .openLogWorkout, object: nil) }
+                                    onProfile: { router.openSettings() },
+                                    onChat: { router.openChat() },
+                                    onCalendar: { router.openCalendar() },
+                                    onAddWorkout: { router.openLogWorkout() }
                                 )
                                 .padding(.top, safeTop)
                                 Spacer()
@@ -2400,11 +2401,7 @@ struct HomeView: View {
                                         isCompleted: isWorkoutCompleted(w),
                                         onSwap: {
                                             let seed = swapSeed(for: w, on: selectedDayDate)
-                                            NotificationCenter.default.post(
-                                                name: .navigateToChat,
-                                                object: nil,
-                                                userInfo: ["seed": seed]
-                                            )
+                                            router.openChat(seed: seed)
                                         },
                                         onLogWorkout: { showLogWorkout = true }
                                     )
@@ -2421,11 +2418,7 @@ struct HomeView: View {
                                 // in the input bar) that this prompt originated
                                 // from a tap on a home-screen insight rather
                                 // than a free user message.
-                                NotificationCenter.default.post(
-                                    name: .navigateToChat,
-                                    object: nil,
-                                    userInfo: ["seed": "(from app insight) \(coachNudge)"]
-                                )
+                                router.openChat(seed: "(from app insight) \(coachNudge)")
                             }
 
                             if showWidgetTip {

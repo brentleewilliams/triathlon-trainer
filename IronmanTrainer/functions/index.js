@@ -9,6 +9,13 @@ const Anthropic = require("@anthropic-ai/sdk");
 admin.initializeApp();
 const db = admin.firestore();
 
+// In-memory OTP rate limiter — resets when function instance recycles.
+// Firestore-backed otpCodes collection is the authoritative store.
+const otpRateLimitCache = new Map(); // email -> [timestamp, ...]
+
+// In-memory per-user coaching rate limiter.
+const coachingRateLimitCache = new Map(); // uid -> [timestamp, ...]
+
 // Fail fast if required env vars are missing — surfaces immediately in
 // Firebase logs rather than producing a cryptic [ERROR] in the chat UI.
 // SMTP_* are required for OTP email delivery; without them requestOTP
@@ -317,6 +324,15 @@ function getAnthropicClient() {
   });
 }
 
+/** Splits messages into { system: string|undefined, nonSystem: array } for Anthropic's API format. */
+function splitSystemMessage(messages) {
+  const systemMsg = messages.find((m) => m.role === "system");
+  return {
+    system: systemMsg?.content,
+    nonSystem: messages.filter((m) => m.role !== "system"),
+  };
+}
+
 /**
  * Non-streaming LLM call. Returns the full response text.
  */
@@ -333,13 +349,12 @@ async function callLLM({ messages, model, temperature, maxTokens }) {
   } else if (model.startsWith("claude-")) {
     const client = getAnthropicClient();
     // Anthropic expects system as a top-level param, not in messages array
-    const systemMsg = messages.find((m) => m.role === "system");
-    const nonSystem = messages.filter((m) => m.role !== "system");
+    const { system, nonSystem } = splitSystemMessage(messages);
     const resp = await client.messages.create({
       model,
       max_tokens: maxTokens,
       temperature,
-      system: systemMsg ? systemMsg.content : undefined,
+      system,
       messages: nonSystem,
     });
     return resp.content.map((c) => c.text).join("");
@@ -360,14 +375,13 @@ async function callLLMWithWebSearch({ messages, model, temperature, maxTokens })
   }
 
   const client = getAnthropicClient();
-  const systemMsg = messages.find((m) => m.role === "system");
-  const nonSystem = messages.filter((m) => m.role !== "system");
+  const { system, nonSystem } = splitSystemMessage(messages);
 
   const resp = await client.messages.create({
     model: "claude-haiku-4-5-20251001",  // force Claude — web search requires Anthropic models
     max_tokens: maxTokens,
     temperature,
-    system: systemMsg ? systemMsg.content : undefined,
+    system,
     messages: nonSystem,
     tools: [
       {
@@ -406,13 +420,12 @@ async function streamLLM({ messages, model, temperature, maxTokens, onToken, onD
     onDone();
   } else if (model.startsWith("claude-")) {
     const client = getAnthropicClient();
-    const systemMsg = messages.find((m) => m.role === "system");
-    const nonSystem = messages.filter((m) => m.role !== "system");
+    const { system, nonSystem } = splitSystemMessage(messages);
     const stream = await client.messages.stream({
       model,
       max_tokens: maxTokens,
       temperature,
-      system: systemMsg ? systemMsg.content : undefined,
+      system,
       messages: nonSystem,
     });
     for await (const event of stream) {
@@ -611,14 +624,13 @@ async function streamLLMWithTools({ messages, model, temperature, maxTokens, too
     }));
 
     const client = getAnthropicClient();
-    const systemMsg = messages.find((m) => m.role === "system");
-    const nonSystem = messages.filter((m) => m.role !== "system");
+    const { system, nonSystem } = splitSystemMessage(messages);
 
     const stream = await client.messages.stream({
       model,
       max_tokens: maxTokens,
       temperature,
-      system: systemMsg ? systemMsg.content : undefined,
+      system,
       messages: nonSystem,
       tools: anthropicTools,
       tool_choice: toolChoice === "required" ? { type: "any" } : { type: "auto" },
@@ -708,6 +720,102 @@ async function withRetry(fn, maxAttempts = 3) {
 }
 
 // ---------------------------------------------------------------------------
+// handleCoaching helper functions
+// ---------------------------------------------------------------------------
+
+/** Builds the template variable object for the coaching-chat prompt. */
+function buildCoachingVars(req) {
+  const { trainingContext, workoutHistory, zoneBoundaries } = req.body;
+  let cleanedContext = trainingContext || "";
+  const instrStart = cleanedContext.indexOf("====== PLAN CHANGE INSTRUCTIONS (READ FIRST) ======");
+  const instrEnd = cleanedContext.indexOf("====== TRAINING PLAN DATA ======");
+  if (instrStart >= 0 && instrEnd > instrStart) {
+    cleanedContext = cleanedContext.slice(0, instrStart) + cleanedContext.slice(instrEnd);
+  } else if (instrStart >= 0) {
+    cleanedContext = cleanedContext.slice(0, instrStart);
+  }
+  const z = zoneBoundaries || {};
+  return {
+    context: cleanedContext,
+    history: workoutHistory || "",
+    z2: z.z2 || "",
+    z3: z.z3 || "",
+    z4: z.z4 || "",
+    z5: z.z5 || "",
+    full_plan: "",
+    current_date: new Date().toISOString().split("T")[0],
+    prep_races: "",
+    last_swap_info: "",
+  };
+}
+
+/** Builds the full messages array from prompt messages + history + current user message. */
+function buildCoachingMessages(promptMessages, conversationHistory, userMessage, imageData, model) {
+  const allMessages = [...promptMessages];
+  if (Array.isArray(conversationHistory)) {
+    for (const msg of conversationHistory) {
+      if (msg.role && msg.content) allMessages.push({ role: msg.role, content: msg.content });
+    }
+  }
+  if (imageData && (model.startsWith("gpt-") || model.startsWith("claude-"))) {
+    if (model.startsWith("claude-")) {
+      allMessages.push({
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageData } },
+          { type: "text", text: userMessage },
+        ],
+      });
+    } else {
+      allMessages.push({
+        role: "user",
+        content: [
+          { type: "text", text: userMessage },
+          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
+        ],
+      });
+    }
+  } else {
+    allMessages.push({ role: "user", content: userMessage });
+  }
+  return allMessages;
+}
+
+/** Normalizes a plan proposal from the LLM, collapsing field-level replace entries. */
+function normalizeProposal(proposal) {
+  if (!proposal.id) proposal.id = crypto.randomUUID();
+  if (!Array.isArray(proposal.changes)) return proposal;
+  for (const c of proposal.changes) {
+    if (!c.type && c.to_type) c.type = c.to_type;
+    if (!c.type && c.new_type) c.type = c.new_type;
+    delete c.to_type;
+    delete c.new_type;
+    if (["modify", "update", "change", "edit"].includes(c.action)) c.action = "replace";
+  }
+  const grouped = {};
+  const finalChanges = [];
+  for (const c of proposal.changes) {
+    if (c.action === "replace" && c.field && c.to !== undefined) {
+      const key = `${c.week}|${c.day}|${c.from || c.from_type || ""}`;
+      if (!grouped[key]) {
+        grouped[key] = { action: "replace", week: c.week, day: c.day, from_type: c.from || c.from_type };
+        finalChanges.push(grouped[key]);
+      }
+      const target = grouped[key];
+      if (c.field === "type") target.type = c.to;
+      else if (c.field === "duration") target.duration = c.to;
+      else if (c.field === "zone") target.zone = c.to;
+      else if (c.field === "notes") target.notes = c.to;
+    } else {
+      delete c.field; delete c.from; delete c.to;
+      finalChanges.push(c);
+    }
+  }
+  proposal.changes = finalChanges;
+  return proposal;
+}
+
+// ---------------------------------------------------------------------------
 // Request handlers
 // ---------------------------------------------------------------------------
 
@@ -719,40 +827,25 @@ async function handleCoaching(req, res, userId) {
     return;
   }
 
+  // Rate limit: 60 coaching requests per user per hour
+  const coachNow = Date.now();
+  const recentCoaching = (coachingRateLimitCache.get(userId) || []).filter(t => coachNow - t < 3600000);
+  if (recentCoaching.length >= 60) {
+    res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+    return;
+  }
+  coachingRateLimitCache.set(userId, [...recentCoaching, coachNow]);
+
   // --- LangSmith: read parent trace context from iOS client ---
   const parentTraceId = req.headers["x-langsmith-trace-id"] || null;
   const parentRunId = req.headers["x-langsmith-run-id"] || null;
   const parentDottedOrder = req.headers["x-langsmith-dotted-order"] || null;
 
-  // Build template variables for the coaching prompt.
-  // Strip legacy plan-change instruction block if still present (replaced by tool calling).
-  let cleanedContext = trainingContext || "";
-  const instrStart = cleanedContext.indexOf("====== PLAN CHANGE INSTRUCTIONS (READ FIRST) ======");
-  const instrEnd = cleanedContext.indexOf("====== TRAINING PLAN DATA ======");
-  if (instrStart >= 0 && instrEnd > instrStart) {
-    cleanedContext = cleanedContext.slice(0, instrStart) + cleanedContext.slice(instrEnd);
-  } else if (instrStart >= 0) {
-    cleanedContext = cleanedContext.slice(0, instrStart);
-  }
+  // Build template variables for the coaching prompt (strips legacy instruction block).
+  // The iOS app sends everything (plan, date, prep races) combined in trainingContext.
+  const variables = buildCoachingVars(req);
 
-  // The iOS app sends everything (plan, date, prep races) combined in
-  // trainingContext, so we map it to {context} and blank out the other prompt vars.
-  const z = zoneBoundaries || {};
-  const todayStr = new Date().toISOString().split("T")[0];
-  const variables = {
-    context: cleanedContext,
-    history: workoutHistory || "",
-    z2: z.z2 || "",
-    z3: z.z3 || "",
-    z4: z.z4 || "",
-    z5: z.z5 || "",
-    full_plan: "",
-    current_date: todayStr,
-    prep_races: "",
-    last_swap_info: "",
-  };
-
-  console.log(`[coaching] context length=${(trainingContext || "").length}, history length=${(workoutHistory || "").length}, zones=${JSON.stringify(z)}`);
+  console.log(`[coaching] context length=${(trainingContext || "").length}, history length=${(workoutHistory || "").length}, zones=${JSON.stringify(zoneBoundaries || {})}`);
 
   // Run intent classification and prompt fetch in parallel to avoid added latency.
   // The classifier decides whether to force tool_choice=required, eliminating
@@ -778,40 +871,8 @@ async function handleCoaching(req, res, userId) {
 
   console.log(`[coaching] model=${model}, scope=${effectiveScope} (client=${clientPlanScope}, server=${serverScope}), toolChoice=${toolChoice}, system prompt length=${promptMessages[0]?.content?.length || 0}`);
 
-  // Append conversation history if provided
-  const allMessages = [...promptMessages];
-  if (Array.isArray(conversationHistory)) {
-    for (const msg of conversationHistory) {
-      if (msg.role && msg.content) {
-        allMessages.push({ role: msg.role, content: msg.content });
-      }
-    }
-  }
-
-  // Add the current user message (with optional image for vision models)
-  if (imageData && (model.startsWith("gpt-") || model.startsWith("claude-"))) {
-    if (model.startsWith("claude-")) {
-      // Anthropic image format
-      allMessages.push({
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: imageData } },
-          { type: "text", text: userMessage },
-        ],
-      });
-    } else {
-      // OpenAI image format
-      allMessages.push({
-        role: "user",
-        content: [
-          { type: "text", text: userMessage },
-          { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageData}` } },
-        ],
-      });
-    }
-  } else {
-    allMessages.push({ role: "user", content: userMessage });
-  }
+  // Build full messages array (prompt messages + history + current user message)
+  const allMessages = buildCoachingMessages(promptMessages, conversationHistory, userMessage, imageData, model);
 
   // --- LangSmith: create child LLM run ---
   const llmRunId = crypto.randomUUID();
@@ -868,48 +929,7 @@ async function handleCoaching(req, res, userId) {
       onDone: () => {
         // Emit tool call event before DONE so iOS can parse it
         if (capturedToolCall && capturedToolCall.name === "propose_plan_change") {
-          const proposal = capturedToolCall.input;
-          if (!proposal.id) proposal.id = crypto.randomUUID();
-          // Normalize stray field names the LLM sometimes invents
-          if (Array.isArray(proposal.changes)) {
-            // First pass: rename fields and coerce action aliases on each entry
-            for (const c of proposal.changes) {
-              if (!c.type && c.to_type) c.type = c.to_type;
-              if (!c.type && c.new_type) c.type = c.new_type;
-              delete c.to_type;
-              delete c.new_type;
-              // LLM sometimes emits "modify", "update", "change", "edit" for replace
-              if (["modify", "update", "change", "edit"].includes(c.action)) c.action = "replace";
-            }
-            // Second pass: collapse multiple "modify-style" entries against the same
-            // day/week (field/from/to triples) into a single replace change.
-            const grouped = {};
-            const finalChanges = [];
-            for (const c of proposal.changes) {
-              if (c.action === "replace" && c.field && c.to !== undefined) {
-                const key = `${c.week}|${c.day}|${c.from || c.from_type || ""}`;
-                if (!grouped[key]) {
-                  grouped[key] = {
-                    action: "replace",
-                    week: c.week,
-                    day: c.day,
-                    from_type: c.from || c.from_type,
-                  };
-                  finalChanges.push(grouped[key]);
-                }
-                const target = grouped[key];
-                if (c.field === "type") target.type = c.to;
-                else if (c.field === "duration") target.duration = c.to;
-                else if (c.field === "zone") target.zone = c.to;
-                else if (c.field === "notes") target.notes = c.to;
-              } else {
-                // Strip stray field/from/to if present on a normal entry
-                delete c.field; delete c.from; delete c.to;
-                finalChanges.push(c);
-              }
-            }
-            proposal.changes = finalChanges;
-          }
+          const proposal = normalizeProposal(capturedToolCall.input);
           console.log(`[coaching] normalized proposal: ${JSON.stringify(proposal).slice(0, 600)}`);
           res.write(`data: [TOOL_CALL:${JSON.stringify(proposal)}]\n\n`);
         }
@@ -1616,6 +1636,16 @@ exports.requestOTP = onRequest(async (req, res) => {
       return;
     }
 
+    // Rate limit: max 3 OTP requests per email per hour
+    const now = Date.now();
+    const emailKey = email.toLowerCase();
+    const recentRequests = (otpRateLimitCache.get(emailKey) || []).filter(t => now - t < 3600000);
+    if (recentRequests.length >= 3) {
+      res.status(429).json({ error: "Too many code requests. Please wait before trying again." });
+      return;
+    }
+    otpRateLimitCache.set(emailKey, [...recentRequests, now]);
+
     // Refuse to mint a code we can't deliver. Without this we silently
     // store an OTP in Firestore and return 200 — users see "Code sent"
     // but no email ever arrives. Surfacing the error here lets the iOS
@@ -1668,7 +1698,7 @@ exports.requestOTP = onRequest(async (req, res) => {
     }
 
     if (process.env.NODE_ENV !== "production") {
-      console.log(`OTP for ${email}: ${otp}`);
+      console.log(`[requestOTP] debug OTP for ${email}: ${otp}`);
     }
 
     res.status(200).json({ success: true, message: "Verification code sent." });

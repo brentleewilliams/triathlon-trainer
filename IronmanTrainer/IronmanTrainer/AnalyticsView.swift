@@ -193,6 +193,7 @@ class AnalyticsViewModel: ObservableObject {
 
 // MARK: - Analytics View
 struct AnalyticsView: View {
+    @EnvironmentObject var router: NavigationRouter
     @EnvironmentObject var trainingPlan: TrainingPlanManager
     @EnvironmentObject var healthKit: HealthKitManager
     @EnvironmentObject var trainingStatusService: TrainingStatusService
@@ -264,10 +265,10 @@ struct AnalyticsView: View {
                     isTransparent: false,
                     weekLabel: "Week \(selectedWeek)/\(trainingPlan.weeks.count)",
                     onWeekSelector: { showWeekPicker = true },
-                    onProfile: { NotificationCenter.default.post(name: .openSettings, object: nil) },
-                    onChat: { NotificationCenter.default.post(name: .navigateToChat, object: nil) },
-                    onCalendar: { NotificationCenter.default.post(name: .openCalendar, object: nil) },
-                    onAddWorkout: { NotificationCenter.default.post(name: .openLogWorkout, object: nil) }
+                    onProfile: { router.openSettings() },
+                    onChat: { router.openChat() },
+                    onCalendar: { router.openCalendar() },
+                    onAddWorkout: { router.openLogWorkout() }
                 )
 
             ScrollView {
@@ -332,7 +333,7 @@ struct AnalyticsView: View {
                     readiness: raceReadiness,
                     overall: raceReadinessOverall,
                     onSwap: {
-                        NotificationCenter.default.post(name: .navigateToChat, object: nil)
+                        router.openChat()
                     }
                 )
 
