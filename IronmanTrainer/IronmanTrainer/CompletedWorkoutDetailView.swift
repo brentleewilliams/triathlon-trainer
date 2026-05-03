@@ -1,5 +1,6 @@
 import SwiftUI
 import HealthKit
+import MapKit
 
 // MARK: - CompletedWorkoutDetailView
 
@@ -194,26 +195,12 @@ struct CompletedWorkoutDetailView: View {
         }
     }
 
-    // MARK: - Map Placeholder
+    // MARK: - Map
 
     private var mapPlaceholder: some View {
-        ZStack {
-            LinearGradient(
-                colors: [sportColor, sportColor.opacity(0.4)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            VStack(spacing: 10) {
-                Image(systemName: routeIcon)
-                    .font(.system(size: 48))
-                    .foregroundColor(.white.opacity(0.6))
-                Text("Route map available in a future update")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
-            }
-        }
-        .frame(height: 200)
-        .ignoresSafeArea(edges: .horizontal)
+        WorkoutMapView(workout: workout, healthKit: healthKit)
+            .frame(height: 200)
+            .ignoresSafeArea(edges: .horizontal)
     }
 
     // MARK: - Stats Grid
