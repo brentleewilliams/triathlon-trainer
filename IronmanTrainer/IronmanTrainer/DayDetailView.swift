@@ -61,12 +61,14 @@ struct WorkoutMapView: View {
     @State private var loaded = false
 
     var body: some View {
-        ZStack {
+        Group {
             if loaded && !locations.isEmpty {
                 mapContent
                     .frame(height: 220)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .ignoresSafeArea(edges: .horizontal)
             }
+            // No locations after loading → renders nothing (zero height, no spacing impact)
         }
         .task {
             locations = await healthKit.fetchWorkoutLocations(for: workout)

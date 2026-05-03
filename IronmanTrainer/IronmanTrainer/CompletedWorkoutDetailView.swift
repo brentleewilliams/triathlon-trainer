@@ -200,8 +200,6 @@ struct CompletedWorkoutDetailView: View {
 
     private var mapPlaceholder: some View {
         WorkoutMapView(workout: workout, healthKit: healthKit)
-            .frame(height: 200)
-            .ignoresSafeArea(edges: .horizontal)
     }
 
     // MARK: - Stats Grid
