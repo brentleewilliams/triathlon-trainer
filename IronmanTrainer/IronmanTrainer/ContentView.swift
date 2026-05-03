@@ -55,7 +55,6 @@ struct ContentView: View {
                 .tag(3)
         }
         .onAppear {
-            NotificationManager.shared.setTrainingPlan(trainingPlan)
             chatViewModel.trainingPlan = trainingPlan
             chatViewModel.healthKit = healthKit
             chatViewModel.trainingStatus = trainingStatus
