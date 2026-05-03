@@ -564,7 +564,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
     private func fetchRouteLocations(predicate: NSPredicate) async -> [CLLocation] {
         return await withCheckedContinuation { continuation in
             let routeQuery = HKSampleQuery(sampleType: HKSeriesType.workoutRoute(), predicate: predicate, limit: 1, sortDescriptors: nil) { [weak self] _, results, error in
-                print("[WorkoutMap] route samples found: \(results?.count ?? 0), error: \(String(describing: error))")
+                print("[WorkoutMap] route samples: \(results?.count ?? 0), error: \(String(describing: error))")
                 guard let self, let route = results?.first as? HKWorkoutRoute else {
                     continuation.resume(returning: [])
                     return
@@ -572,7 +572,7 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
                 var locations: [CLLocation] = []
                 var resumed = false
                 let locationQuery = HKWorkoutRouteQuery(route: route) { _, batch, done, error in
-                    if let error { print("[WorkoutMap] location query error: \(error)") }
+                    if let error { print("[WorkoutMap] location error: \(error)") }
                     guard !resumed else { return }
                     if let batch { locations.append(contentsOf: batch) }
                     if done {
