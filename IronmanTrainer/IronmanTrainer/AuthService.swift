@@ -197,8 +197,23 @@ class AuthService: ObservableObject {
         }
         let uid = user.uid
 
-        // Attempt Auth deletion first — if the session is stale Firebase will
-        // reject this with requiresRecentLogin before we touch any user data.
+        // Check for stale session first — this is a read-only check that
+        // throws reauthRequired before we delete anything.
+        do {
+            try await user.reload()
+        } catch let error as NSError {
+            if error.code == AuthErrorCode.requiresRecentLogin.rawValue {
+                throw AuthError.reauthRequired
+            }
+            throw error
+        }
+
+        // Wipe Firestore data while the Auth user still exists, so we can
+        // retry if the network fails. If we deleted the Auth user first and
+        // Firestore wipe failed, the data would be orphaned forever.
+        try await FirestoreService.shared.deleteUserData(uid: uid)
+
+        // Now delete the Auth user.
         do {
             try await user.delete()
         } catch let error as NSError {
@@ -207,9 +222,6 @@ class AuthService: ObservableObject {
             }
             throw error
         }
-
-        // Auth user is gone — now wipe data.
-        try await FirestoreService.shared.deleteUserData(uid: uid)
 
         self.isAuthenticated = false
         self.currentUserID = nil

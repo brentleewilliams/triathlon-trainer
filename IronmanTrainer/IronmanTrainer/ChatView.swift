@@ -145,10 +145,11 @@ struct CheckInsOffEmptyState: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 32)
             }
-            NavigationLink {
-                SettingsView()
+            Button {
+                CheckInManager.shared.enabled = true
+                CheckInManager.shared.scheduleLocalFallbackNotification()
             } label: {
-                Text("Turn on in Settings")
+                Text("Turn on Check-Ins")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .padding(.horizontal, 24)

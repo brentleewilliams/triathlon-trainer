@@ -36,13 +36,15 @@ const transporter = nodemailer.createTransport({
 });
 
 // Generate a 6-digit OTP
+const crypto = require("crypto");
 function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+  return crypto.randomInt(100000, 999999).toString();
 }
 
 // CORS helper
 function setCors(res) {
-  res.set("Access-Control-Allow-Origin", "*");
+  const allowed = "https://brents-trainer.web.app";
+  res.set("Access-Control-Allow-Origin", allowed);
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Langsmith-Trace-Id, X-Langsmith-Run-Id, X-Langsmith-Dotted-Order");
 }
@@ -1665,9 +1667,9 @@ exports.requestOTP = onRequest(async (req, res) => {
       return;
     }
 
-    // Log OTP for dev/testing — keeps the existing fallback for when
-    // someone needs to retrieve a code from logs.
-    console.log(`OTP for ${email}: ${otp}`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`OTP for ${email}: ${otp}`);
+    }
 
     res.status(200).json({ success: true, message: "Verification code sent." });
   } catch (err) {
