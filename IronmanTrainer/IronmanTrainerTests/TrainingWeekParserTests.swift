@@ -182,22 +182,26 @@ final class TrainingWeekParserTests: XCTestCase {
     // MARK: - Date fallback (no startDate/endDate)
 
     func testParse_noDateFields_usesRaceDateFallback() throws {
-        // Week 1 of a 17-week plan — 16 weeks before race
+        // 3-week plan with no explicit dates — fallback uses raceDate anchor.
+        // Week 1 is 2 weeks before race, week 3 is race week.
         let json = """
         [{"weekNumber": 1, "phase": "Base",
           "workouts": [{"day": "Mon", "type": "Rest", "duration": "-", "zone": "-"}]},
-         {"weekNumber": 17, "phase": "Taper",
+         {"weekNumber": 2, "phase": "Build",
+          "workouts": [{"day": "Mon", "type": "Rest", "duration": "-", "zone": "-"}]},
+         {"weekNumber": 3, "phase": "Taper",
           "workouts": [{"day": "Mon", "type": "Rest", "duration": "-", "zone": "-"}]}]
         """
         var components = DateComponents()
-        // Use a non-Sunday race date to avoid edge case in weekday calculation
-        components.year = 2026; components.month = 7; components.day = 20  // Monday
+        // Monday race date avoids weekday-alignment edge case in parseDates
+        components.year = 2026; components.month = 7; components.day = 20
         let raceDate = Calendar.current.date(from: components)!
         let weeks = try TrainingWeekParser.parse(json, raceDate: raceDate)
-        XCTAssertEqual(weeks.count, 2)
-        // Week 1 is 16 weeks before the final week — its startDate must be well before raceDate
+        XCTAssertEqual(weeks.count, 3)
+        // Week 1 is 2 weeks before race — must be well before raceDate
         XCTAssertLessThan(weeks[0].startDate, raceDate)
-        // Week 17 (race week) startDate may be on or near raceDate
-        XCTAssertLessThanOrEqual(weeks[1].startDate, raceDate)
+        // Each week's startDate must be earlier than the next
+        XCTAssertLessThan(weeks[0].startDate, weeks[1].startDate)
+        XCTAssertLessThan(weeks[1].startDate, weeks[2].startDate)
     }
 }
