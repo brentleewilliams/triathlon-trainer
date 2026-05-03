@@ -78,8 +78,9 @@ struct CompletedWorkoutDetailView: View {
 
     private var elevationValue: String {
         if let elevQuantity = workout.metadata?[HKMetadataKeyElevationAscended] as? HKQuantity {
-            let feet = elevQuantity.doubleValue(for: HKUnit.foot())
-            return String(format: "%,d ft", Int(feet))
+            let feet = Int(elevQuantity.doubleValue(for: HKUnit.foot()))
+            let formatted = NumberFormatter.localizedString(from: NSNumber(value: feet), number: .decimal)
+            return "\(formatted) ft"
         }
         return "—"
     }
