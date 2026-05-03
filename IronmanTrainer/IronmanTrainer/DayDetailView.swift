@@ -68,42 +68,39 @@ struct WorkoutMapView: View {
     }
 
     var body: some View {
-        mapBody
-            .task {
-                locations = await healthKit.fetchWorkoutLocations(for: workout)
-                loaded = true
-            }
-    }
-
-    @ViewBuilder
-    private var mapBody: some View {
-        if loaded && !locations.isEmpty {
-            mapContent
-                .frame(height: 220)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-        } else if loaded && isRouteWorkout {
-            Button {
-                if let url = URL(string: UIApplication.openSettingsURLString) {
-                    UIApplication.shared.open(url)
+        ZStack {
+            if loaded && !locations.isEmpty {
+                mapContent
+                    .frame(height: 220)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+            } else if loaded && isRouteWorkout {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "map")
+                            .foregroundColor(.secondary)
+                        Text("Enable Route Workouts in Settings › Health to see your route")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.leading)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(12)
+                    .background(Color(.systemGray6))
+                    .clipShape(RoundedRectangle(cornerRadius: 10))
                 }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "map")
-                        .foregroundColor(.secondary)
-                    Text("Enable Route Workouts in Settings › Health to see your route")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.leading)
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                }
-                .padding(12)
-                .background(Color(.systemGray6))
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
+        }
+        .task {
+            locations = await healthKit.fetchWorkoutLocations(for: workout)
+            loaded = true
         }
     }
 
