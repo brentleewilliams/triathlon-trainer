@@ -9,6 +9,12 @@ enum ActivityFilterType: String, CaseIterable {
     case bike     = "Bike"
     case run      = "Run"
     case strength = "Strength"
+    case other    = "Other"
+
+    private static let knownTypes: [HKWorkoutActivityType] = [
+        .swimming, .cycling, .running,
+        .functionalStrengthTraining, .traditionalStrengthTraining, .coreTraining
+    ]
 
     func matches(_ type: HKWorkoutActivityType) -> Bool {
         switch self {
@@ -19,6 +25,7 @@ enum ActivityFilterType: String, CaseIterable {
         case .strength: return [.functionalStrengthTraining,
                                 .traditionalStrengthTraining,
                                 .coreTraining].contains(type)
+        case .other:    return !Self.knownTypes.contains(type)
         }
     }
 
@@ -29,6 +36,7 @@ enum ActivityFilterType: String, CaseIterable {
         case .bike:     return AppTheme.bike
         case .run:      return AppTheme.run
         case .strength: return AppTheme.strength
+        case .other:    return .secondary
         }
     }
 }
@@ -37,13 +45,42 @@ enum ActivityFilterType: String, CaseIterable {
 
 func activityTypeLabel(_ type: HKWorkoutActivityType) -> String {
     switch type {
-    case .swimming:                    return "Swim"
-    case .cycling:                     return "Bike"
-    case .running:                     return "Run"
+    case .swimming:                                 return "Swim"
+    case .cycling:                                  return "Bike"
+    case .running:                                  return "Run"
     case .functionalStrengthTraining,
          .traditionalStrengthTraining,
-         .coreTraining:                return "Strength"
-    default:                           return "Workout"
+         .coreTraining:                             return "Strength"
+    case .walking:                                  return "Walking"
+    case .hiking:                                   return "Hiking"
+    case .pickleball:                               return "Pickleball"
+    case .tennis:                                   return "Tennis"
+    case .badminton:                                return "Badminton"
+    case .golf:                                     return "Golf"
+    case .yoga:                                     return "Yoga"
+    case .pilates:                                  return "Pilates"
+    case .crossTraining:                            return "Cross Training"
+    case .elliptical:                               return "Elliptical"
+    case .rowing:                                   return "Rowing"
+    case .skatingSports:                            return "Skating"
+    case .climbing:                                 return "Climbing"
+    case .soccer:                                   return "Soccer"
+    case .basketball:                               return "Basketball"
+    case .volleyball:                               return "Volleyball"
+    case .baseball:                                 return "Baseball"
+    case .softball:                                 return "Softball"
+    case .americanFootball:                         return "Football"
+    case .rugby:                                    return "Rugby"
+    case .hockey:                                   return "Hockey"
+    case .lacrosse:                                 return "Lacrosse"
+    case .martialArts, .boxing, .kickboxing:        return "Martial Arts"
+    case .dance:                                    return "Dance"
+    case .jumpRope:                                 return "Jump Rope"
+    case .stairClimbing:                            return "Stair Climbing"
+    case .snowSports, .downhillSkiing, .crossCountrySkiing, .snowboarding: return "Snow Sports"
+    case .waterSports, .surfingSports:              return "Water Sports"
+    case .mindAndBody:                              return "Mind & Body"
+    default:                                        return "Workout"
     }
 }
 
