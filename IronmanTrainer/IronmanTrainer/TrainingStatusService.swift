@@ -259,6 +259,9 @@ final class TrainingStatusService: ObservableObject {
     private static let cacheKey = "trainingStatus_v1"
     private static let cacheTTL: TimeInterval = 6 * 60 * 60
     private var cancellables = Set<AnyCancellable>()
+    // Set to true the first time the HK workouts publisher fires after init,
+    // guaranteeing we've actually received synced data from HealthKit.
+    private var healthKitDidSync = false
 
     init(healthKit: HealthKitManager? = nil) {
         self.healthKit = healthKit
@@ -273,6 +276,7 @@ final class TrainingStatusService: ObservableObject {
             .debounce(for: .seconds(0.5), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
                 Task { @MainActor [weak self] in
+                    self?.healthKitDidSync = true
                     await self?.compute()
                 }
             }
@@ -283,7 +287,7 @@ final class TrainingStatusService: ObservableObject {
 
     func compute() async {
         isComputing = true
-        defer { isComputing = false; hasEverComputed = true }
+        defer { isComputing = false }
 
         let workouts = healthKit?.workouts ?? []
         let maxHR = Double(healthKit?.maxHeartRate ?? 182)
@@ -478,9 +482,16 @@ final class TrainingStatusService: ObservableObject {
             readiness: readiness
         )
 
+        // Guard: if workouts are empty AND HealthKit hasn't confirmed a sync yet,
+        // this is the cold-start race where compute() fired before syncWorkouts()
+        // finished. Skip updating the UI — the HK observer will trigger a fresh
+        // compute once real data is available, so the readiness circles stay in
+        // their loading (gray) state instead of flashing red.
+        guard !recentWorkouts.isEmpty || healthKitDidSync else { return }
+
         self.status = newStatus
-        // Don't pin an empty-workouts result — that's the cold-start race condition,
-        // not the user's actual state. The HK observer will trigger a recompute.
+        hasEverComputed = true
+
         if !recentWorkouts.isEmpty {
             Self.saveCache(newStatus)
             let swimPct = newStatus.disciplineVolumeStatuses.first { $0.discipline == .swim }?.percent ?? 0
