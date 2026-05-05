@@ -707,19 +707,25 @@ class ChatViewModel: ObservableObject {
             context += "\n\(prepContext)\n"
         }
 
-        if let ts = trainingStatus?.status {
-            context += "\n\n" + ts.contextString(brief: false)
-        }
-
-        if let hk = healthKit {
-            let rings = await hk.fetchActivityRings()
-            context += "\n\nACTIVITY RINGS (today): Move \(rings.activeCalories) cal · Exercise \(rings.exerciseMinutes) min · Stand \(rings.standHours) hrs"
+        // FeatureFlags.includeHealthKitInAIContext — flip to true (with consent screen)
+        // to re-enable training load metrics and activity rings in coaching context.
+        if FeatureFlags.includeHealthKitInAIContext {
+            if let ts = trainingStatus?.status {
+                context += "\n\n" + ts.contextString(brief: false)
+            }
+            if let hk = healthKit {
+                let rings = await hk.fetchActivityRings()
+                context += "\n\nACTIVITY RINGS (today): Move \(rings.activeCalories) cal · Exercise \(rings.exerciseMinutes) min · Stand \(rings.standHours) hrs"
+            }
         }
 
         return context
     }
 
     private func getWorkoutHistoryForClaude() -> String {
+        // FeatureFlags.includeHealthKitInAIContext — flip to true (with consent screen)
+        // to re-enable the planned-vs-actual workout comparison and HR zone history.
+        guard FeatureFlags.includeHealthKitInAIContext else { return "" }
         guard let healthKit = healthKit else {
             return "No workout history available"
         }

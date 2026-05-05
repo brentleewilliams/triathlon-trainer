@@ -1,6 +1,17 @@
 import Foundation
 import WidgetKit
 
+// MARK: - Feature flags
+
+enum FeatureFlags {
+    // Set to true once the org developer account is approved and the in-app
+    // consent/disclosure screen for HealthKit → Anthropic data sharing is in place.
+    // When false, only training plan data (no personal health metrics) is sent to
+    // the AI coaching service, satisfying App Store guideline 5.1.1(ix) without
+    // requiring an org account or explicit user consent.
+    static let includeHealthKitInAIContext = false
+}
+
 // MARK: - Release build print suppression
 // In non-Debug builds, override print() with a no-op so debug logs don't ship.
 // Zero call-site changes needed — all existing print() calls are silenced automatically.

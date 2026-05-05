@@ -172,13 +172,16 @@ final class CheckInManager: ObservableObject {
             }
         }
 
-        if let hk = healthKit, let sleep = await hk.fetchSleepData(for: now) {
-            let hrs = Double(sleep.totalSleepMinutes) / 60.0
-            out += "\nSLEEP LAST NIGHT: \(String(format: "%.1f", hrs))h (source: \(sleep.source))\n"
-        }
-
-        if let ts = trainingStatus?.status {
-            out += "\n\(ts.contextString(brief: true))\n"
+        // FeatureFlags.includeHealthKitInAIContext — flip to true (with consent screen)
+        // to re-enable sleep data and training load summary in the check-in context.
+        if FeatureFlags.includeHealthKitInAIContext {
+            if let hk = healthKit, let sleep = await hk.fetchSleepData(for: now) {
+                let hrs = Double(sleep.totalSleepMinutes) / 60.0
+                out += "\nSLEEP LAST NIGHT: \(String(format: "%.1f", hrs))h (source: \(sleep.source))\n"
+            }
+            if let ts = trainingStatus?.status {
+                out += "\n\(ts.contextString(brief: true))\n"
+            }
         }
 
         return out
