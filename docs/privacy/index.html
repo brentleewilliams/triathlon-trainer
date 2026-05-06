@@ -48,36 +48,39 @@
 
 <header>
   <h1>Race1 Trainer – Privacy Policy</h1>
-  <p>Last updated: April 22, 2026</p>
+  <p>Last updated: May 6, 2026</p>
 </header>
 
 <main>
 
   <section>
-    <h2>Data We Collect</h2>
+    <h2>Data We Collect and How We Collect It</h2>
     <ul>
       <li><strong>Apple Sign-In:</strong> Name and email address provided by Apple during sign-in.</li>
-      <li><strong>Health Data:</strong> Workout history, heart rate, and sleep data read from Apple Health with your permission. This data never leaves your device except to be included (in summary form) in AI coaching prompts.</li>
-      <li><strong>Training Plan:</strong> Your race goals, onboarding profile, and AI-generated training plan are stored in Firebase Firestore, linked to your anonymous user ID.</li>
-      <li><strong>AI Conversations:</strong> Chat messages with the AI coach are processed by Anthropic's Claude API and logged to LangSmith for quality evaluation. Messages include anonymized training context (no name or email).</li>
+      <li><strong>Health Data:</strong> Workout history, heart rate zones, training load metrics, and sleep data read from Apple Health with your explicit permission. This data is collected directly from the Apple Health framework on your device.</li>
+      <li><strong>Training Plan:</strong> Your race goals, onboarding profile (age, weight, height, fitness level), and AI-generated training plan are stored in Firebase Firestore, linked to your anonymous user ID.</li>
+      <li><strong>AI Conversations:</strong> Chat messages you send to the AI coach, along with coaching context (training plan details, workout history, health metrics, and any photos you share). This data is collected when you use the AI coaching feature and requires your explicit in-app consent before any data is transmitted.</li>
     </ul>
   </section>
 
   <section>
-    <h2>Data We Do Not Collect</h2>
+    <h2>How We Use Your Data</h2>
     <ul>
+      <li><strong>AI Coaching:</strong> Your training plan, chat messages, workout history, heart rate data, sleep data, and training load metrics are sent to Anthropic's Claude AI to generate personalized coaching responses. You must explicitly consent to this before any data is transmitted, and you can disable health data sharing at any time from the AI Coach menu.</li>
+      <li><strong>Plan Storage:</strong> Your training plan and profile are stored in Firebase Firestore to sync across devices and app reinstalls.</li>
+      <li><strong>Quality Evaluation:</strong> AI coaching prompts and responses are logged to LangSmith to help us evaluate and improve coaching quality.</li>
       <li>We do not sell your data to third parties.</li>
       <li>We do not use your health data for advertising.</li>
-      <li>We do not share your personal information with anyone except the services listed below.</li>
     </ul>
   </section>
 
   <section>
-    <h2>Third-Party Services</h2>
+    <h2>Third-Party Services and Data Protection</h2>
+    <p>The following third-party services receive data as described above. Each provider maintains privacy and data protection practices that meet or exceed the standards described in this policy.</p>
     <ul>
-      <li><strong>Firebase (Google):</strong> Authentication and Firestore database for training plan storage.</li>
-      <li><strong>Anthropic Claude:</strong> AI coaching responses. Chat context is transmitted over HTTPS.</li>
-      <li><strong>LangSmith:</strong> AI prompt quality evaluation. No personally identifiable information is included.</li>
+      <li><strong>Anthropic (Claude AI):</strong> Receives your chat messages, training plan, workout history, and health metrics to generate coaching responses. Data is transmitted over HTTPS. Anthropic does not use your data to train AI models. Anthropic's data practices are governed by their <a href="https://www.anthropic.com/privacy">Privacy Policy</a> and enterprise data protection commitments.</li>
+      <li><strong>Firebase (Google):</strong> Authentication and Firestore database for training plan and profile storage. Governed by Google's <a href="https://policies.google.com/privacy">Privacy Policy</a>.</li>
+      <li><strong>LangSmith (LangChain):</strong> AI prompt quality evaluation. Coaching prompts and responses are logged; no name or email is included. Governed by LangChain's <a href="https://www.langchain.com/privacy-policy">Privacy Policy</a>.</li>
     </ul>
   </section>
 

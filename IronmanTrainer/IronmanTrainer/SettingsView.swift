@@ -287,6 +287,15 @@ struct SettingsView: View {
                         Text("\(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0") (\(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "1"))")
                             .foregroundColor(.secondary)
                     }
+                    Link(destination: URL(string: "https://raceonetrainer.com/privacy/")!) {
+                        HStack {
+                            Text("Privacy Policy")
+                            Spacer()
+                            Image(systemName: "arrow.up.right")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
 
                 // MARK: - Account
