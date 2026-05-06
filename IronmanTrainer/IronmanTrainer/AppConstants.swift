@@ -5,7 +5,10 @@ import WidgetKit
 
 enum FeatureFlags {
     static var includeHealthKitInAIContext: Bool {
-        UserDefaults.standard.object(forKey: "shareWorkoutDataWithCoach") as? Bool ?? true
+        guard UserDefaults.standard.object(forKey: "shareWorkoutDataWithCoach") != nil else {
+            return true
+        }
+        return UserDefaults.standard.bool(forKey: "shareWorkoutDataWithCoach")
     }
 }
 

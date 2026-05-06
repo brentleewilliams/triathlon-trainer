@@ -35,7 +35,7 @@ final class FeatureFlagsTests: XCTestCase {
         UserDefaults.standard.set(false, forKey: udKey)
         XCTAssertFalse(FeatureFlags.includeHealthKitInAIContext)
         UserDefaults.standard.set(true, forKey: udKey)
-        XCTAssertTrue(FeatureFlags.includeHealthKitInAIContext)
+        XCTAssertTrue(FeatureFlags.includeHealthKitInAIContext, "Re-enabling the toggle must restore true — regression for NSNumber as? Bool cast failure")
     }
 
     // MARK: - ChatView.applyFilter
