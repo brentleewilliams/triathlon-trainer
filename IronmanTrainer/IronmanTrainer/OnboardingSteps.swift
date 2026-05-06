@@ -993,6 +993,7 @@ struct AddPrepRaceSheet: View {
 
 struct TutorialStep: View {
     @ObservedObject var viewModel: OnboardingViewModel
+    @AppStorage("shareWorkoutDataWithCoach") private var shareWorkoutData = true
 
     var body: some View {
         ScrollView {
@@ -1025,6 +1026,42 @@ struct TutorialStep: View {
                             .foregroundStyle(.white.opacity(0.95))
                             .fixedSize(horizontal: false, vertical: true)
                     }
+                }
+                .padding(16)
+                .background(Color.white.opacity(0.15))
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+                .padding(.horizontal, 16)
+
+                // Health data privacy card
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Data & Privacy")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.7))
+                        .textCase(.uppercase)
+
+                    Text("Your training plan and messages are sent to Anthropic (Claude AI) for coaching. You can also share health data for deeper insights.")
+                        .font(.subheadline)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .fixedSize(horizontal: false, vertical: true)
+
+                    Divider()
+                        .background(Color.white.opacity(0.3))
+
+                    Toggle(isOn: $shareWorkoutData) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Share Health Data with Coach")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.white)
+                            Text("Workouts, heart rate, sleep & training load from Apple Health")
+                                .font(.caption)
+                                .foregroundStyle(.white.opacity(0.7))
+                        }
+                    }
+                    .tint(Color(hex: "00C7BE"))
+
+                    Link("Privacy Policy", destination: URL(string: "https://raceonetrainer.com/privacy/")!)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.7))
                 }
                 .padding(16)
                 .background(Color.white.opacity(0.15))

@@ -13,7 +13,6 @@ enum ChatFilter: String, CaseIterable, Identifiable {
 struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     @State private var filter: ChatFilter = .all
-    @AppStorage("aiCoachConsentAccepted") private var consentAccepted = false
     @AppStorage("shareWorkoutDataWithCoach") private var shareWorkoutData = true
 
     /// Applies the selected `ChatFilter` to the message list.
@@ -50,8 +49,6 @@ struct ChatView: View {
 
                 if filter == .checkIns && !CheckInManager.shared.enabled {
                     CheckInsOffEmptyState()
-                } else if !consentAccepted {
-                    AICoachConsentView { consentAccepted = true }
                 } else {
                 ScrollViewReader { proxy in
                     ScrollView {
@@ -167,98 +164,6 @@ struct CheckInsOffEmptyState: View {
                     .clipShape(Capsule())
             }
             Spacer()
-        }
-    }
-}
-
-// MARK: - AI Coach Consent
-
-struct AICoachConsentView: View {
-    let onAccept: () -> Void
-
-    var body: some View {
-        ScrollView {
-            VStack(spacing: 24) {
-                Spacer(minLength: 32)
-
-                Image(systemName: "brain.head.profile")
-                    .font(.system(size: 52))
-                    .foregroundStyle(.blue)
-
-                VStack(spacing: 8) {
-                    Text("AI Coaching Uses Your Data")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .multilineTextAlignment(.center)
-
-                    Text("To give you personalized coaching, your AI coach sends information to Anthropic (the company behind Claude AI).")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 8)
-                }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("What's shared with Anthropic:")
-                        .font(.footnote)
-                        .fontWeight(.semibold)
-                        .foregroundStyle(.secondary)
-                        .textCase(.uppercase)
-
-                    ConsentBullet(icon: "calendar", text: "Your training plan, scheduled workouts, and race details")
-                    ConsentBullet(icon: "heart.fill", text: "Workout history, heart rate zones, and training load from Apple Health")
-                    ConsentBullet(icon: "moon.fill", text: "Sleep and recovery data from Apple Health")
-                    ConsentBullet(icon: "message.fill", text: "Your messages and coaching conversation history")
-                    ConsentBullet(icon: "photo", text: "Any photos you choose to share in chat")
-                }
-                .padding(16)
-                .background(Color(.secondarySystemBackground))
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal, 4)
-
-                VStack(spacing: 6) {
-                    Text("Anthropic does not use your data to train AI models.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-
-                    Link("View Privacy Policy", destination: URL(string: "https://raceonetrainer.com/privacy/")!)
-                        .font(.footnote)
-                        .foregroundStyle(.blue)
-                }
-
-                Button(action: onAccept) {
-                    Text("Accept & Start Coaching")
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Color.accentColor)
-                        .foregroundStyle(.white)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-
-                Spacer(minLength: 24)
-            }
-            .padding(.horizontal, 24)
-        }
-    }
-}
-
-private struct ConsentBullet: View {
-    let icon: String
-    let text: String
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
-                .font(.system(size: 14))
-                .foregroundStyle(.blue)
-                .frame(width: 20)
-                .padding(.top, 1)
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
         }
     }
 }
