@@ -17,6 +17,7 @@
 		1A0001501F1A0001 /* TrainingPlanManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00014E1F1A0001 /* TrainingPlanManagerTests.swift */; };
 		1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A00014F1F1A0001 /* WorkoutMatchingTests.swift */; };
 		FFE5394DC4204DB59903F3B7 /* NavigationRouterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5011F0025726405793E9026C /* NavigationRouterTests.swift */; };
+		LW0002011F1E0001 /* FeatureFlagsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = LW0002001F1E0001 /* FeatureFlagsTests.swift */; };
 		63AFC8F26EAC456ABD79CB9A /* TrainingWeekParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C6465FEE2D346BA8E279FD8 /* TrainingWeekParserTests.swift */; };
 		1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001531F1A0001 /* WeatherForecastTests.swift */; };
 		1A0001641F1A0002 /* ChatSwapTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A0001651F1A0002 /* ChatSwapTests.swift */; };
@@ -138,6 +139,7 @@
 		1A00014E1F1A0001 /* TrainingPlanManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingPlanManagerTests.swift; sourceTree = "<group>"; };
 		1A00014F1F1A0001 /* WorkoutMatchingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkoutMatchingTests.swift; sourceTree = "<group>"; };
 		5011F0025726405793E9026C /* NavigationRouterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationRouterTests.swift; sourceTree = "<group>"; };
+		LW0002001F1E0001 /* FeatureFlagsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeatureFlagsTests.swift; sourceTree = "<group>"; };
 		5C6465FEE2D346BA8E279FD8 /* TrainingWeekParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrainingWeekParserTests.swift; sourceTree = "<group>"; };
 		1A0001531F1A0001 /* WeatherForecastTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeatherForecastTests.swift; sourceTree = "<group>"; };
 		1A0001651F1A0002 /* ChatSwapTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatSwapTests.swift; sourceTree = "<group>"; };
@@ -341,6 +343,7 @@
 				1A00014E1F1A0001 /* TrainingPlanManagerTests.swift */,
 				1A00014F1F1A0001 /* WorkoutMatchingTests.swift */,
 				5011F0025726405793E9026C /* NavigationRouterTests.swift */,
+				LW0002001F1E0001 /* FeatureFlagsTests.swift */,
 				5C6465FEE2D346BA8E279FD8 /* TrainingWeekParserTests.swift */,
 				1A0001531F1A0001 /* WeatherForecastTests.swift */,
 				1A0001651F1A0002 /* ChatSwapTests.swift */,
@@ -641,6 +644,7 @@
 				1A0001501F1A0001 /* TrainingPlanManagerTests.swift in Sources */,
 				1A0001511F1A0001 /* WorkoutMatchingTests.swift in Sources */,
 				FFE5394DC4204DB59903F3B7 /* NavigationRouterTests.swift in Sources */,
+				LW0002011F1E0001 /* FeatureFlagsTests.swift in Sources */,
 				63AFC8F26EAC456ABD79CB9A /* TrainingWeekParserTests.swift in Sources */,
 				1A0001521F1A0001 /* WeatherForecastTests.swift in Sources */,
 				1A0001641F1A0002 /* ChatSwapTests.swift in Sources */,
