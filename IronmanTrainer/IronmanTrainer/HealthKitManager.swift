@@ -78,6 +78,10 @@ class HealthKitManager: NSObject, ObservableObject, @unchecked Sendable {
         HKObjectType.workoutType()
     ]
 
+    var canWriteWorkouts: Bool {
+        healthStore.authorizationStatus(for: HKObjectType.workoutType()) == .sharingAuthorized
+    }
+
     func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else {
             await MainActor.run {

@@ -14,6 +14,7 @@ struct ChatView: View {
     @ObservedObject var viewModel: ChatViewModel
     @State private var filter: ChatFilter = .all
     @AppStorage("aiCoachConsentAccepted") private var consentAccepted = false
+    @AppStorage("shareWorkoutDataWithCoach") private var shareWorkoutData = true
 
     /// Applies the selected `ChatFilter` to the message list.
     /// Pure so it can be unit-tested via a static helper below.
@@ -115,6 +116,10 @@ struct ChatView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Menu {
+                    Toggle(isOn: $shareWorkoutData) {
+                        Label("Share Workout Data", systemImage: "heart.fill")
+                    }
+                    Divider()
                     Button(role: .destructive) {
                         viewModel.clearChatHistory()
                     } label: {

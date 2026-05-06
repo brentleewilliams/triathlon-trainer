@@ -1953,6 +1953,7 @@ struct HomeView: View {
     @State private var showWidgetTip: Bool = !UserDefaults.standard.bool(forKey: "widget_tip_dismissed")
     @State private var showCourseDetail: Bool = false
     @State private var showLogWorkout: Bool = false
+    @State private var showHKDeniedAlert: Bool = false
     @State private var sleepLabel: String = "—"
     @State private var hrvLabel: String = "—"
     @State private var hasAppearedOnce = false
@@ -2390,7 +2391,7 @@ struct HomeView: View {
                                     hkWorkouts: selectedDayHKWorkouts,
                                     isCompleted: false,
                                     onSwap: {},
-                                    onLogWorkout: { showLogWorkout = true }
+                                    onLogWorkout: { requestLogWorkout() }
                                 )
                             } else {
                                 ForEach(Array(selectedDayAllWorkouts.enumerated()), id: \.offset) { _, w in
@@ -2403,7 +2404,7 @@ struct HomeView: View {
                                             let seed = swapSeed(for: w, on: selectedDayDate)
                                             router.openChat(seed: seed)
                                         },
-                                        onLogWorkout: { showLogWorkout = true }
+                                        onLogWorkout: { requestLogWorkout() }
                                     )
                                 }
                             }
@@ -2481,10 +2482,28 @@ struct HomeView: View {
                     }
                 )
             }
+            .alert("Health Access Required", isPresented: $showHKDeniedAlert) {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("To log workouts, enable Health access in Settings → Privacy & Security → Health → Race1 Trainer.")
+            }
         }
     }
 
     // MARK: - Private helpers
+
+    private func requestLogWorkout() {
+        if healthKit.canWriteWorkouts {
+            showLogWorkout = true
+        } else {
+            showHKDeniedAlert = true
+        }
+    }
 
     private func syncCompletedWorkoutsToWidget() {
         guard let week = trainingPlan.getWeek(trainingPlan.currentWeekNumber) else { return }

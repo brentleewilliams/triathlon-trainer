@@ -8,6 +8,8 @@ struct ContentView: View {
     @StateObject private var trainingStatus = TrainingStatusService(healthKit: HealthKitManager.shared)
     @StateObject private var router = NavigationRouter.shared
     @State private var selectedTab = 0
+    @State private var showLogWorkoutSheet = false
+    @State private var showHKDeniedAlert = false
 
     init() {
         let plan = AuthService.shared.savedPlan
@@ -95,12 +97,21 @@ struct ContentView: View {
                     .environmentObject(trainingPlan)
             }
         }
-        .sheet(isPresented: $router.showLogWorkout) {
+        .onChange(of: router.showLogWorkout) { _, isShowing in
+            guard isShowing else { return }
+            router.showLogWorkout = false
+            if healthKit.canWriteWorkouts {
+                showLogWorkoutSheet = true
+            } else {
+                showHKDeniedAlert = true
+            }
+        }
+        .sheet(isPresented: $showLogWorkoutSheet) {
             LogWorkoutSheet(
                 prefilledType: .running,
                 prefilledDate: Date(),
                 onSave: { activityType, minutes, end in
-                    router.showLogWorkout = false
+                    showLogWorkoutSheet = false
                     Task {
                         let start = end.addingTimeInterval(-Double(minutes * 60))
                         try? await healthKit.saveWorkout(activityType: activityType, start: start, end: end)
@@ -109,6 +120,16 @@ struct ContentView: View {
                     }
                 }
             )
+        }
+        .alert("Health Access Required", isPresented: $showHKDeniedAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("To log workouts, enable Health access in Settings → Privacy & Security → Health → Race1 Trainer.")
         }
     }
 }

@@ -4,7 +4,9 @@ import WidgetKit
 // MARK: - Feature flags
 
 enum FeatureFlags {
-    static let includeHealthKitInAIContext = true
+    static var includeHealthKitInAIContext: Bool {
+        UserDefaults.standard.object(forKey: "shareWorkoutDataWithCoach") as? Bool ?? true
+    }
 }
 
 // MARK: - Release build print suppression
