@@ -127,15 +127,6 @@ struct ProfileStep: View {
                         HKProvidedRow(label: "Account", value: email)
                     }
 
-                    // Home Training Area (optional)
-                    if viewModel.hkHasLocation && !editing.contains("location") {
-                        TappableHKRow(label: "Home Training Area (optional)", value: viewModel.homeZip) {
-                            editing.insert("location")
-                        }
-                    } else {
-                        OnboardingTextField(label: "Home Training Area — zip code (optional)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
-                    }
-
                     // Date of Birth
                     if viewModel.hkHasDOB && !editing.contains("dob") {
                         TappableHKRow(label: "Date of Birth", value: Formatters.fullDate.string(from: viewModel.userDOB)) {
@@ -167,42 +158,6 @@ struct ProfileStep: View {
                             }
                             .pickerStyle(.segmented)
                         }
-                    }
-
-                    // Height (imperial)
-                    if viewModel.hkHasHeight && !editing.contains("height") {
-                        TappableHKRow(label: "Height", value: formatHeightImperial(cm: viewModel.userHeightCm ?? 0)) {
-                            initHeightFromCm()
-                            editing.insert("height")
-                        }
-                    } else {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Height")
-                                .font(.subheadline.weight(.medium))
-                            HStack(spacing: 8) {
-                                HStack(spacing: 4) {
-                                    TextField("5", text: $heightFeet)
-                                        .textFieldStyle(.roundedBorder)
-                                        .keyboardType(.numberPad)
-                                        .frame(width: 60)
-                                    Text("ft")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                                HStack(spacing: 4) {
-                                    TextField("10", text: $heightInches)
-                                        .textFieldStyle(.roundedBorder)
-                                        .keyboardType(.numberPad)
-                                        .frame(width: 60)
-                                    Text("in")
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                        }
-                        .onChange(of: heightFeet) { _, _ in updateHeightCm() }
-                        .onChange(of: heightInches) { _, _ in updateHeightCm() }
-                        .onAppear { initHeightFromCm() }
                     }
 
                     // Weight (imperial)
@@ -241,6 +196,54 @@ struct ProfileStep: View {
                         }
                     } else {
                         OnboardingIntField(label: "Resting Heart Rate (bpm)", value: $viewModel.userRestingHR, placeholder: "60")
+                    }
+
+                    // ── Optional fields ──────────────────────────────────────
+                    Divider()
+
+                    // Height (optional)
+                    if viewModel.hkHasHeight && !editing.contains("height") {
+                        TappableHKRow(label: "Height (optional)", value: formatHeightImperial(cm: viewModel.userHeightCm ?? 0)) {
+                            initHeightFromCm()
+                            editing.insert("height")
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Height (optional)")
+                                .font(.subheadline.weight(.medium))
+                            HStack(spacing: 8) {
+                                HStack(spacing: 4) {
+                                    TextField("5", text: $heightFeet)
+                                        .textFieldStyle(.roundedBorder)
+                                        .keyboardType(.numberPad)
+                                        .frame(width: 60)
+                                    Text("ft")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                                HStack(spacing: 4) {
+                                    TextField("10", text: $heightInches)
+                                        .textFieldStyle(.roundedBorder)
+                                        .keyboardType(.numberPad)
+                                        .frame(width: 60)
+                                    Text("in")
+                                        .font(.subheadline)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .onChange(of: heightFeet) { _, _ in updateHeightCm() }
+                        .onChange(of: heightInches) { _, _ in updateHeightCm() }
+                        .onAppear { initHeightFromCm() }
+                    }
+
+                    // Home Training Area (optional)
+                    if viewModel.hkHasLocation && !editing.contains("location") {
+                        TappableHKRow(label: "Home Training Area (optional)", value: viewModel.homeZip) {
+                            editing.insert("location")
+                        }
+                    } else {
+                        OnboardingTextField(label: "Home Training Area — zip code (optional)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
                     }
                 }
                 .padding(.horizontal, 16)
