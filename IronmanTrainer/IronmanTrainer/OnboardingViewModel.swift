@@ -208,13 +208,13 @@ class OnboardingViewModel: ObservableObject {
     }
 
     /// Whether every required profile field has a value.
-    /// DOB always has a sensible default, but sex/height/weight/RHR/zip must be filled in.
+    /// DOB always has a sensible default, but sex/height/weight/RHR must be filled in.
+    /// Home Training Area is optional — improves weather and altitude guidance but is not required.
     var isProfileComplete: Bool {
         guard !userSex.isEmpty else { return false }
         guard let h = userHeightCm, h > 0 else { return false }
         guard let w = userWeightKg, w > 0 else { return false }
         guard let rhr = userRestingHR, rhr > 0 else { return false }
-        guard !homeZip.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         return true
     }
 

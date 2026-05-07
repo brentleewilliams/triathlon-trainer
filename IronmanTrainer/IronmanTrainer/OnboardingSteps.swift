@@ -127,13 +127,13 @@ struct ProfileStep: View {
                         HKProvidedRow(label: "Account", value: email)
                     }
 
-                    // Home Training Area
+                    // Home Training Area (optional)
                     if viewModel.hkHasLocation && !editing.contains("location") {
-                        TappableHKRow(label: "Home Training Area", value: viewModel.homeZip) {
+                        TappableHKRow(label: "Home Training Area (optional)", value: viewModel.homeZip) {
                             editing.insert("location")
                         }
                     } else {
-                        OnboardingTextField(label: "Home Training Area (zip code)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
+                        OnboardingTextField(label: "Home Training Area — zip code (optional)", text: $viewModel.homeZip, placeholder: "e.g. 80202")
                     }
 
                     // Date of Birth
